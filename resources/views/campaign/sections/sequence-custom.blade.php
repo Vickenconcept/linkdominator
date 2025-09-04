@@ -409,11 +409,19 @@ if(dbSequenceType === 'custom' && dbSequenceNode.length > 0 && dbSequenceLink.le
         stroke: 'black', 
         loc: '0 0',
     }]
+    linkDataModel = [] // Initialize linkDataModel as empty array
 }
 
 let nodeItem, nodeKey, nodeIndex;
 let applyActionBtn = document.querySelector('#applyAction')
 let addActionSide = document.querySelectorAll('.action-btn')
+
+// Helper function to ensure linkDataModel is always an array
+const ensureLinkDataModel = () => {
+    if (!linkDataModel || !Array.isArray(linkDataModel)) {
+        linkDataModel = []
+    }
+}
 let sendInviteActionBtn = document.querySelector('#send-invite-action-btn'),
     messageActionBtn = document.querySelector('#message-action-btn'),
     profileViewActionBtn = document.querySelector('#profile-view-action-btn'),
@@ -637,6 +645,7 @@ const init = () => {
      * Create send invite nodes and link
      */
     sendInviteActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         if(nodeDataModel.length == 1 && nodeDataModel[0].value == 'add-action'){
             nodeDataModel = sendInviteNodes
             linkDataModel = sendInviteLinks
@@ -650,6 +659,7 @@ const init = () => {
      * Create message nodes and link
      */
     messageActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let messageLinks, newNode;
         if(nodeDataModel.length > 1 && nodeDataModel[0].value == 'send-invites'){
             if(nodeDataModel[nodeIndex].pos == 'right'){
@@ -768,6 +778,7 @@ const init = () => {
      * Create profile views nodes and link
      */
     profileViewActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let lastNodekeys, loc, profileViewLinks, newNode;
         let newProfileViewNodes = []
 
@@ -923,6 +934,7 @@ const init = () => {
      * Create endorse skills nodes and link
      */
     endorseActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let newNode;
         if(nodeDataModel.length > 1 && nodeDataModel[0].value == 'send-invites'){
             if(nodeDataModel[nodeIndex].pos == 'right'){
@@ -1039,6 +1051,7 @@ const init = () => {
      * Create follow nodes and link
      */
     followActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let newNode;
         if(nodeDataModel.length > 1 && nodeDataModel[0].value == 'send-invites'){
             if(nodeDataModel[nodeIndex].pos == 'left'){
@@ -1192,6 +1205,7 @@ const init = () => {
      * Create like a post nodes and link
      */
     likePostActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let newNode;
         if(nodeDataModel.length > 1 && nodeDataModel[0].value == 'send-invites'){
             if(nodeDataModel[nodeIndex].pos == 'left'){
@@ -1345,6 +1359,7 @@ const init = () => {
      * Create book a call nodes and link
      */
     bookCallActionBtn.addEventListener('click', () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let messageLinks, newNode;
 
         if(nodeDataModel.length > 1 && nodeDataModel[0].value == 'send-invites'){
@@ -1460,6 +1475,7 @@ const init = () => {
      * Set add action|end nodes and links
      */
     const setAddActionNodes = () => {
+        ensureLinkDataModel() // Ensure linkDataModel is initialized
         let rightLastNodeKey, leftLastNodeKey, centerLastNodeKey, lastNodekeys, lastNodeKey, loc, locLength;
         let addActionLinks = [], newAddActionNodes = []
 
@@ -1719,6 +1735,12 @@ const init = () => {
                     break;
                 }
             }
+            
+            // If no center node found, use the last node as center
+            if (!lastCenterNodeKey && nodeDataModel.length > 0) {
+                lastCenterNodeKey = nodeDataModel[nodeDataModel.length - 1].key
+                centerIndex = nodeDataModel.length - 1
+            }
         }else if(ref == 'lastAddAction'){
             for (let i = nodeDataModel.length -1; i > 0; i--) {
                 if (nodeDataModel[i].pos == 'left' && nodeDataModel[i].value == 'add-action') {
@@ -1771,7 +1793,7 @@ const init = () => {
             leftIndex: leftIndex,
             rightIndex: rightIndex,
             centerIndex: centerIndex,
-            lastKey: nodeDataModel[nodeDataModel.length - 1].key
+            lastKey: nodeDataModel.length > 0 ? nodeDataModel[nodeDataModel.length - 1].key : null
         }
     }
 
