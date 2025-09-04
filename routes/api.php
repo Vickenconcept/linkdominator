@@ -14,12 +14,14 @@ Route::get('/user', function (Request $request) {
 
 
 Route::get('campaigns', [CampaignController::class, 'campaign']); // tested
+Route::get('campaigns/status-updates', [CampaignController::class, 'getCampaignStatusUpdates']); // real-time updates
+Route::get('campaigns/{id}/debug-accept-rate', [CampaignController::class, 'debugAcceptRate']); // debug accept rate
 Route::get('campaign/{id}/leads', [CampaignController::class, 'campaignLeads']); // tested
 Route::get('campaign/{id}/sequence', [CampaignController::class, 'campaignSequence']); // tested
 Route::post('campaign/{id}/update', [CampaignController::class, 'campaignUpdate']);
 Route::post('campaign/{id}/update-node', [CampaignController::class, 'campaignSequenceUpdate']);
 Route::post('campaign/{id}/leadgen/store', [CampaignController::class, 'createLeadGenRunning']);
-Route::post('campaign/{campaignId}/leadgen/{leadId}/update', [CampaignController::class, 'createLeadGenRunning']);
+Route::post('campaign/{campaignId}/leadgen/{leadId}/update', [CampaignController::class, 'updateLeadGenRunning']);
 Route::get('campaign/{campaignId}/leadgen', [CampaignController::class, 'getLeadGenRunning']); // tested
 Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetworkDegree']);
 
@@ -33,6 +35,7 @@ Route::controller(LeadController::class)->group(function (){
 Route::get('aicontents', [AiwriterController::class, 'aicontents']); 
 
 Route::controller(ChromeApiController::class)->group(function (){
+    // Regular routes
     Route::get('accessCheck', 'accessCheck');
     Route::get('audience', 'getAudience');
     Route::post('audience', 'storeAudience');

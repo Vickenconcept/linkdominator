@@ -7,6 +7,7 @@ use App\Models\CommentFeedCampaign;
 use App\Models\CommentFeedCampaignPost;
 use App\Services\RapidApi;
 use App\Services\ChatGPT;
+use App\Services\RapidApiService;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use DB;

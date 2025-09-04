@@ -17,95 +17,172 @@ use App\Services\LeadShareService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-// use DB;
-use Log;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class ChromeApiController extends Controller
 {
     use CampaignHelper;
 
+    /**
+     * Constructor
+     */
+    public function __construct()
+    {
+        // CORS headers will be handled by middleware or individual methods
+    }
+
+    /**
+     * Enhanced access check with better error handling
+     */
     public function accessCheck(Request $request)
     {
         try {
             $user = $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 401
-            ]);
-        }
-
-        if (!$user->hasPermissionTo('FE')) {
-            return response()->json([
-                "message" => 'Unauthorized',
-                "status" => 401
-            ]);
-        }
-
-        return response()->json([
-            "message" => 'Access granted',
-            "status" => 200,
-            "accessId" => 'FE'
-        ]);
-    }
-
-    public function getAudience(Request $request)
-    {
-        $linkedin_Id = $request->query('linkedinId');
-
-        $query = sprintf("
-        SELECT 
-            a.id, 
-            a.audience_name, 
-            a.audience_id, 
-            a.audience_type, 
-            COUNT(al.audience_id) AS total 
-        FROM audiences a
-        JOIN users u ON u.id = a.user_id 
-        LEFT JOIN audience_lists al ON al.audience_id = a.audience_id
-        WHERE u.linkedin_id = '%s' 
-        GROUP BY a.id, a.audience_name, a.audience_id, a.audience_type
-        ORDER BY DATE(a.created_at) DESC
-    ", addslashes($linkedin_Id)); // optionally sanitize input
-
-        $audiences = DB::select($query);
-
-        return response()->json([
-            'audience' => $audiences
-        ]);
-    }
-
-    public function storeAudience(Request $request)
-    {
-        $audience_name = $request->audienceName;
-        $audience_id = $request->audienceId;
-        $audience_type = $request->audienceType;
-        $linkedin_Id = $request->linkedInId;
-
-        $user = User::where('linkedin_id', $linkedin_Id)->first();
-
-        $audience_exists = Audience::where('audience_name', $audience_name)
-            ->where('user_id', $user->id)
-            ->first();
-
-        if ($user) {
-            if (!$audience_exists) {
-                $audience_exists = Audience::create([
-                    'audience_name' => $audience_name,
-                    'audience_id' => $audience_id,
-                    'audience_type' => $audience_type,
-                    'user_id' => $user->id
-                ]);
+            
+            if (!$user->hasPermissionTo('FE')) {
+                return $this->errorResponse('Unauthorized access', 403);
             }
 
-            return response()->json([
-                ['audienceName' => $audience_exists]
+            return $this->successResponse([
+                'accessId' => 'FE',
+                'user' => [
+                    'id' => $user->id,
+                    'linkedin_id' => $user->linkedin_id,
+                    'name' => $user->name,
+                    'email' => $user->email
+                ]
+            ], 'Access granted');
+            
+        } catch (Exception $e) {
+            Log::error('Access check failed: ' . $e->getMessage(), [
+                'linkedin_id' => $request->header('lk-id'),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
             ]);
+            
+            return $this->errorResponse($e->getMessage(), 401);
         }
+    }
 
-        return response()->json([
-            'message' => 'Please signup!'
-        ]);
+    /**
+     * Enhanced audience retrieval with error handling
+     */
+    public function getAudience(Request $request)
+    {
+        try {
+            // Validate the linkedinId from query parameters
+            $validator = Validator::make($request->query(), [
+                'linkedinId' => 'required|string|max:255'
+            ]);
+
+            if ($validator->fails()) {
+                Log::warning('Audience API validation failed', [
+                    'errors' => $validator->errors(),
+                    'query_params' => $request->query(),
+                    'all_params' => $request->all()
+                ]);
+                return $this->errorResponse('Invalid LinkedIn ID provided', 400, $validator->errors());
+            }
+
+            $linkedin_Id = $request->query('linkedinId');
+            
+            Log::info('Fetching audiences for LinkedIn ID', [
+                'linkedin_id' => $linkedin_Id,
+                'ip' => $request->ip()
+            ]);
+
+            // Use parameterized query to prevent SQL injection
+            $audiences = DB::select("
+                SELECT 
+                    a.id, 
+                    a.audience_name, 
+                    a.audience_id, 
+                    a.audience_type, 
+                    COUNT(al.audience_id) AS total 
+                FROM audiences a
+                JOIN users u ON u.id = a.user_id 
+                LEFT JOIN audience_lists al ON al.audience_id = a.audience_id
+                WHERE u.linkedin_id = ? 
+                GROUP BY a.id, a.audience_name, a.audience_id, a.audience_type
+                ORDER BY DATE(a.created_at) DESC
+            ", [$linkedin_Id]);
+
+            Log::info('Audiences retrieved successfully', [
+                'linkedin_id' => $linkedin_Id,
+                'count' => count($audiences)
+            ]);
+
+            return $this->successResponse(['audience' => $audiences], 'Audiences retrieved successfully', 200);
+            
+        } catch (Exception $e) {
+            Log::error('Failed to get audience: ' . $e->getMessage(), [
+                'linkedin_id' => $request->query('linkedinId'),
+                'query_params' => $request->query(),
+                'all_params' => $request->all(),
+                'exception' => $e->getTraceAsString()
+            ]);
+            
+            return $this->errorResponse('Failed to retrieve audience data: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Enhanced audience storage with validation
+     */
+    public function storeAudience(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'audienceName' => 'required|string|max:255',
+                'audienceId' => 'required|string',
+                'audienceType' => 'required|string',
+                'linkedInId' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->errorResponse('Invalid audience data provided', 400, $validator->errors());
+            }
+
+            $user = User::where('linkedin_id', $request->linkedInId)->first();
+            
+            if (!$user) {
+                return $this->errorResponse('User not found', 404);
+            }
+
+            // Check for existing audience
+            $existingAudience = Audience::where('audience_name', $request->audienceName)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if ($existingAudience) {
+                return $this->successResponse(['audience' => $existingAudience], 'Audience already exists');
+            }
+
+            // Create new audience
+            $audience = Audience::create([
+                'audience_name' => $request->audienceName,
+                'audience_id' => $request->audienceId,
+                'audience_type' => $request->audienceType,
+                'user_id' => $user->id
+            ]);
+
+            Log::info('Audience created successfully', [
+                'audience_id' => $audience->id,
+                'user_id' => $user->id,
+                'audience_name' => $request->audienceName
+            ]);
+
+            return $this->successResponse(['audience' => $audience], 'Audience created successfully');
+            
+        } catch (Exception $e) {
+            Log::error('Failed to store audience: ' . $e->getMessage(), [
+                'request' => $request->all()
+            ]);
+            
+            return $this->errorResponse('Failed to create audience', 500);
+        }
     }
 
     public function deleteAudience(Request $request)
@@ -148,50 +225,90 @@ class ChromeApiController extends Controller
 
     public function storeAudienceList(Request $request)
     {
-        $audience_id = $request->audienceId;
-        $first_name = $request->firstName;
-        $last_name = $request->lastName;
-        $email = $request->email;
-        $title = null;
-        $locationName = null;
+        try {
+            // Log::info('Storing audience list item', [
+            //     'request_data' => $request->all(),
+            //     'linkedin_id' => $request->header('lk-id')
+            // ]);
 
-        if ($request->has('title')) {
-            $title = $request->title;
-        }
-        if ($request->has('locationName')) {
-            $locationName = $request->locationName;
-        }
+            $audience_id = $request->audienceId;
+            $first_name = $request->firstName;
+            $last_name = $request->lastName;
+            $email = $request->email;
+            $title = null;
+            $locationName = null;
 
-        $public_identifier = $request->publicIdentifier;
-        $connection_id = $request->connectionId;
-        $tracking_id = $request->trackingId;
-        $member_urn = $request->memberUrn;
+            if ($request->has('title')) {
+                $title = $request->title;
+            }
+            if ($request->has('locationName')) {
+                $locationName = $request->locationName;
+            }
 
-        $check_exists = AudienceList::where('con_id', $connection_id)
-            ->where('audience_id', $audience_id)
-            ->get();
+            $public_identifier = $request->publicIdentifier;
+            $connection_id = $request->connectionId;
+            $tracking_id = $request->trackingId;
+            $member_urn = $request->memberUrn;
 
-        if ($check_exists->count() == 0) {
-            AudienceList::create([
+            Log::info('Checking for existing audience list item', [
                 'audience_id' => $audience_id,
-                'con_first_name' => $first_name,
-                'con_last_name' => $last_name,
-                'con_email' => $email,
-                'con_job_title' => $title,
-                'con_location' => $locationName,
-                'con_public_identifier' => $public_identifier,
-                'con_id' => $connection_id,
-                'con_tracking_id' => $tracking_id,
-                'con_member_urn' => $member_urn
+                'connection_id' => $connection_id
             ]);
 
+            $check_exists = AudienceList::where('con_id', $connection_id)
+                ->where('audience_id', $audience_id)
+                ->get();
+
+            if ($check_exists->count() == 0) {
+                Log::info('Creating new audience list item', [
+                    'audience_id' => $audience_id,
+                    'first_name' => $first_name,
+                    'last_name' => $last_name,
+                    'connection_id' => $connection_id
+                ]);
+
+                $audienceListItem = AudienceList::create([
+                    'audience_id' => $audience_id,
+                    'con_first_name' => $first_name,
+                    'con_last_name' => $last_name,
+                    'con_email' => $email,
+                    'con_job_title' => $title,
+                    'con_location' => $locationName,
+                    'con_public_identifier' => $public_identifier,
+                    'con_id' => $connection_id,
+                    'con_tracking_id' => $tracking_id,
+                    'con_member_urn' => $member_urn
+                ]);
+
+                Log::info('Audience list item created successfully', [
+                    'id' => $audienceListItem->id,
+                    'audience_id' => $audience_id
+                ]);
+
+                return response()->json([
+                    'message' => 'success'
+                ], 201);
+            } else {
+                Log::info('Audience list item already exists', [
+                    'audience_id' => $audience_id,
+                    'connection_id' => $connection_id
+                ]);
+
+                return response()->json([
+                    'message' => 'User already added to audience list'
+                ]);
+            }
+        } catch (Exception $e) {
+            Log::error('Failed to store audience list item: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'linkedin_id' => $request->header('lk-id')
+            ]);
+            
             return response()->json([
-                'message' => 'success'
-            ], 201);
+                'message' => 'Failed to store audience list item',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        return response()->json([
-            'message' => 'User already added to audience list'
-        ]);
     }
 
     public function updateAudienceList(Request $request)
@@ -277,79 +394,97 @@ class ChromeApiController extends Controller
 
     public function export(Request $request, $audience_id)
     {
-        $exportType = $request->type;
-        $espType = $request->espType;
+        try {
+            $user = $this->checkAuthorization($request);
+            $exportType = $request->type;
+            $espType = $request->espType;
 
-        $query = sprintf("
-            SELECT con_first_name as firstName, con_last_name as lastName, con_email as email, con_job_title as occupation, 
-            concat('https://www.linkedin.com/in/',con_public_identifier) as Link, con_location as location,
-            created_at as createdAt, con_distance as memberDistance, con_company_url as companyURL 
-            from audience_lists 
-            where audience_id = %s
-        ", $audienceid);
+            $query = sprintf("
+                SELECT con_first_name as firstName, con_last_name as lastName, con_email as email, con_job_title as occupation, 
+                concat('https://www.linkedin.com/in/',con_public_identifier) as Link, con_location as location,
+                created_at as createdAt, con_distance as memberDistance, con_company_url as companyURL 
+                from audience_lists 
+                where audience_id = %s
+            ", $audience_id);
 
-        $audiences = DB::select($query);
+            $audiences = DB::select($query);
 
-        if ($exportType == 'csv') {
-            return response()->json([
-                'data' => $audiences
-            ]);
-        } else {
-            $esp = EspIntegration::where('user_id', auth()->user()->id)->first();
+            if ($exportType == 'csv') {
+                return $this->successResponse(['data' => $audiences]);
+            } else {
+                $esp = EspIntegration::where('user_id', $user->id)->first();
 
-            if ($esp) {
-                $esp = [
-                    'id' => $esp->id,
-                    'mailchimp' => json_decode($esp->mailchimp),
-                    'getresponse' => json_decode($esp->getresponse),
-                    'emailoctopus' => json_decode($esp->emailoctopus),
-                    'converterkit' => json_decode($esp->converterkit),
-                    'mailerlite' => json_decode($esp->mailerlite),
-                    'webhook' => $esp->webhook
-                ];
+                if ($esp) {
+                    $esp = [
+                        'id' => $esp->id,
+                        'mailchimp' => json_decode($esp->mailchimp),
+                        'getresponse' => json_decode($esp->getresponse),
+                        'emailoctopus' => json_decode($esp->emailoctopus),
+                        'converterkit' => json_decode($esp->converterkit),
+                        'mailerlite' => json_decode($esp->mailerlite),
+                        'webhook' => $esp->webhook
+                    ];
 
-                $leadShare = new LeadShareService;
-                $listTypes = ['listid', 'campaignId', 'formId', 'groupId'];
+                    $leadShare = new LeadShareService;
+                    $listTypes = ['listid', 'campaignId', 'formId', 'groupId'];
 
-                if ($espType == 'mailchimp' || $espType == 'emailoctopus')
-                    $listkey = $listTypes[0];
-                elseif ($espType == 'getresponse')
-                    $listkey = $listTypes[1];
-                elseif ($espType == 'converterkit')
-                    $listkey = $listTypes[2];
-                elseif ($espType == 'mailerlite')
-                    $listkey = $listTypes[3];
+                    if ($espType == 'mailchimp' || $espType == 'emailoctopus')
+                        $listkey = $listTypes[0];
+                    elseif ($espType == 'getresponse')
+                        $listkey = $listTypes[1];
+                    elseif ($espType == 'converterkit')
+                        $listkey = $listTypes[2];
+                    elseif ($espType == 'mailerlite')
+                        $listkey = $listTypes[3];
 
-                foreach ($audiences as $lead) {
-                    if ($lead->email) {
-                        $leadShare->leadShare($espType, [
-                            'email' => $lead['email'],
-                            'name' => $lead['first_name'],
-                            'apikey' => $esp[$espType]['apikey'],
-                            'listid' => $esp[$espType][$listkey]
-                        ]);
+                    foreach ($audiences as $lead) {
+                        if ($lead->email) {
+                            $leadShare->leadShare($espType, [
+                                'email' => $lead->email,
+                                'name' => $lead->firstName,
+                                'apikey' => $esp[$espType]['apikey'],
+                                'listid' => $esp[$espType][$listkey]
+                            ]);
+                        }
                     }
                 }
-            }
 
-            return response()->json([
-                'message' => 'leads added to list'
+                return $this->successResponse([], 'Leads added to list successfully');
+            }
+        } catch (Exception $e) {
+            Log::error('Export failed: ' . $e->getMessage(), [
+                'audience_id' => $audience_id,
+                'request' => $request->all()
             ]);
+            
+            return $this->errorResponse('Failed to export audience data', 500);
         }
     }
 
     public function audienceRecent(Request $request)
     {
-        $audienceId = $request->query('audienceId');
+        try {
+            $user = $this->checkAuthorization($request);
+            $audienceId = $request->query('audienceId');
 
-        $todays_audience = AudienceList::where('audience_id', $audienceId)
-            ->whereDate('created_at', Carbon::today())
-            ->get();
+            $todays_audience = AudienceList::where('audience_id', $audienceId)
+                ->whereDate('created_at', Carbon::today())
+                ->get();
 
-        return response()->json([
-            'total' => $audience_count,
-            'message' => 'success'
-        ]);
+            $audience_count = $todays_audience->count();
+
+            return $this->successResponse([
+                'total' => $audience_count,
+                'audience' => $todays_audience
+            ], 'Recent audience data retrieved successfully');
+        } catch (Exception $e) {
+            Log::error('Failed to get recent audience: ' . $e->getMessage(), [
+                'audience_id' => $request->query('audienceId'),
+                'request' => $request->all()
+            ]);
+            
+            return $this->errorResponse('Failed to retrieve recent audience data', 500);
+        }
     }
 
     public function getAutoResponses(Request $request)
@@ -636,7 +771,7 @@ class ChromeApiController extends Controller
         $stats = $request->query('stat');
         $linkedin_id = $request->query('identifier');
 
-        $user = User::where('linkedin_id', $linkedin_Id)->first();
+        $user = User::where('linkedin_id', $linkedin_id)->first();
 
         UserActivity::create([
             'module_name' => $module_name,
@@ -663,5 +798,40 @@ class ChromeApiController extends Controller
         if (str_contains($url, '/'))
             $url = str_replace('/', '', $url);
         return $url;
+    }
+
+
+
+
+
+    /**
+     * Standardized success response
+     */
+    protected function successResponse($data = [], $message = 'Success', $status = 200)
+    {
+        return response()->json([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data,
+            'timestamp' => now()->toISOString()
+        ], $status);
+    }
+
+    /**
+     * Standardized error response
+     */
+    protected function errorResponse($message = 'Error occurred', $status = 400, $errors = null)
+    {
+        $responseData = [
+            'status' => $status,
+            'message' => $message,
+            'timestamp' => now()->toISOString()
+        ];
+
+        if ($errors) {
+            $responseData['errors'] = $errors;
+        }
+
+        return response()->json($responseData, $status);
     }
 }

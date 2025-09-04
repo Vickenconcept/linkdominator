@@ -7,6 +7,7 @@ use App\Models\SnLead;
 use App\Models\CampaignList;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Exception;
 
 trait CampaignHelper
@@ -14,16 +15,25 @@ trait CampaignHelper
     protected function checkAuthorization($request)
     {
         if(!$request->hasHeader('lk-id')){
-            throw new Exception("Missing authentication", 1);
+            throw new Exception("Missing LinkedIn ID header", 401);
         }
         
-        if($request->hasHeader('lk-id')){
-            $user = User::where('linkedin_id', $request->header('lk-id'))->first();
-            if(!$user){
-                throw new Exception("Unauthorized", 1);
-            }
-            return $user;
+        $linkedinId = $request->header('lk-id');
+        
+        if (empty($linkedinId)) {
+            throw new Exception("LinkedIn ID cannot be empty", 401);
         }
+        
+        $user = User::where('linkedin_id', $linkedinId)->first();
+        if(!$user){
+            Log::warning('Unauthorized access attempt', [
+                'linkedin_id' => $linkedinId,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+            throw new Exception("User not found or unauthorized", 401);
+        }
+        return $user;
     }
 
     protected function campaignResource($data)
