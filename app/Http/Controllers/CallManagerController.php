@@ -7,8 +7,10 @@ use App\Models\CallReminder;
 use App\Models\CallReminderMessage;
 use App\Models\User;
 use App\Helpers\CampaignHelper;
+use App\Services\ChatGPT;
 use Illuminate\Http\Request;
-use DB;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CallManagerController extends Controller
 {
@@ -101,16 +103,330 @@ class CallManagerController extends Controller
 
         $user = User::where('linkedin_id', $request->header('lk-id'))->first();
 
-        CallStatus::create([
+        // Generate AI-powered call message if not provided
+        $originalMessage = $request->original_message;
+        if (!$originalMessage && $request->recipient) {
+            try {
+                $chatGPT = new ChatGPT();
+                $aiResult = $chatGPT->generateCallMessage(
+                    $request->recipient,
+                    $request->company ?? null,
+                    $request->industry ?? null
+                );
+                $originalMessage = $aiResult['content'];
+            } catch (\Throwable $th) {
+                // Fallback to default message
+                $originalMessage = "Hi {$request->recipient}, I'd like to schedule a call to discuss how we can help your business grow. Are you available for a brief conversation this week?";
+            }
+        }
+
+        $callStatus = CallStatus::create([
             'recipient' => $request->recipient,
             'profile' => $request->profile,
             'sequence' => $request->sequence,
-            'call_status' => $request->callStatus,
-            'user_id' => $user->id
+            'call_status' => $request->callStatus ?? 'suggested',
+            'user_id' => $user->id,
+            'company' => $request->company,
+            'industry' => $request->industry,
+            'job_title' => $request->job_title,
+            'location' => $request->location,
+            'original_message' => $originalMessage,
+            'linkedin_profile_url' => $request->linkedin_profile_url,
+            'connection_id' => $request->connection_id,
+            'conversation_urn_id' => $request->conversation_urn_id,
+            'campaign_id' => $request->campaign_id,
+            'campaign_name' => $request->campaign_name ?? $request->sequence,
+            'last_interaction_at' => now(),
+            'interaction_count' => 1
         ]);
 
-        return response()->jsonify([
-            'message' => 'Call status created successfully'
+        return response()->json([
+            'message' => 'Call status created successfully',
+            'call_id' => $callStatus->id
         ],201);
+    }
+
+    /**
+     * Generate AI-powered call booking message
+     */
+    public function generateCallMessage(Request $request)
+    {
+        $data = $request->validate([
+            'recipient_name' => 'required|string',
+            'company' => 'nullable|string',
+            'industry' => 'nullable|string'
+        ]);
+
+        try {
+            $chatGPT = new ChatGPT();
+            $result = $chatGPT->generateCallMessage(
+                $data['recipient_name'],
+                $data['company'] ?? null,
+                $data['industry'] ?? null
+            );
+
+            return response()->json([
+                'message' => $result['content'],
+                'words' => $result['words']
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Failed to generate AI message: ' . $th->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Process call reply with AI analysis
+     */
+    public function processCallReply(Request $request)
+    {
+        $data = $request->validate([
+            'call_id' => 'required|exists:call_status,id',
+            'message' => 'required|string',
+            'profile_id' => 'required|string',
+            'sender' => 'required|string'
+        ]);
+
+        try {
+            $call = CallStatus::findOrFail($data['call_id']);
+            
+            // Update conversation history
+            $conversationHistory = $call->conversation_history ? json_decode($call->conversation_history, true) : [];
+            $conversationHistory[] = [
+                'sender' => $data['sender'],
+                'message' => $data['message'],
+                'timestamp' => now()->toISOString()
+            ];
+            
+            // Analyze reply with AI
+            $chatGPT = new ChatGPT();
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
+
+Original Call Message: {$call->original_message}
+Reply: {$data['message']}
+
+Determine:
+1. Intent: interested, not_interested, needs_more_info, reschedule_request, busy
+2. Sentiment: positive, neutral, negative
+3. Next Action: schedule_call, send_info, follow_up_later, end_conversation, ask_availability
+4. Suggested Response: Generate appropriate follow-up message
+5. Lead Score: 1-10 (10 being highest conversion potential)
+
+Respond in JSON format only.";
+
+            $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
+            $analysis = json_decode($aiAnalysis['content'], true);
+            
+            // Update call status based on AI analysis
+            $newStatus = $this->determineCallStatus($analysis['intent'] ?? 'unknown');
+            
+            $call->update([
+                'call_status' => $newStatus,
+                'conversation_history' => json_encode($conversationHistory),
+                'ai_analysis' => $analysis,
+                'lead_category' => $this->categorizeLead($analysis),
+                'lead_score' => $analysis['lead_score'] ?? 5,
+                'last_interaction_at' => now(),
+                'interaction_count' => $call->interaction_count + 1
+            ]);
+            
+            // Trigger appropriate action based on AI analysis
+            $this->triggerAIAction($call, $analysis);
+            
+            return response()->json([
+                'message' => 'Reply processed successfully',
+                'analysis' => $analysis,
+                'new_status' => $newStatus,
+                'suggested_response' => $analysis['suggested_response'] ?? null
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Failed to process reply: ' . $th->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Determine call status based on AI analysis
+     */
+    private function determineCallStatus($intent)
+    {
+        return match($intent) {
+            'interested' => 'interested',
+            'not_interested' => 'not_interested',
+            'needs_more_info' => 'needs_info',
+            'reschedule_request' => 'reschedule_request',
+            'busy' => 'busy',
+            default => 'replied'
+        };
+    }
+
+    /**
+     * Categorize lead based on AI analysis
+     */
+    private function categorizeLead($analysis)
+    {
+        $score = $analysis['lead_score'] ?? 5;
+        $sentiment = $analysis['sentiment'] ?? 'neutral';
+        
+        if ($score >= 8 && $sentiment === 'positive') {
+            return 'hot_lead';
+        } elseif ($score >= 6) {
+            return 'warm_lead';
+        } elseif ($score >= 4) {
+            return 'cold_lead';
+        } else {
+            return 'not_qualified';
+        }
+    }
+
+    /**
+     * Trigger AI-driven action based on analysis
+     */
+    private function triggerAIAction($call, $analysis)
+    {
+        $nextAction = $analysis['next_action'] ?? 'follow_up_later';
+        
+        switch($nextAction) {
+            case 'schedule_call':
+                $this->initiateCallScheduling($call);
+                break;
+                
+            case 'send_info':
+                $this->sendAdditionalInfo($call);
+                break;
+                
+            case 'follow_up_later':
+                $this->scheduleFollowUp($call);
+                break;
+                
+            case 'end_conversation':
+                $this->endConversation($call);
+                break;
+        }
+    }
+
+    /**
+     * Initiate call scheduling process
+     */
+    private function initiateCallScheduling($call)
+    {
+        // Generate calendar link (placeholder - integrate with actual calendar service)
+        $calendarLink = $this->generateCalendarLink($call);
+        
+        // Generate AI-powered scheduling message
+        $schedulingMessage = $this->generateSchedulingMessage($call);
+        
+        // Update call status
+        $call->update([
+            'call_status' => 'scheduling_initiated',
+            'calendar_link' => $calendarLink
+        ]);
+        
+        // TODO: Send scheduling message via extension
+        Log::info("Call scheduling initiated", [
+            'call_id' => $call->id,
+            'recipient' => $call->recipient,
+            'calendar_link' => $calendarLink,
+            'scheduling_message' => $schedulingMessage
+        ]);
+    }
+
+    /**
+     * Generate calendar link for scheduling
+     */
+    private function generateCalendarLink($call)
+    {
+        // Placeholder - integrate with Calendly, Google Calendar, or other scheduling service
+        $baseUrl = config('app.url');
+        return "{$baseUrl}/schedule-call/{$call->id}";
+    }
+
+    /**
+     * Generate AI-powered scheduling message
+     */
+    private function generateSchedulingMessage($call)
+    {
+        try {
+            $chatGPT = new ChatGPT();
+            
+            $prompt = "Generate a professional message to schedule a call with this lead:
+
+Lead: {$call->recipient}
+Company: {$call->company}
+Industry: {$call->industry}
+Original Message: {$call->original_message}
+
+Create a message that:
+1. Acknowledges their interest
+2. Proposes specific time slots
+3. Includes a calendar link
+4. Is professional and engaging
+
+Keep it under 100 words.";
+
+            $result = $chatGPT->generateContent($prompt);
+            return $result['content'];
+            
+        } catch (\Throwable $th) {
+            return "Hi {$call->recipient}, I'd love to schedule a call to discuss how we can help your business. Please let me know your availability for this week, or you can book directly here: {$call->calendar_link}";
+        }
+    }
+
+    /**
+     * Send additional information to lead
+     */
+    private function sendAdditionalInfo($call)
+    {
+        // TODO: Implement sending additional information
+        Log::info("Additional info requested for call", ['call_id' => $call->id]);
+    }
+
+    /**
+     * Schedule follow-up message
+     */
+    private function scheduleFollowUp($call)
+    {
+        // TODO: Implement follow-up scheduling
+        Log::info("Follow-up scheduled for call", ['call_id' => $call->id]);
+    }
+
+    /**
+     * End conversation
+     */
+    private function endConversation($call)
+    {
+        $call->update(['call_status' => 'conversation_ended']);
+        Log::info("Conversation ended for call", ['call_id' => $call->id]);
+    }
+
+    /**
+     * Schedule a call (manual scheduling)
+     */
+    public function scheduleCall(Request $request)
+    {
+        $data = $request->validate([
+            'call_id' => 'required|exists:call_status,id',
+            'scheduled_time' => 'required|date|after:now',
+            'timezone' => 'required|string',
+            'meeting_link' => 'nullable|url'
+        ]);
+
+        $call = CallStatus::findOrFail($data['call_id']);
+        
+        $call->update([
+            'scheduled_time' => $data['scheduled_time'],
+            'timezone' => $data['timezone'],
+            'meeting_link' => $data['meeting_link'],
+            'call_status' => 'scheduled'
+        ]);
+
+        return response()->json([
+            'message' => 'Call scheduled successfully',
+            'call' => $call
+        ]);
     }
 }

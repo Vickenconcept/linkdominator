@@ -6,6 +6,11 @@ use Illuminate\Support\Facades\Http;
 
 class ChatGPT
 {
+    protected $params;
+    protected $token;
+    protected $temperature;
+    protected $max_token;
+    
     protected $ai_types = [
         'first_cold_email' => [
             'prompt' => 'Write a cold email to a prospect about: %s and please make it %s and comprehensive'
@@ -18,6 +23,9 @@ class ChatGPT
         ],
         'linkedin_post' => [
             'prompt' => 'Write a linkedin post about: %s '
+        ],
+        'book_call_message' => [
+            'prompt' => 'Write a professional LinkedIn message to book a call with %s from %s in the %s industry. Make it personalized, professional, and include a clear call-to-action for scheduling a meeting. Keep it under 200 words.'
         ]
     ];
 
@@ -67,6 +75,12 @@ class ChatGPT
 
         }elseif($this->params['aitype'] == 'linkedin_post') {
             $prompt .= sprintf($this->ai_types[$this->params['aitype']]['prompt'], $idea);
+        }elseif($this->params['aitype'] == 'book_call_message') {
+            $prompt .= sprintf($this->ai_types[$this->params['aitype']]['prompt'], 
+                $this->params['recipient_name'] ?? 'a prospect',
+                $this->params['company'] ?? 'their company',
+                $this->params['industry'] ?? 'their industry'
+            );
         }else{
             $prompt .= $this->ai_types[$this->params['aitype']]['prompt'];
         }
@@ -100,7 +114,7 @@ class ChatGPT
                 }
             }
 
-            throw new Exception("Your idea was flagged as {$flagged}. kindly adjust it and regenerate.", 1);
+            throw new \Exception("Your idea was flagged as {$flagged}. kindly adjust it and regenerate.", 1);
         }
     }
 
@@ -137,5 +151,21 @@ class ChatGPT
             'content' => $content,
             'words' => $words
         ];
+    }
+
+    /**
+     * Generate AI-powered call booking message
+     */
+    public function generateCallMessage($recipientName, $company = null, $industry = null)
+    {
+        $data = [
+            'aitype' => 'book_call_message',
+            'recipient_name' => $recipientName,
+            'company' => $company,
+            'industry' => $industry
+        ];
+
+        $this->params = $data;
+        return $this->generate();
     }
 }

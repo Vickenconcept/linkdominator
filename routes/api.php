@@ -26,6 +26,9 @@ Route::get('campaign/{campaignId}/leadgen', [CampaignController::class, 'getLead
 Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetworkDegree']);
 
 Route::post('book-call/store', [CallManagerController::class, 'storeCallStatus']);
+Route::post('calls/generate-message', [CallManagerController::class, 'generateCallMessage']);
+Route::post('calls/process-reply', [CallManagerController::class, 'processCallReply']);
+Route::post('calls/schedule', [CallManagerController::class, 'scheduleCall']);
 
 Route::controller(LeadController::class)->group(function (){
     Route::get('leads/export', 'export')->name('leads.export');
