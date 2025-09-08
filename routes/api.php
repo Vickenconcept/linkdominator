@@ -23,12 +23,16 @@ Route::post('campaign/{id}/update-node', [CampaignController::class, 'campaignSe
 Route::post('campaign/{id}/leadgen/store', [CampaignController::class, 'createLeadGenRunning']);
 Route::post('campaign/{campaignId}/leadgen/{leadId}/update', [CampaignController::class, 'updateLeadGenRunning']);
 Route::get('campaign/{campaignId}/leadgen', [CampaignController::class, 'getLeadGenRunning']); // tested
+Route::get('campaign/{campaignId}/leadgen/tracking', [CampaignController::class, 'getLeadGenTracking']); // new endpoint for tracking data
 Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetworkDegree']);
 
 Route::post('book-call/store', [CallManagerController::class, 'storeCallStatus']);
 Route::post('calls/generate-message', [CallManagerController::class, 'generateCallMessage']);
 Route::post('calls/process-reply', [CallManagerController::class, 'processCallReply']);
 Route::post('calls/schedule', [CallManagerController::class, 'scheduleCall']);
+Route::get('calls/{id}/message', [CallManagerController::class, 'getCallMessage']);
+Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
+Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
 
 Route::controller(LeadController::class)->group(function (){
     Route::get('leads/export', 'export')->name('leads.export');

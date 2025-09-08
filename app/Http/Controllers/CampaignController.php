@@ -855,7 +855,8 @@ class CampaignController extends Controller
             'request_data' => $request->all(),
             'headers' => $request->headers->all(),
             'method' => $request->method(),
-            'url' => $request->url()
+            'url' => $request->url(),
+            'timestamp' => now()->toDateTimeString()
         ]);
         
         try {
@@ -869,14 +870,27 @@ class CampaignController extends Controller
             ], 400);
         }
 
-        logger('📝 Updating CampaignLeadgenRunning with data:', [
+        // Log the specific update being made
+        $updateData = [
             'campaign_id' => $campaignId,
             'lead_id' => $leadId,
             'accept_status' => $request->acceptedStatus,
             'current_node_key' => $request->currentNodeKey,
             'next_node_key' => $request->nextNodeKey,
             'status_last_id' => $request->statusLastId
-        ]);
+        ];
+        
+        logger('📝 Updating CampaignLeadgenRunning with data:', $updateData);
+        
+        // Check if this is an acceptance update
+        if ($request->acceptedStatus == 1) {
+            logger('🎉 INVITE ACCEPTANCE UPDATE DETECTED!', [
+                'campaign_id' => $campaignId,
+                'lead_id' => $leadId,
+                'status_last_id' => $request->statusLastId,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+        }
 
         $result = CampaignLeadgenRunning::where('campaign_id', $campaignId)
             ->where('lead_id', $leadId)
@@ -887,11 +901,36 @@ class CampaignController extends Controller
                 'status_last_id' => (string) $request->statusLastId // Force string storage
             ]);
 
-        logger('✅ Update result:', ['rows_affected' => $result]);
+        logger('✅ Update result:', [
+            'rows_affected' => $result,
+            'campaign_id' => $campaignId,
+            'lead_id' => $leadId,
+            'accept_status' => $request->acceptedStatus,
+            'status_last_id' => $request->statusLastId
+        ]);
+        
+        // Log the updated record for verification
+        $updatedRecord = CampaignLeadgenRunning::where('campaign_id', $campaignId)
+            ->where('lead_id', $leadId)
+            ->first();
+            
+        if ($updatedRecord) {
+            logger('🔍 Updated record verification:', [
+                'campaign_id' => $updatedRecord->campaign_id,
+                'lead_id' => $updatedRecord->lead_id,
+                'accept_status' => $updatedRecord->accept_status,
+                'status_last_id' => $updatedRecord->status_last_id,
+                'current_node_key' => $updatedRecord->current_node_key,
+                'next_node_key' => $updatedRecord->next_node_key,
+                'updated_at' => $updatedRecord->updated_at
+            ]);
+        }
 
         return response()->json([
             'message' => 'Updated successful',
-            'status' => 201
+            'status' => 201,
+            'rows_affected' => $result,
+            'updated_record' => $updatedRecord
         ], 201);
     }
 
@@ -925,6 +964,71 @@ class CampaignController extends Controller
 
         return response()->json([
             'data' => $this->leadResource($leads),
+            'status' => 200
+        ]);
+    }
+
+    public function getLeadGenTracking(Request $request, string $campaignId)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        // Get campaign tracking data directly from campaign_leadgen_running table
+        $campaignLeadgen = new CampaignLeadgenRunning;
+
+        $trackingData = $campaignLeadgen->where('campaign_id', $campaignId)->get();
+
+        // Transform the data to include lead information
+        $leadsWithTracking = [];
+        
+        foreach ($trackingData as $tracking) {
+            // Get the actual lead data based on lead_src
+            $leadData = null;
+            
+            if ($tracking->lead_src === 'aud') {
+                // Get from audience_list table
+                $leadData = \App\Models\AudienceList::where('id', $tracking->lead_id)->first();
+            } else {
+                // Get from sn_leads table
+                $leadData = \App\Models\SnLead::where('id', $tracking->lead_id)->first();
+            }
+            
+            if ($leadData) {
+                $leadsWithTracking[] = [
+                    'id' => $leadData->id,
+                    'name' => $leadData->con_first_name . ' ' . $leadData->con_last_name ?? $leadData->first_name . ' ' . $leadData->last_name,
+                    'firstName' => $leadData->con_first_name ?? $leadData->first_name,
+                    'lastName' => $leadData->con_last_name ?? $leadData->last_name,
+                    'headline' => $leadData->con_job_title ?? $leadData->headline,
+                    'email' => $leadData->con_email ?? $leadData->email,
+                    'location' => $leadData->con_location ?? $leadData->geolocation,
+                    'connectionId' => $leadData->con_id ?? $leadData->lid,
+                    'source' => $leadData->con_public_identifier ?? $leadData->sn_lid,
+                    'listId' => $tracking->lead_list,
+                    'memberUrn' => $leadData->con_member_urn ?? $leadData->object_urn,
+                    'trackingId' => $leadData->con_tracking_id ?? null,
+                    'networkDistance' => $leadData->con_distance ?? $leadData->degree,
+                    'createdAt' => $leadData->created_at ?? null,
+                    // Campaign tracking fields
+                    'accept_status' => $tracking->accept_status,
+                    'status_last_id' => $tracking->status_last_id,
+                    'lead_src' => $tracking->lead_src,
+                    'connection_id' => $tracking->lead_id,
+                    'current_node_key' => $tracking->current_node_key,
+                    'next_node_key' => $tracking->next_node_key,
+                    'campaign_id' => $tracking->campaign_id
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => $leadsWithTracking,
             'status' => 200
         ]);
     }

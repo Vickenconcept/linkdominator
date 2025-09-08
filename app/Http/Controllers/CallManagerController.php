@@ -27,6 +27,31 @@ class CallManagerController extends Controller
     }
 
     /**
+     * Display AI-powered call management dashboard
+     */
+    public function aiDashboard()
+    {
+        $userId = auth()->user()->id;
+        
+        // Get statistics
+        $totalCalls = CallStatus::where('user_id', $userId)->count();
+        $hotLeads = CallStatus::where('user_id', $userId)->where('lead_category', 'hot_lead')->count();
+        $warmLeads = CallStatus::where('user_id', $userId)->where('lead_category', 'warm_lead')->count();
+        $aiMessages = CallStatus::where('user_id', $userId)->whereNotNull('original_message')->count();
+        
+        // Get recent calls with AI data
+        $recentCalls = CallStatus::where('user_id', $userId)
+            ->with('campaign')
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+        
+        return view('callmanager.ai-dashboard', compact(
+            'totalCalls', 'hotLeads', 'warmLeads', 'aiMessages', 'recentCalls'
+        ));
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function callReminder()
@@ -428,5 +453,88 @@ Keep it under 100 words.";
             'message' => 'Call scheduled successfully',
             'call' => $call
         ]);
+    }
+
+    /**
+     * Get AI-generated message for a call
+     */
+    public function getCallMessage($id)
+    {
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', auth()->user()->id)
+            ->firstOrFail();
+
+        return response()->json([
+            'message' => $call->original_message ?? 'No AI message generated yet',
+            'call_id' => $call->id,
+            'recipient' => $call->recipient
+        ]);
+    }
+
+    /**
+     * Test reminder system
+     */
+    public function testReminderSystem()
+    {
+        try {
+            // Run the reminder scheduler
+            \Artisan::call('calls:send-reminders');
+            $output = \Artisan::output();
+            
+            return response()->json([
+                'message' => 'Reminder system test completed successfully',
+                'output' => $output
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Reminder system test failed: ' . $th->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Manually trigger AI message generation for existing calls
+     */
+    public function triggerAIMessages()
+    {
+        try {
+            $userId = auth()->user()->id;
+            $calls = CallStatus::where('user_id', $userId)
+                ->whereNull('original_message')
+                ->get();
+
+            $generated = 0;
+            foreach ($calls as $call) {
+                try {
+                    $chatGPT = new ChatGPT();
+                    $aiResult = $chatGPT->generateCallMessage(
+                        $call->recipient,
+                        $call->company ?? null,
+                        $call->industry ?? null
+                    );
+                    
+                    $call->update([
+                        'original_message' => $aiResult['content'],
+                        'lead_score' => rand(6, 9), // Random score for testing
+                        'lead_category' => rand(6, 9) >= 8 ? 'hot_lead' : 'warm_lead'
+                    ]);
+                    
+                    $generated++;
+                } catch (\Throwable $th) {
+                    // Skip this call if AI generation fails
+                    continue;
+                }
+            }
+            
+            return response()->json([
+                'message' => "Successfully generated AI messages for {$generated} calls",
+                'generated' => $generated,
+                'total' => $calls->count()
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Failed to trigger AI messages: ' . $th->getMessage()
+            ], 422);
+        }
     }
 }
