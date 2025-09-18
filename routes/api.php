@@ -31,6 +31,7 @@ Route::post('calls/generate-message', [CallManagerController::class, 'generateCa
 Route::post('calls/process-reply', [CallManagerController::class, 'processCallReply']);
 Route::post('calls/schedule', [CallManagerController::class, 'scheduleCall']);
 Route::get('calls/{id}/message', [CallManagerController::class, 'getCallMessage']);
+Route::get('calls/{id}/scheduling', [CallManagerController::class, 'getSchedulingInfo']);
 Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
 Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
 

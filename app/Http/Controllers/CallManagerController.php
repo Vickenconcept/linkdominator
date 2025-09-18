@@ -11,6 +11,9 @@ use App\Services\ChatGPT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 
 class CallManagerController extends Controller
 {
@@ -21,7 +24,7 @@ class CallManagerController extends Controller
      */
     public function index()
     {
-        $callStatus = CallStatus::where('user_id', auth()->user()->id)->paginate(15);
+        $callStatus = CallStatus::where('user_id', Auth::id())->paginate(15);
 
         return view('callmanager.index', compact('callStatus'));
     }
@@ -31,7 +34,7 @@ class CallManagerController extends Controller
      */
     public function aiDashboard()
     {
-        $userId = auth()->user()->id;
+        $userId = Auth::id();
         
         // Get statistics
         $totalCalls = CallStatus::where('user_id', $userId)->count();
@@ -58,7 +61,7 @@ class CallManagerController extends Controller
     {
         $callReminder = CallReminder::select(DB::raw('call_reminder.*, campaigns.name'))
             ->join('campaigns','call_reminder.campaign','=','campaigns.id')
-            ->where('call_reminder.user_id', auth()->user()->id)
+            ->where('call_reminder.user_id', Auth::id())
             ->paginate(15);
 
         return view('callmanager.call-reminder', compact('callReminder'));
@@ -145,25 +148,38 @@ class CallManagerController extends Controller
             }
         }
 
-        $callStatus = CallStatus::create([
+        // Base attributes that should exist
+        $attributes = [
             'recipient' => $request->recipient,
             'profile' => $request->profile,
             'sequence' => $request->sequence,
             'call_status' => $request->callStatus ?? 'suggested',
-            'user_id' => $user->id,
-            'company' => $request->company,
-            'industry' => $request->industry,
-            'job_title' => $request->job_title,
-            'location' => $request->location,
+            'user_id' => optional($user)->id,
             'original_message' => $originalMessage,
-            'linkedin_profile_url' => $request->linkedin_profile_url,
-            'connection_id' => $request->connection_id,
-            'conversation_urn_id' => $request->conversation_urn_id,
             'campaign_id' => $request->campaign_id,
             'campaign_name' => $request->campaign_name ?? $request->sequence,
             'last_interaction_at' => now(),
             'interaction_count' => 1
-        ]);
+        ];
+
+        // Conditionally include optional fields if columns exist
+        $optionalFields = [
+            'company' => $request->company,
+            'industry' => $request->industry,
+            'job_title' => $request->job_title,
+            'location' => $request->location,
+            'linkedin_profile_url' => $request->linkedin_profile_url,
+            'connection_id' => $request->connection_id,
+            'conversation_urn_id' => $request->conversation_urn_id,
+        ];
+
+        foreach ($optionalFields as $column => $value) {
+            if (Schema::hasColumn('call_status', $column)) {
+                $attributes[$column] = $value;
+            }
+        }
+
+        $callStatus = CallStatus::create($attributes);
 
         return response()->json([
             'message' => 'Call status created successfully',
@@ -227,19 +243,7 @@ class CallManagerController extends Controller
             
             // Analyze reply with AI
             $chatGPT = new ChatGPT();
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
-
-Original Call Message: {$call->original_message}
-Reply: {$data['message']}
-
-Determine:
-1. Intent: interested, not_interested, needs_more_info, reschedule_request, busy
-2. Sentiment: positive, neutral, negative
-3. Next Action: schedule_call, send_info, follow_up_later, end_conversation, ask_availability
-4. Suggested Response: Generate appropriate follow-up message
-5. Lead Score: 1-10 (10 being highest conversion potential)
-
-Respond in JSON format only.";
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nOriginal Call Message: {$call->original_message}\nReply: {$data['message']}\n\nDetermine:\n1. Intent: interested, not_interested, needs_more_info, reschedule_request, busy\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message\n5. Lead Score: 1-10 (10 being highest conversion potential)\n\nRespond in JSON format only.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
@@ -260,11 +264,21 @@ Respond in JSON format only.";
             // Trigger appropriate action based on AI analysis
             $this->triggerAIAction($call, $analysis);
             
+            // If scheduling was initiated, include details so the extension can act
+            $schedulingDetails = null;
+            if ($call->refresh()->call_status === 'scheduling_initiated') {
+                $schedulingDetails = [
+                    'calendar_link' => $call->calendar_link,
+                    'scheduling_message' => $this->generateSchedulingMessage($call)
+                ];
+            }
+            
             return response()->json([
                 'message' => 'Reply processed successfully',
                 'analysis' => $analysis,
                 'new_status' => $newStatus,
-                'suggested_response' => $analysis['suggested_response'] ?? null
+                'suggested_response' => $analysis['suggested_response'] ?? null,
+                'scheduling' => $schedulingDetails
             ]);
 
         } catch (\Throwable $th) {
@@ -461,7 +475,7 @@ Keep it under 100 words.";
     public function getCallMessage($id)
     {
         $call = CallStatus::where('id', $id)
-            ->where('user_id', auth()->user()->id)
+            ->where('user_id', Auth::id())
             ->firstOrFail();
 
         return response()->json([
@@ -472,14 +486,29 @@ Keep it under 100 words.";
     }
 
     /**
+     * Fetch scheduling info for a call (calendar link + suggested message)
+     */
+    public function getSchedulingInfo($id)
+    {
+        $call = CallStatus::findOrFail($id);
+
+        return response()->json([
+            'call_id' => $call->id,
+            'status' => $call->call_status,
+            'calendar_link' => $call->calendar_link,
+            'scheduling_message' => $this->generateSchedulingMessage($call)
+        ]);
+    }
+
+    /**
      * Test reminder system
      */
     public function testReminderSystem()
     {
         try {
             // Run the reminder scheduler
-            \Artisan::call('calls:send-reminders');
-            $output = \Artisan::output();
+            Artisan::call('calls:send-reminders');
+            $output = Artisan::output();
             
             return response()->json([
                 'message' => 'Reminder system test completed successfully',
@@ -498,7 +527,7 @@ Keep it under 100 words.";
     public function triggerAIMessages()
     {
         try {
-            $userId = auth()->user()->id;
+            $userId = Auth::id();
             $calls = CallStatus::where('user_id', $userId)
                 ->whereNull('original_message')
                 ->get();
