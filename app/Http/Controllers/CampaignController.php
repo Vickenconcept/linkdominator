@@ -76,53 +76,84 @@ class CampaignController extends Controller
             $totalLeadgen = $leadgen->count();
             $acceptRate = 0;
 
+                    // Debug: Log all records for this campaign
+        logger("🔍 Campaign {$campaign->id} - All leadgen records:", [
+            'campaign_id' => $campaign->id,
+            'total_records' => $totalLeadgen,
+            'records' => $leadgen->toArray()
+        ]);
+        
+        // Also log the raw database query to see what's actually stored
+        $rawRecords = DB::table('campaign_leadgen_running')
+            ->where('campaign_id', $campaign->id)
+            ->get(['campaign_id', 'lead_id', 'accept_status', 'status_last_id', 'current_node_key', 'next_node_key']);
+        logger("🔍 Campaign {$campaign->id} - Raw database records:", [
+            'campaign_id' => $campaign->id,
+            'raw_records' => $rawRecords->toArray()
+        ]);
 
             if ($totalLeadgen > 0) {
                 $totalInvitesSent = 0;
                 $totalAccepted = 0;
                 
                 foreach ($leadgen as $leadgen) {
-                    // Count as "invite sent" if status_last_id is 2 (sent) OR 3 (accepted)
-                    // Status 3 means the invite was sent and then accepted
-                    if ($leadgen->status_last_id == 2 || $leadgen->status_last_id == 3) {
-                        $totalInvitesSent += 1;
+                    // Debug: Log what we're checking
+                    // status_last_id values: 1 = initial, 2 = sent, 3 = accepted, 4 = error
+                    // Count as "invite sent" if status_last_id is 2 (sent)
+                    $isInviteSent = false;
+                    
+                    // Method 1: Check if status_last_id is 2 (sent)
+                    if ($leadgen->status_last_id == 2) {
+                        $isInviteSent = true;
                     }
                     
+                    // Method 2: Fallback - check if current_node_key is not 0 (indicates processing)
+                    if (!$isInviteSent && $leadgen->current_node_key && $leadgen->current_node_key != 0) {
+                        $isInviteSent = true;
+                        logger("🔍 Using fallback method - current_node_key indicates processing");
+                    }
+                    
+                    // Count invites that have been sent (only if explicitly marked as sent)
+                    if ($isInviteSent) {
+                        $totalInvitesSent += 1;
+                    }
                     // Count accepted invites
                     if ($leadgen->accept_status == 1) {
                         $totalAccepted += 1;
                     }
+                    
+                    // Debug: Log each record check
+                    logger("🔍 Record check:", [
+                        'campaign_id' => $campaign->id,
+                        'status_last_id' => $leadgen->status_last_id,
+                        'status_last_id_type' => gettype($leadgen->status_last_id),
+                        'accept_status' => $leadgen->accept_status,
+                        'current_node_key' => $leadgen->current_node_key,
+                        'is_invite_sent' => $isInviteSent,
+                        'total_invites_sent_so_far' => $totalInvitesSent
+                    ]);
                 }
                 
                 // Calculate actual acceptance rate (accepted / sent)
                 if ($totalInvitesSent > 0) {
                     $acceptRate = round(($totalAccepted / $totalInvitesSent) * 100);
                 }
+                
+                // Log for debugging
+                logger("📊 Campaign {$campaign->id} accept rate calculation:", [
+                    'campaign_id' => $campaign->id,
+                    'total_leadgen' => $totalLeadgen,
+                    'total_invites_sent' => $totalInvitesSent,
+                    'total_accepted' => $totalAccepted,
+                    'accept_rate' => $acceptRate
+                ]);
+            } else {
+                logger("⚠️ Campaign {$campaign->id} - No leadgen records found");
             }
             $campaigns[$key]['accept_rate'] = $acceptRate;
         }
 
         return view('campaign.index', compact('campaigns'));
-    }
-
-    /**
-     * Simple debug endpoint to check campaign data
-     */
-    public function debugCampaignData(Request $request, string $id)
-    {
-        $campaign = Campaign::findOrFail($id);
-        
-        // Get all leadgen records for this campaign
-        $leadgen = CampaignLeadgenRunning::select('campaign_id', 'lead_id', 'accept_status', 'status_last_id', 'current_node_key', 'next_node_key')
-            ->where('campaign_id', $id)
-            ->get();
-        
-        return response()->json([
-            'campaign_id' => $id,
-            'campaign_name' => $campaign->name,
-            'total_records' => $leadgen->count(),
-            'records' => $leadgen->toArray()
-        ]);
     }
 
     /**
@@ -155,14 +186,14 @@ class CampaignController extends Controller
         foreach ($leadgen as $record) {
             $isInviteSent = false;
             
-            // Count as "invite sent" if status_last_id is 2 (sent) OR 3 (accepted)
-            // Status 3 means the invite was sent and then accepted
-            if ($record->status_last_id == 2 || $record->status_last_id == 3) {
+            // status_last_id values: 1 = initial, 2 = sent, 3 = accepted, 4 = error
+            if ($record->status_last_id == 2) {
                 $isInviteSent = true;
-                $totalInvitesSent += 1;
             }
             
-            // Count accepted invites
+            if ($isInviteSent) {
+                $totalInvitesSent += 1;
+            }
             if ($record->accept_status == 1) {
                 $totalAccepted += 1;
             }
@@ -189,7 +220,7 @@ class CampaignController extends Controller
             'accept_rate' => $acceptRate,
             'detailed_records' => $detailedRecords,
             'calculation_logic' => [
-                'condition' => 'accept_status == 1 (accepted) / (status_last_id == 2 OR status_last_id == 3) (sent or accepted)',
+                'condition' => 'accept_status == 1 (accepted) / status_last_id == 2 (sent)',
                 'formula' => "($totalAccepted / $totalInvitesSent) * 100 = $acceptRate%"
             ]
         ]);
@@ -256,9 +287,8 @@ class CampaignController extends Controller
                     $totalAccepted = 0;
                     
                     foreach ($leadgen as $leadgen) {
-                        // Count as "invite sent" if status_last_id is 2 (sent) OR 3 (accepted)
-                        // Status 3 means the invite was sent and then accepted
-                        if ($leadgen->status_last_id == 2 || $leadgen->status_last_id == 3) {
+                        // Count invites that have been sent (status_last_id = 2 means sent)
+                        if ($leadgen->status_last_id == 2) {
                             $totalInvitesSent += 1;
                         }
                         // Count accepted invites
