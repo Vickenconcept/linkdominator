@@ -155,11 +155,6 @@ class CallManagerController extends Controller
             'sequence' => $request->sequence,
             'call_status' => $request->callStatus ?? 'suggested',
             'user_id' => optional($user)->id,
-            'original_message' => $originalMessage,
-            'campaign_id' => $request->campaign_id,
-            'campaign_name' => $request->campaign_name ?? $request->sequence,
-            'last_interaction_at' => now(),
-            'interaction_count' => 1
         ];
 
         // Conditionally include optional fields if columns exist
@@ -171,6 +166,11 @@ class CallManagerController extends Controller
             'linkedin_profile_url' => $request->linkedin_profile_url,
             'connection_id' => $request->connection_id,
             'conversation_urn_id' => $request->conversation_urn_id,
+            'original_message' => $originalMessage,
+            'campaign_id' => $request->campaign_id,
+            'campaign_name' => $request->campaign_name ?? $request->sequence,
+            'last_interaction_at' => now(),
+            'interaction_count' => 1,
         ];
 
         foreach ($optionalFields as $column => $value) {
