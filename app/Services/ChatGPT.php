@@ -39,8 +39,8 @@ class ChatGPT
 
     public function generate()
     {
-        $idea = $this->params['idea'];
-        $prompt = 'Write answer in ' . $this->params['language'] . '. ';
+        $idea = $this->params['idea'] ?? '';
+        $prompt = 'Write answer in ' . ($this->params['language'] ?? 'English') . '. ';
 
         if($this->params['aitype'] == 'first_cold_email'){
             $prompt .= sprintf($this->ai_types[$this->params['aitype']]['prompt'], $idea, $this->params['write_style']);
@@ -120,19 +120,38 @@ class ChatGPT
 
     public function generateContent($prompt)
     {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Content-Type' => 'application/json'
-        ])
-            ->post('https://api.openai.com/v1/completions', [
-                'model' => 'gpt-3.5-turbo-instruct',
-                'prompt' => $prompt,
-                'max_tokens' => $this->max_token,
-                'temperature' => $this->temperature,
-                'n' => 1,
+        \Log::info('🤖 ChatGPT generateContent called', [
+            'prompt' => $prompt,
+            'model' => 'gpt-3.5-turbo-instruct',
+            'max_tokens' => $this->max_token,
+            'temperature' => $this->temperature
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Content-Type' => 'application/json'
             ])
-            ->throw()
-            ->json();
+                ->post('https://api.openai.com/v1/completions', [
+                    'model' => 'gpt-3.5-turbo-instruct',
+                    'prompt' => $prompt,
+                    'max_tokens' => $this->max_token,
+                    'temperature' => $this->temperature,
+                    'n' => 1,
+                ])
+                ->throw()
+                ->json();
+                
+            \Log::info('✅ ChatGPT API response successful', [
+                'response' => $response
+            ]);
+        } catch (\Throwable $th) {
+            \Log::error('❌ ChatGPT API call failed', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            throw $th;
+        }
 
         $words = 0;
 
@@ -162,10 +181,23 @@ class ChatGPT
             'aitype' => 'book_call_message',
             'recipient_name' => $recipientName,
             'company' => $company,
-            'industry' => $industry
+            'industry' => $industry,
+            'language' => 'English'
         ];
 
+        \Log::info('🤖 ChatGPT generateCallMessage called', [
+            'data' => $data,
+            'api_key_exists' => !empty($this->token),
+            'api_key_length' => strlen($this->token ?? '')
+        ]);
+
         $this->params = $data;
-        return $this->generate();
+        $result = $this->generate();
+        
+        \Log::info('🤖 ChatGPT generateCallMessage result', [
+            'result' => $result
+        ]);
+        
+        return $result;
     }
 }

@@ -346,7 +346,7 @@ let dbSequenceNode = @json($dbSequenceNode);
 let dbSequenceLink = @json($dbSequenceLink);
 let nodeDataModel, linkDataModel;
 
-const callMessage = "Let's schedule a call to discuss how we can assist you with lead generation using LinkedIn and email. You can book a convenient time through this link: https://calendly.com/EXAMPLE-CALENDLY-LINK"
+const callMessage = "Hi @firstName, I'd like to schedule a call to discuss how we can help your business grow. Are you available for a brief conversation this week? I can share some insights about lead generation and business development that might be valuable for @company."
 
 const sendInviteNodes = [
     {key: 0, icon: "\uf007", label: "Send an invite",   type: 'action', value: 'send-invites',  color: "#5560E5", stroke: "white",  loc: "0 0", pos: 'center', hasInviteNote: true, message: "Hey @firstName,\ni will like to join your network.", runStatus: false},

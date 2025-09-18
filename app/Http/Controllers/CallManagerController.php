@@ -133,7 +133,22 @@ class CallManagerController extends Controller
 
         // Generate AI-powered call message if not provided
         $originalMessage = $request->original_message;
+        
+        Log::info('🔍 Call message generation debug', [
+            'original_message_provided' => $originalMessage,
+            'recipient' => $request->recipient,
+            'company' => $request->company,
+            'industry' => $request->industry,
+            'will_generate_ai' => (!$originalMessage && $request->recipient)
+        ]);
+        
         if (!$originalMessage && $request->recipient) {
+            Log::info('🤖 Generating AI call message', [
+                'recipient' => $request->recipient,
+                'company' => $request->company,
+                'industry' => $request->industry
+            ]);
+            
             try {
                 $chatGPT = new ChatGPT();
                 $aiResult = $chatGPT->generateCallMessage(
@@ -142,10 +157,30 @@ class CallManagerController extends Controller
                     $request->industry ?? null
                 );
                 $originalMessage = $aiResult['content'];
+                
+                Log::info('✅ AI message generated successfully', [
+                    'ai_message' => $originalMessage,
+                    'ai_result' => $aiResult
+                ]);
             } catch (\Throwable $th) {
+                Log::error('❌ AI message generation failed', [
+                    'error' => $th->getMessage(),
+                    'trace' => $th->getTraceAsString()
+                ]);
+                
                 // Fallback to default message
                 $originalMessage = "Hi {$request->recipient}, I'd like to schedule a call to discuss how we can help your business grow. Are you available for a brief conversation this week?";
+                
+                Log::info('🔄 Using fallback message', [
+                    'fallback_message' => $originalMessage
+                ]);
             }
+        } else {
+            Log::info('⏭️ Skipping AI generation', [
+                'reason' => $originalMessage ? 'original_message_provided' : 'no_recipient',
+                'original_message' => $originalMessage,
+                'recipient' => $request->recipient
+            ]);
         }
 
         // Base attributes that should exist
@@ -176,10 +211,25 @@ class CallManagerController extends Controller
         foreach ($optionalFields as $column => $value) {
             if (Schema::hasColumn('call_status', $column)) {
                 $attributes[$column] = $value;
+            } else {
+                Log::warning("⚠️ Column '{$column}' does not exist in call_status table", [
+                    'column' => $column,
+                    'value' => $value
+                ]);
             }
         }
 
+        Log::info('🔍 CallStatus creation debug', [
+            'attributes' => $attributes,
+            'original_message' => $originalMessage
+        ]);
+
         $callStatus = CallStatus::create($attributes);
+
+        Log::info('✅ CallStatus created', [
+            'call_id' => $callStatus->id,
+            'original_message_saved' => $callStatus->original_message
+        ]);
 
         return response()->json([
             'message' => 'Call status created successfully',
@@ -379,7 +429,21 @@ class CallManagerController extends Controller
      */
     private function generateCalendarLink($call)
     {
-        // Placeholder - integrate with Calendly, Google Calendar, or other scheduling service
+        // Check if Calendly is enabled and configured
+        if (config('services.calendly.enabled') && config('services.calendly.link')) {
+            $calendlyLink = config('services.calendly.link');
+            
+            // Add recipient info as a parameter if it's a Calendly link
+            if (strpos($calendlyLink, 'calendly.com') !== false) {
+                $recipientName = urlencode($call->recipient);
+                $company = urlencode($call->company ?? '');
+                return "{$calendlyLink}?name={$recipientName}&email=&a1={$company}";
+            }
+            
+            return $calendlyLink;
+        }
+        
+        // Fallback to internal scheduling page
         $baseUrl = config('app.url');
         return "{$baseUrl}/schedule-call/{$call->id}";
     }
@@ -472,17 +536,42 @@ Keep it under 100 words.";
     /**
      * Get AI-generated message for a call
      */
-    public function getCallMessage($id)
+    public function getCallMessage(Request $request, $id)
     {
-        $call = CallStatus::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+        // Get user from lk-id header (same as storeCallStatus)
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
 
-        return response()->json([
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$call) {
+            return response()->json([
+                'error' => 'Call not found'
+            ], 404);
+        }
+
+        $response = [
             'message' => $call->original_message ?? 'No AI message generated yet',
             'call_id' => $call->id,
-            'recipient' => $call->recipient
+            'recipient' => $call->recipient,
+            'original_message' => $call->original_message
+        ];
+        
+        Log::info('🔍 getCallMessage response', [
+            'call_id' => $call->id,
+            'recipient' => $call->recipient,
+            'original_message' => $call->original_message,
+            'response' => $response
         ]);
+        
+        return response()->json($response);
     }
 
     /**

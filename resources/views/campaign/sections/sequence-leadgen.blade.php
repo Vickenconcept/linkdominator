@@ -300,7 +300,7 @@ let dbSequenceNode = @json($dbSequenceNode);
 let dbSequenceLink = @json($dbSequenceLink);
 let nodeDataModel, linkDataModel;
 
-const callMessage = "Lets schedule a call to discuss how we can assist you with lead generation using LinkedIn and email. You can book a convenient time through this link: https://calendly.com/EXAMPLE-CALENDLY-LINK"
+const callMessage = "Hi @firstName, I'd like to schedule a call to discuss how we can help your business grow. Are you available for a brief conversation this week? I can share some insights about lead generation and business development that might be valuable for @company."
 
 if(dbSequenceType === 'lead_gen' && dbSequenceNode.length > 0 && dbSequenceLink.length > 0){
     nodeDataModel = dbSequenceNode
