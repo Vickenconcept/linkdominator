@@ -29,9 +29,12 @@ Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetwo
 Route::post('book-call/store', [CallManagerController::class, 'storeCallStatus']);
 Route::post('calls/generate-message', [CallManagerController::class, 'generateCallMessage']);
 Route::post('calls/process-reply', [CallManagerController::class, 'processCallReply']);
+Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMessageReply']);
 Route::post('calls/schedule', [CallManagerController::class, 'scheduleCall']);
 Route::get('calls/{id}/message', [CallManagerController::class, 'getCallMessage']);
 Route::get('calls/{id}/scheduling', [CallManagerController::class, 'getSchedulingInfo']);
+Route::get('calls/{id}/response', [CallManagerController::class, 'checkCallResponse']);
+Route::post('calls/{id}/calendar-link', [CallManagerController::class, 'generateCalendarLinkForCall']);
 Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
 Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
 

@@ -269,6 +269,55 @@ class CallManagerController extends Controller
     }
 
     /**
+     * Analyze a message reply with AI (simple version for extension)
+     */
+    public function analyzeMessageReply(Request $request)
+    {
+        $data = $request->validate([
+            'message' => 'required|string',
+            'leadName' => 'required|string',
+            'context' => 'nullable|string'
+        ]);
+
+        try {
+            // Analyze reply with AI
+            $chatGPT = new ChatGPT();
+            $context = $data['context'] ?? 'LinkedIn message response analysis';
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nReply: {$data['message']}\nLead Name: {$data['leadName']}\nContext: {$context}\n\nIMPORTANT: Look for these key indicators:\n- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested' = AVAILABLE/INTERESTED\n- 'busy', 'not available', 'can't', 'unfortunately' = BUSY/NOT_AVAILABLE\n- 'when', 'what time', 'schedule' = SCHEDULING_REQUEST\n- 'more info', 'tell me more', 'details' = NEEDS_MORE_INFO\n\nDetermine:\n1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)\n5. Lead Score: 1-10 (10 being highest conversion potential)\n6. Is Positive: true/false (true if interested, available, or positive sentiment)\n\nRespond in JSON format only.";
+
+            $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
+            $analysis = json_decode($aiAnalysis['content'], true);
+            
+            // Ensure we have the required fields
+            if (!$analysis) {
+                $analysis = [
+                    'intent' => 'unknown',
+                    'sentiment' => 'neutral',
+                    'leadScore' => 5,
+                    'isPositive' => false,
+                    'nextAction' => 'follow_up_later',
+                    'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'analysis' => $analysis,
+                'message' => 'Analysis completed successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Message analysis failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Analysis failed',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Process call reply with AI analysis
      */
     public function processCallReply(Request $request)
@@ -293,7 +342,7 @@ class CallManagerController extends Controller
             
             // Analyze reply with AI
             $chatGPT = new ChatGPT();
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nOriginal Call Message: {$call->original_message}\nReply: {$data['message']}\n\nDetermine:\n1. Intent: interested, not_interested, needs_more_info, reschedule_request, busy\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message\n5. Lead Score: 1-10 (10 being highest conversion potential)\n\nRespond in JSON format only.";
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nOriginal Call Message: {$call->original_message}\nReply: {$data['message']}\n\nIMPORTANT: Look for these key indicators:\n- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested' = AVAILABLE/INTERESTED\n- 'busy', 'not available', 'can't', 'unfortunately' = BUSY/NOT_AVAILABLE\n- 'when', 'what time', 'schedule' = SCHEDULING_REQUEST\n- 'more info', 'tell me more', 'details' = NEEDS_MORE_INFO\n\nDetermine:\n1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)\n5. Lead Score: 1-10 (10 being highest conversion potential)\n6. Is Positive: true/false (true if interested, available, or positive sentiment)\n\nRespond in JSON format only.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
@@ -345,6 +394,8 @@ class CallManagerController extends Controller
     {
         return match($intent) {
             'interested' => 'interested',
+            'available' => 'scheduling_initiated',
+            'scheduling_request' => 'scheduling_initiated',
             'not_interested' => 'not_interested',
             'needs_more_info' => 'needs_info',
             'reschedule_request' => 'reschedule_request',
@@ -381,6 +432,7 @@ class CallManagerController extends Controller
         
         switch($nextAction) {
             case 'schedule_call':
+            case 'send_calendar':
                 $this->initiateCallScheduling($call);
                 break;
                 
@@ -608,6 +660,171 @@ Keep it under 100 words.";
                 'message' => 'Reminder system test failed: ' . $th->getMessage()
             ], 422);
         }
+    }
+
+    /**
+     * Check for call responses and return analysis
+     */
+    public function checkCallResponse(Request $request, $callId)
+    {
+        try {
+            $call = CallStatus::where('id', $callId)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            // Check if there's a recent response (within last 24 hours)
+            $hasRecentResponse = false;
+            $responseData = null;
+
+            if ($call->conversation_history) {
+                $conversationHistory = json_decode($call->conversation_history, true);
+                $lastMessage = end($conversationHistory);
+                
+                if ($lastMessage && $lastMessage['sender'] === 'lead') {
+                    $lastResponseTime = \Carbon\Carbon::parse($lastMessage['timestamp']);
+                    $hasRecentResponse = $lastResponseTime->isAfter(now()->subDay());
+                    
+                    if ($hasRecentResponse) {
+                        $responseData = [
+                            'hasResponse' => true,
+                            'message' => $lastMessage['message'],
+                            'timestamp' => $lastMessage['timestamp'],
+                            'ai_analysis' => $call->ai_analysis,
+                            'call_status' => $call->call_status,
+                            'lead_score' => $call->lead_score,
+                            'lead_category' => $call->lead_category,
+                            'isPositive' => $this->isPositiveResponse($call->ai_analysis),
+                            'needsAction' => $this->needsAction($call->call_status),
+                            'scheduling_ready' => $call->call_status === 'scheduling_initiated'
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'hasResponse' => $hasRecentResponse,
+                'call_id' => $callId,
+                'call_status' => $call->call_status,
+                'last_interaction' => $call->last_interaction_at,
+                'response_data' => $responseData
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'hasResponse' => false,
+                'error' => 'Failed to check response: ' . $th->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Generate calendar link for positive responses
+     */
+    public function generateCalendarLinkForCall(Request $request, $callId)
+    {
+        try {
+            // Check if this is a temporary ID (contains underscore and timestamp)
+            if (strpos($callId, '_') !== false && is_numeric(substr($callId, strrpos($callId, '_') + 1))) {
+                // This is a temporary ID, generate a simple calendar link
+                $calendarLink = $this->generateSimpleCalendarLink();
+                $schedulingMessage = $this->generateSimpleSchedulingMessage();
+                
+                return response()->json([
+                    'calendar_link' => $calendarLink,
+                    'scheduling_message' => $schedulingMessage,
+                    'call_status' => 'scheduling_initiated'
+                ]);
+            }
+            
+            // Original logic for database call IDs
+            $call = CallStatus::where('id', $callId)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            // Generate calendar link
+            $calendarLink = $this->generateCalendarLink($call);
+            
+            // Generate AI scheduling message
+            $schedulingMessage = $this->generateSchedulingMessage($call);
+            
+            // Update call status
+            $call->update([
+                'call_status' => 'scheduling_initiated',
+                'calendar_link' => $calendarLink
+            ]);
+
+            return response()->json([
+                'calendar_link' => $calendarLink,
+                'scheduling_message' => $schedulingMessage,
+                'call_status' => 'scheduling_initiated'
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => 'Failed to generate calendar link: ' . $th->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Generate simple calendar link for temporary call IDs
+     */
+    private function generateSimpleCalendarLink()
+    {
+        // Check if Calendly is enabled and configured
+        if (config('services.calendly.enabled') && config('services.calendly.link')) {
+            return config('services.calendly.link');
+        }
+        
+        // Fallback to internal scheduling page
+        $baseUrl = config('app.url');
+        return "{$baseUrl}/schedule-call";
+    }
+
+    /**
+     * Generate simple scheduling message for temporary call IDs
+     */
+    private function generateSimpleSchedulingMessage()
+    {
+        try {
+            $chatGPT = new ChatGPT();
+            
+            $prompt = "Generate a professional message to schedule a call with a LinkedIn lead who has shown interest. Keep it concise, friendly, and include a calendar booking link. The message should be professional but not overly formal.";
+            
+            $response = $chatGPT->generateContent($prompt);
+            
+            return $response['content'] ?? "Great! I'd love to schedule a call with you to discuss further. Please use this link to book a time that works for you: [CALENDAR_LINK]";
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to generate simple scheduling message: ' . $e->getMessage());
+            return "Great! I'd love to schedule a call with you to discuss further. Please use this link to book a time that works for you: [CALENDAR_LINK]";
+        }
+    }
+
+    /**
+     * Determine if response is positive based on AI analysis
+     */
+    private function isPositiveResponse($aiAnalysis)
+    {
+        if (!$aiAnalysis) return false;
+        
+        $analysis = is_string($aiAnalysis) ? json_decode($aiAnalysis, true) : $aiAnalysis;
+        
+        $intent = $analysis['intent'] ?? '';
+        $sentiment = $analysis['sentiment'] ?? '';
+        $leadScore = $analysis['lead_score'] ?? 0;
+        
+        return in_array($intent, ['interested', 'available', 'scheduling_request', 'reschedule_request']) && 
+               $sentiment === 'positive' && 
+               $leadScore >= 7;
+    }
+
+    /**
+     * Check if call needs action based on status
+     */
+    private function needsAction($callStatus)
+    {
+        return in_array($callStatus, ['interested', 'needs_info', 'replied']);
     }
 
     /**
