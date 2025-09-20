@@ -283,7 +283,109 @@ class CallManagerController extends Controller
             // Analyze reply with AI
             $chatGPT = new ChatGPT();
             $context = $data['context'] ?? 'LinkedIn message response analysis';
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nReply: {$data['message']}\nLead Name: {$data['leadName']}\nContext: {$context}\n\nIMPORTANT: Look for these key indicators:\n- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested' = AVAILABLE/INTERESTED\n- 'busy', 'not available', 'can't', 'unfortunately' = BUSY/NOT_AVAILABLE\n- 'when', 'what time', 'schedule' = SCHEDULING_REQUEST\n- 'more info', 'tell me more', 'details' = NEEDS_MORE_INFO\n\nDetermine:\n1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)\n5. Lead Score: 1-10 (10 being highest conversion potential)\n6. Is Positive: true/false (true if interested, available, or positive sentiment)\n\nRespond in JSON format only.";
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
+
+Reply: {$data['message']}
+Lead Name: {$data['leadName']}
+Context: {$context}
+
+IMPORTANT: Look for these comprehensive key indicators:
+
+AVAILABLE/INTERESTED KEYWORDS:
+- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested'
+- 'yes', 'sure', 'absolutely', 'definitely', 'of course', 'certainly'
+- 'I can', 'I will', 'I would', 'I'd be happy to', 'I'd love to'
+- 'let's do it', 'let's meet', 'let's talk', 'let's connect'
+- 'when works for you', 'when are you free', 'when can we'
+- 'I'm free', 'I'm available', 'I'm open', 'I'm interested'
+- 'that works', 'that sounds good', 'that's perfect', 'that's great'
+- 'I'm in', 'count me in', 'sign me up', 'I'm game'
+- 'perfect timing', 'great timing', 'good timing'
+- 'I'd like to', 'I want to', 'I need to', 'I should'
+- 'schedule', 'book', 'arrange', 'set up', 'plan'
+- 'call me', 'reach out', 'get in touch', 'connect'
+- 'discuss', 'talk about', 'explore', 'learn more'
+- 'collaborate', 'work together', 'partnership'
+- 'opportunity', 'potential', 'possibility'
+- 'next week', 'this week', 'soon', 'asap', 'quickly'
+- 'convenient', 'good time', 'best time', 'preferred time'
+- 'morning', 'afternoon', 'evening', 'anytime'
+- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
+- 'weekend', 'weekday', 'business hours'
+- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+- '15 minutes', '30 minutes', '1 hour', 'brief call'
+- 'demo', 'presentation', 'overview', 'introduction'
+
+BUSY/NOT_AVAILABLE KEYWORDS:
+- 'busy', 'not available', 'can't', 'unfortunately'
+- 'no', 'not interested', 'not right now', 'not at this time'
+- 'I can't', 'I won't', 'I don't', 'I'm not'
+- 'too busy', 'very busy', 'extremely busy', 'swamped'
+- 'no time', 'no availability', 'no openings'
+- 'not possible', 'not feasible', 'not doable'
+- 'maybe later', 'some other time', 'not now'
+- 'I'll pass', 'not for me', 'not interested'
+- 'decline', 'refuse', 'reject', 'turn down'
+- 'not a good time', 'bad timing', 'wrong time'
+- 'tied up', 'booked', 'scheduled', 'committed'
+- 'out of town', 'traveling', 'on vacation'
+- 'sick', 'ill', 'not feeling well'
+- 'family emergency', 'personal issues', 'urgent matters'
+
+SCHEDULING_REQUEST KEYWORDS:
+- 'when', 'what time', 'schedule', 'book', 'arrange'
+- 'what day', 'which day', 'what works', 'when works'
+- 'availability', 'free time', 'open time', 'schedule time'
+- 'calendar', 'agenda', 'appointment', 'meeting'
+- 'call me at', 'reach me at', 'contact me at'
+- 'best time', 'convenient time', 'preferred time'
+- 'morning', 'afternoon', 'evening', 'anytime'
+- 'this week', 'next week', 'soon', 'asap'
+- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
+- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+
+NEEDS_MORE_INFO KEYWORDS:
+- 'more info', 'tell me more', 'details', 'information'
+- 'what is', 'what are', 'how does', 'how do'
+- 'explain', 'describe', 'elaborate', 'clarify'
+- 'I need to know', 'I want to understand', 'I'd like to know'
+- 'can you tell me', 'could you explain', 'would you mind'
+- 'what about', 'how about', 'tell me about'
+- 'I'm curious', 'I'm wondering', 'I have questions'
+- 'before I decide', 'before we proceed', 'before we meet'
+- 'what exactly', 'what specifically', 'what precisely'
+- 'more details', 'additional info', 'further information'
+
+POSITIVE SENTIMENT KEYWORDS:
+- 'great', 'excellent', 'wonderful', 'fantastic', 'amazing'
+- 'perfect', 'ideal', 'exactly', 'precisely', 'spot on'
+- 'love it', 'love this', 'love the idea', 'love to'
+- 'excited', 'thrilled', 'enthusiastic', 'eager'
+- 'looking forward', 'can't wait', 'excited to'
+- 'thank you', 'thanks', 'appreciate', 'grateful'
+- 'yes', 'absolutely', 'definitely', 'of course', 'certainly'
+- 'sounds good', 'sounds great', 'sounds perfect'
+- 'that works', 'that's perfect', 'that's great'
+- 'I'm in', 'count me in', 'sign me up'
+
+NEGATIVE SENTIMENT KEYWORDS:
+- 'not interested', 'not right for me', 'not a fit'
+- 'no thanks', 'no thank you', 'pass', 'I'll pass'
+- 'not now', 'not at this time', 'maybe later'
+- 'too busy', 'no time', 'can't', 'won't'
+- 'not possible', 'not feasible', 'not doable'
+- 'decline', 'refuse', 'reject', 'turn down'
+- 'not a good time', 'bad timing', 'wrong time'
+
+Determine:
+1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request
+2. Sentiment: positive, neutral, negative
+3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability
+4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)
+5. Lead Score: 1-10 (10 being highest conversion potential)
+6. Is Positive: true/false (true if interested, available, or positive sentiment)
+
+Respond in JSON format only.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
@@ -342,7 +444,108 @@ class CallManagerController extends Controller
             
             // Analyze reply with AI
             $chatGPT = new ChatGPT();
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:\n\nOriginal Call Message: {$call->original_message}\nReply: {$data['message']}\n\nIMPORTANT: Look for these key indicators:\n- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested' = AVAILABLE/INTERESTED\n- 'busy', 'not available', 'can't', 'unfortunately' = BUSY/NOT_AVAILABLE\n- 'when', 'what time', 'schedule' = SCHEDULING_REQUEST\n- 'more info', 'tell me more', 'details' = NEEDS_MORE_INFO\n\nDetermine:\n1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request\n2. Sentiment: positive, neutral, negative\n3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability\n4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)\n5. Lead Score: 1-10 (10 being highest conversion potential)\n6. Is Positive: true/false (true if interested, available, or positive sentiment)\n\nRespond in JSON format only.";
+            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
+
+Original Call Message: {$call->original_message}
+Reply: {$data['message']}
+
+IMPORTANT: Look for these comprehensive key indicators:
+
+AVAILABLE/INTERESTED KEYWORDS:
+- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested'
+- 'yes', 'sure', 'absolutely', 'definitely', 'of course', 'certainly'
+- 'I can', 'I will', 'I would', 'I'd be happy to', 'I'd love to'
+- 'let's do it', 'let's meet', 'let's talk', 'let's connect'
+- 'when works for you', 'when are you free', 'when can we'
+- 'I'm free', 'I'm available', 'I'm open', 'I'm interested'
+- 'that works', 'that sounds good', 'that's perfect', 'that's great'
+- 'I'm in', 'count me in', 'sign me up', 'I'm game'
+- 'perfect timing', 'great timing', 'good timing'
+- 'I'd like to', 'I want to', 'I need to', 'I should'
+- 'schedule', 'book', 'arrange', 'set up', 'plan'
+- 'call me', 'reach out', 'get in touch', 'connect'
+- 'discuss', 'talk about', 'explore', 'learn more'
+- 'collaborate', 'work together', 'partnership'
+- 'opportunity', 'potential', 'possibility'
+- 'next week', 'this week', 'soon', 'asap', 'quickly'
+- 'convenient', 'good time', 'best time', 'preferred time'
+- 'morning', 'afternoon', 'evening', 'anytime'
+- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
+- 'weekend', 'weekday', 'business hours'
+- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+- '15 minutes', '30 minutes', '1 hour', 'brief call'
+- 'demo', 'presentation', 'overview', 'introduction'
+
+BUSY/NOT_AVAILABLE KEYWORDS:
+- 'busy', 'not available', 'can't', 'unfortunately'
+- 'no', 'not interested', 'not right now', 'not at this time'
+- 'I can't', 'I won't', 'I don't', 'I'm not'
+- 'too busy', 'very busy', 'extremely busy', 'swamped'
+- 'no time', 'no availability', 'no openings'
+- 'not possible', 'not feasible', 'not doable'
+- 'maybe later', 'some other time', 'not now'
+- 'I'll pass', 'not for me', 'not interested'
+- 'decline', 'refuse', 'reject', 'turn down'
+- 'not a good time', 'bad timing', 'wrong time'
+- 'tied up', 'booked', 'scheduled', 'committed'
+- 'out of town', 'traveling', 'on vacation'
+- 'sick', 'ill', 'not feeling well'
+- 'family emergency', 'personal issues', 'urgent matters'
+
+SCHEDULING_REQUEST KEYWORDS:
+- 'when', 'what time', 'schedule', 'book', 'arrange'
+- 'what day', 'which day', 'what works', 'when works'
+- 'availability', 'free time', 'open time', 'schedule time'
+- 'calendar', 'agenda', 'appointment', 'meeting'
+- 'call me at', 'reach me at', 'contact me at'
+- 'best time', 'convenient time', 'preferred time'
+- 'morning', 'afternoon', 'evening', 'anytime'
+- 'this week', 'next week', 'soon', 'asap'
+- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
+- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+
+NEEDS_MORE_INFO KEYWORDS:
+- 'more info', 'tell me more', 'details', 'information'
+- 'what is', 'what are', 'how does', 'how do'
+- 'explain', 'describe', 'elaborate', 'clarify'
+- 'I need to know', 'I want to understand', 'I'd like to know'
+- 'can you tell me', 'could you explain', 'would you mind'
+- 'what about', 'how about', 'tell me about'
+- 'I'm curious', 'I'm wondering', 'I have questions'
+- 'before I decide', 'before we proceed', 'before we meet'
+- 'what exactly', 'what specifically', 'what precisely'
+- 'more details', 'additional info', 'further information'
+
+POSITIVE SENTIMENT KEYWORDS:
+- 'great', 'excellent', 'wonderful', 'fantastic', 'amazing'
+- 'perfect', 'ideal', 'exactly', 'precisely', 'spot on'
+- 'love it', 'love this', 'love the idea', 'love to'
+- 'excited', 'thrilled', 'enthusiastic', 'eager'
+- 'looking forward', 'can't wait', 'excited to'
+- 'thank you', 'thanks', 'appreciate', 'grateful'
+- 'yes', 'absolutely', 'definitely', 'of course', 'certainly'
+- 'sounds good', 'sounds great', 'sounds perfect'
+- 'that works', 'that's perfect', 'that's great'
+- 'I'm in', 'count me in', 'sign me up'
+
+NEGATIVE SENTIMENT KEYWORDS:
+- 'not interested', 'not right for me', 'not a fit'
+- 'no thanks', 'no thank you', 'pass', 'I'll pass'
+- 'not now', 'not at this time', 'maybe later'
+- 'too busy', 'no time', 'can't', 'won't'
+- 'not possible', 'not feasible', 'not doable'
+- 'decline', 'refuse', 'reject', 'turn down'
+- 'not a good time', 'bad timing', 'wrong time'
+
+Determine:
+1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request
+2. Sentiment: positive, neutral, negative
+3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability
+4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)
+5. Lead Score: 1-10 (10 being highest conversion potential)
+6. Is Positive: true/false (true if interested, available, or positive sentiment)
+
+Respond in JSON format only.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
