@@ -37,6 +37,8 @@ Route::get('calls/{id}/response', [CallManagerController::class, 'checkCallRespo
 Route::post('calls/{id}/calendar-link', [CallManagerController::class, 'generateCalendarLinkForCall']);
 Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
 Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
+Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
+Route::get('calls/{id}/conversation', [CallManagerController::class, 'getConversationHistory']);
 
 Route::controller(LeadController::class)->group(function (){
     Route::get('leads/export', 'export')->name('leads.export');

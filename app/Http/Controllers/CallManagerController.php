@@ -509,7 +509,23 @@ Focus on understanding the human behind the message, not just matching words.";
             // Update call status based on AI analysis
             $newStatus = $this->determineCallStatus($analysis['intent'] ?? 'unknown');
             
-            $call->update([
+            // Add AI response to conversation history
+            $aiResponse = [
+                'type' => 'ai_response',
+                'message' => $analysis['suggested_response'] ?? 'Thank you for your response. I\'ll follow up with you soon.',
+                'timestamp' => now()->toISOString(),
+                'intent' => $analysis['intent'] ?? 'unknown',
+                'sentiment' => $analysis['sentiment'] ?? 'neutral',
+                'lead_score' => $analysis['lead_score'] ?? 5,
+                'is_positive' => $analysis['is_positive'] ?? false,
+                'next_action' => $analysis['next_action'] ?? 'follow_up_later',
+                'reasoning' => $analysis['reasoning'] ?? ''
+            ];
+            
+            $conversationHistory[] = $aiResponse;
+            
+            // Prepare update data
+            $updateData = [
                 'call_status' => $newStatus,
                 'conversation_history' => json_encode($conversationHistory),
                 'ai_analysis' => $analysis,
@@ -517,7 +533,26 @@ Focus on understanding the human behind the message, not just matching words.";
                 'lead_score' => $analysis['lead_score'] ?? 5,
                 'last_interaction_at' => now(),
                 'interaction_count' => $call->interaction_count + 1
-            ]);
+            ];
+            
+            // If this is a positive response that should trigger calendar link, prepare for scheduling
+            if (($analysis['is_positive'] ?? false) || 
+                in_array($analysis['intent'] ?? '', ['available', 'interested', 'scheduling_request']) ||
+                ($analysis['lead_score'] ?? 0) >= 7) {
+                
+                // Generate calendar link if not already present
+                if (!$call->calendar_link) {
+                    $calendarLink = $this->generateCalendarLink($call);
+                    $updateData['calendar_link'] = $calendarLink;
+                }
+                
+                // Update status to scheduling_initiated if it's a positive response
+                if ($newStatus !== 'scheduling_initiated') {
+                    $updateData['call_status'] = 'scheduling_initiated';
+                }
+            }
+            
+            $call->update($updateData);
             
             // Trigger appropriate action based on AI analysis
             $this->triggerAIAction($call, $analysis);
@@ -873,6 +908,151 @@ Keep it under 100 words.";
                 'hasResponse' => false,
                 'error' => 'Failed to check response: ' . $th->getMessage()
             ], 422);
+        }
+    }
+
+    /**
+     * Store conversation message in call_status table
+     */
+    public function storeConversationMessage(Request $request)
+    {
+        $data = $request->validate([
+            'call_id' => 'required|string',
+            'message' => 'required|string',
+            'sender' => 'required|string|in:lead,ai,user',
+            'message_type' => 'nullable|string',
+            'ai_analysis' => 'nullable|array',
+            'lead_name' => 'nullable|string',
+            'connection_id' => 'nullable|string',
+            'conversation_urn_id' => 'nullable|string'
+        ]);
+
+        try {
+            // Find the call record
+            $call = CallStatus::where('id', $data['call_id'])
+                ->orWhere('connection_id', $data['call_id'])
+                ->first();
+
+            if (!$call) {
+                // Create a new call record if it doesn't exist
+                $call = CallStatus::create([
+                    'recipient' => $data['lead_name'] ?? 'Unknown Lead',
+                    'connection_id' => $data['connection_id'],
+                    'conversation_urn_id' => $data['conversation_urn_id'],
+                    'call_status' => 'initial',
+                    'user_id' => Auth::id(),
+                    'conversation_history' => json_encode([]),
+                    'interaction_count' => 0,
+                    'last_interaction_at' => now()
+                ]);
+            }
+
+            // Get existing conversation history
+            $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
+
+            // Create message entry
+            $messageEntry = [
+                'type' => $data['sender'],
+                'message' => $data['message'],
+                'timestamp' => now()->toISOString(),
+                'message_type' => $data['message_type'] ?? 'text'
+            ];
+
+            // Add AI analysis if provided
+            if ($data['ai_analysis'] && $data['sender'] === 'ai') {
+                $messageEntry['ai_analysis'] = $data['ai_analysis'];
+                $messageEntry['intent'] = $data['ai_analysis']['intent'] ?? 'unknown';
+                $messageEntry['sentiment'] = $data['ai_analysis']['sentiment'] ?? 'neutral';
+                $messageEntry['lead_score'] = $data['ai_analysis']['lead_score'] ?? 5;
+                $messageEntry['is_positive'] = $data['ai_analysis']['is_positive'] ?? false;
+            }
+
+            // Add to conversation history
+            $conversationHistory[] = $messageEntry;
+
+            // Update call record
+            $updateData = [
+                'conversation_history' => json_encode($conversationHistory),
+                'last_interaction_at' => now(),
+                'interaction_count' => $call->interaction_count + 1
+            ];
+
+            // Update AI analysis and lead scoring if this is an AI response
+            if ($data['sender'] === 'ai' && $data['ai_analysis']) {
+                $analysis = $data['ai_analysis'];
+                $updateData['ai_analysis'] = $analysis;
+                $updateData['lead_category'] = $this->categorizeLead($analysis);
+                $updateData['lead_score'] = $analysis['lead_score'] ?? 5;
+                
+                // Update call status based on analysis
+                if (isset($analysis['intent'])) {
+                    $updateData['call_status'] = $this->determineCallStatus($analysis['intent']);
+                }
+
+                // Generate calendar link for positive responses
+                if (($analysis['is_positive'] ?? false) || 
+                    in_array($analysis['intent'] ?? '', ['available', 'interested', 'scheduling_request']) ||
+                    ($analysis['lead_score'] ?? 0) >= 7) {
+                    
+                    if (!$call->calendar_link) {
+                        $updateData['calendar_link'] = $this->generateCalendarLink($call);
+                    }
+                    
+                    if ($updateData['call_status'] !== 'scheduling_initiated') {
+                        $updateData['call_status'] = 'scheduling_initiated';
+                    }
+                }
+            }
+
+            $call->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Conversation message stored successfully',
+                'call_id' => $call->id,
+                'conversation_count' => count($conversationHistory)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to store conversation message: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to store message: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get conversation history for a call
+     */
+    public function getConversationHistory(Request $request, $callId)
+    {
+        try {
+            $call = CallStatus::where('id', $callId)
+                ->orWhere('connection_id', $callId)
+                ->firstOrFail();
+
+            $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
+
+            return response()->json([
+                'success' => true,
+                'call_id' => $call->id,
+                'recipient' => $call->recipient,
+                'call_status' => $call->call_status,
+                'lead_category' => $call->lead_category,
+                'lead_score' => $call->lead_score,
+                'calendar_link' => $call->calendar_link,
+                'conversation_history' => $conversationHistory,
+                'total_messages' => count($conversationHistory),
+                'last_interaction' => $call->last_interaction_at
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to retrieve conversation: ' . $e->getMessage()
+            ], 500);
         }
     }
 
