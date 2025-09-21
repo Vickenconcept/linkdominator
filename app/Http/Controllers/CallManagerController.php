@@ -132,7 +132,7 @@ class CallManagerController extends Controller
         $user = User::where('linkedin_id', $request->header('lk-id'))->first();
 
         // Generate AI-powered call message if not provided
-        $originalMessage = $request->original_message;
+        $originalMessage = $request->original_message ?? null;
         
         Log::info('🔍 Call message generation debug', [
             'original_message_provided' => $originalMessage,
@@ -276,15 +276,35 @@ class CallManagerController extends Controller
         $data = $request->validate([
             'message' => 'required|string',
             'leadName' => 'required|string',
-            'context' => 'nullable|string'
+            'context' => 'nullable|string',
+            'original_message' => 'nullable|string',
+            'call_id' => 'nullable|string'
         ]);
 
         try {
+            // Get original message if not provided or if call_id is provided
+            $originalMessage = $data['original_message'] ?? null;
+            if (!$originalMessage && $data['call_id']) {
+                $call = CallStatus::where('id', $data['call_id'])
+                    ->orWhere('connection_id', $data['call_id'])
+                    ->first();
+                if ($call) {
+                    $originalMessage = $call->original_message ?? 'No original message available';
+                }
+            }
+            
             // Analyze reply with AI using intelligent context analysis
             $chatGPT = new ChatGPT();
             $context = $data['context'] ?? 'LinkedIn message response analysis';
-            $analysisPrompt = "You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
+            
+            // Build the analysis prompt with original message context
+            $originalMessageText = $originalMessage ?: 'Not provided - this appears to be the start of the conversation';
+            
+            // Use heredoc syntax for maximum reliability
+            $analysisPrompt = <<<EOD
+You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
 
+ORIGINAL CALL MESSAGE: {$originalMessageText}
 REPLY MESSAGE: {$data['message']}
 LEAD NAME: {$data['leadName']}
 CONTEXT: {$context}
@@ -292,24 +312,30 @@ CONTEXT: {$context}
 ANALYSIS INSTRUCTIONS:
 Analyze the reply message by understanding the context, tone, and underlying intent. Look beyond simple keyword matching and focus on:
 
-1. **Intent Analysis**: What is the person actually trying to communicate?
+1. **Conversation Context**: First, understand how this reply relates to the original call message
+   - What was the original purpose of the conversation?
+   - How does this reply show progression in the conversation?
+   - Is the person responding to the specific call request or going off-topic?
+
+2. **Intent Analysis**: What is the person actually trying to communicate?
    - Are they expressing genuine interest in scheduling a call?
    - Are they politely declining or showing disinterest?
    - Are they asking for more information before deciding?
    - Are they suggesting alternative times or methods?
    - Are they being evasive or non-committal?
 
-2. **Sentiment Analysis**: What is the emotional tone and attitude?
+3. **Sentiment Analysis**: What is the emotional tone and attitude?
    - Positive: Enthusiastic, excited, eager, grateful
    - Neutral: Professional, matter-of-fact, cautious
    - Negative: Dismissive, frustrated, uninterested, annoyed
 
-3. **Context Understanding**: Consider the full conversation context
-   - How does this reply relate to the call request?
+4. **Context Understanding**: Consider the full conversation context
+   - How does this reply relate to the original call request?
    - Are there any subtle cues about their availability or interest level?
    - What might they be thinking or feeling based on their response?
+   - Does their reply show they remember/understand the original message?
 
-4. **Actionable Insights**: What should be the next step?
+5. **Actionable Insights**: What should be the next step?
    - If interested: How can we move forward with scheduling?
    - If hesitant: What information might help them decide?
    - If declining: Is there a way to maintain the relationship?
@@ -317,18 +343,19 @@ Analyze the reply message by understanding the context, tone, and underlying int
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
-  \"intent\": \"available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request\",
-  \"sentiment\": \"positive|neutral|negative\",
-  \"next_action\": \"schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability\",
-  \"suggested_response\": \"Appropriate follow-up message based on analysis\",
-  \"lead_score\": 1-10,
-  \"is_positive\": true|false,
-  \"reasoning\": \"Brief explanation of your analysis\"
+  "intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request",
+  "sentiment": "positive|neutral|negative",
+  "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability",
+  "suggested_response": "Appropriate follow-up message based on analysis",
+  "lead_score": 1-10,
+  "is_positive": true|false,
+  "reasoning": "Brief explanation of your analysis"
 }
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind the message, not just matching words.";
+Focus on understanding the human behind the message, not just matching words.
+EOD;
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
@@ -416,9 +443,13 @@ Focus on understanding the human behind the message, not just matching words.";
             
             // Analyze reply with AI using intelligent context analysis
             $chatGPT = new ChatGPT();
-            $analysisPrompt = "You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
+            
+            // Use heredoc syntax for maximum reliability
+            $originalMessageText = $call->original_message ?? 'No original message available';
+            $analysisPrompt = <<<EOD
+You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
 
-ORIGINAL CALL MESSAGE: {$call->original_message}
+ORIGINAL CALL MESSAGE: {$originalMessageText}
 REPLY MESSAGE: {$data['message']}
 
 ANALYSIS INSTRUCTIONS:
@@ -449,18 +480,19 @@ Analyze the reply message by understanding the context, tone, and underlying int
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
-  \"intent\": \"available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request\",
-  \"sentiment\": \"positive|neutral|negative\",
-  \"next_action\": \"schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability\",
-  \"suggested_response\": \"Appropriate follow-up message based on analysis\",
-  \"lead_score\": 1-10,
-  \"is_positive\": true|false,
-  \"reasoning\": \"Brief explanation of your analysis\"
+  "intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request",
+  "sentiment": "positive|neutral|negative",
+  "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability",
+  "suggested_response": "Appropriate follow-up message based on analysis",
+  "lead_score": 1-10,
+  "is_positive": true|false,
+  "reasoning": "Brief explanation of your analysis"
 }
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind the message, not just matching words.";
+Focus on understanding the human behind the message, not just matching words.
+EOD;
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
@@ -702,12 +734,13 @@ Focus on understanding the human behind the message, not just matching words.";
         try {
             $chatGPT = new ChatGPT();
             
+            $originalMessageText = $call->original_message ?? 'No original message available';
             $prompt = "Generate a professional message to schedule a call with this lead:
 
 Lead: {$call->recipient}
 Company: {$call->company}
 Industry: {$call->industry}
-Original Message: {$call->original_message}
+Original Message: {$originalMessageText}
 
 Create a message that:
 1. Acknowledges their interest
@@ -803,17 +836,19 @@ Keep it under 100 words.";
             ], 404);
         }
 
+        $originalMessage = $call->original_message ?? 'No AI message generated yet';
+
         $response = [
-            'message' => $call->original_message ?? 'No AI message generated yet',
+            'message' => $originalMessage,
             'call_id' => $call->id,
             'recipient' => $call->recipient,
-            'original_message' => $call->original_message
+            'original_message' => $originalMessage
         ];
         
         Log::info('🔍 getCallMessage response', [
             'call_id' => $call->id,
             'recipient' => $call->recipient,
-            'original_message' => $call->original_message,
+            'original_message' => $originalMessage,
             'response' => $response
         ]);
         
@@ -927,6 +962,9 @@ Keep it under 100 words.";
             'conversation_urn_id' => 'nullable|string'
         ]);
 
+        // Ensure ai_analysis is always set, even if null
+        $data['ai_analysis'] = $data['ai_analysis'] ?? null;
+
         try {
             // Find the call record
             $call = CallStatus::where('id', $data['call_id'])
@@ -935,15 +973,17 @@ Keep it under 100 words.";
 
             if (!$call) {
                 // Create a new call record if it doesn't exist
+                $userId = Auth::id() ?? 1; // Default to user ID 1 if not authenticated
                 $call = CallStatus::create([
                     'recipient' => $data['lead_name'] ?? 'Unknown Lead',
                     'connection_id' => $data['connection_id'],
                     'conversation_urn_id' => $data['conversation_urn_id'],
                     'call_status' => 'initial',
-                    'user_id' => Auth::id(),
+                    'user_id' => $userId,
                     'conversation_history' => json_encode([]),
                     'interaction_count' => 0,
-                    'last_interaction_at' => now()
+                    'last_interaction_at' => now(),
+                    'original_message' => 'Initial conversation started'
                 ]);
             }
 
@@ -959,7 +999,7 @@ Keep it under 100 words.";
             ];
 
             // Add AI analysis if provided
-            if ($data['ai_analysis'] && $data['sender'] === 'ai') {
+            if (isset($data['ai_analysis']) && $data['ai_analysis'] && $data['sender'] === 'ai') {
                 $messageEntry['ai_analysis'] = $data['ai_analysis'];
                 $messageEntry['intent'] = $data['ai_analysis']['intent'] ?? 'unknown';
                 $messageEntry['sentiment'] = $data['ai_analysis']['sentiment'] ?? 'neutral';
@@ -978,7 +1018,7 @@ Keep it under 100 words.";
             ];
 
             // Update AI analysis and lead scoring if this is an AI response
-            if ($data['sender'] === 'ai' && $data['ai_analysis']) {
+            if ($data['sender'] === 'ai' && isset($data['ai_analysis']) && $data['ai_analysis']) {
                 $analysis = $data['ai_analysis'];
                 $updateData['ai_analysis'] = $analysis;
                 $updateData['lead_category'] = $this->categorizeLead($analysis);
