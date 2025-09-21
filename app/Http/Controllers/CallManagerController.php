@@ -204,6 +204,7 @@ class CallManagerController extends Controller
             'original_message' => $originalMessage,
             'campaign_id' => $request->campaign_id,
             'campaign_name' => $request->campaign_name ?? $request->sequence,
+            'conversation_history' => json_encode([]), // Initialize empty conversation history
             'last_interaction_at' => now(),
             'interaction_count' => 1,
         ];
@@ -228,7 +229,9 @@ class CallManagerController extends Controller
 
         Log::info('✅ CallStatus created', [
             'call_id' => $callStatus->id,
-            'original_message_saved' => $callStatus->original_message
+            'original_message_saved' => $callStatus->original_message,
+            'conversation_history_initialized' => $callStatus->conversation_history,
+            'connection_id' => $callStatus->connection_id
         ]);
 
         return response()->json([
@@ -966,25 +969,23 @@ Keep it under 100 words.";
         $data['ai_analysis'] = $data['ai_analysis'] ?? null;
 
         try {
-            // Find the call record
+            // Find the call record - it should already exist from initial storeCallStatus call
             $call = CallStatus::where('id', $data['call_id'])
                 ->orWhere('connection_id', $data['call_id'])
                 ->first();
 
             if (!$call) {
-                // Create a new call record if it doesn't exist
-                $userId = Auth::id() ?? 1; // Default to user ID 1 if not authenticated
-                $call = CallStatus::create([
-                    'recipient' => $data['lead_name'] ?? 'Unknown Lead',
+                // This should never happen - call should exist from initial storeCallStatus
+                Log::error('❌ Call record not found for conversation message', [
+                    'call_id' => $data['call_id'],
                     'connection_id' => $data['connection_id'],
-                    'conversation_urn_id' => $data['conversation_urn_id'],
-                    'call_status' => 'initial',
-                    'user_id' => $userId,
-                    'conversation_history' => json_encode([]),
-                    'interaction_count' => 0,
-                    'last_interaction_at' => now(),
-                    'original_message' => 'Initial conversation started'
+                    'lead_name' => $data['lead_name']
                 ]);
+                
+                return response()->json([
+                    'message' => 'Call record not found. Please ensure the call was properly initialized first.',
+                    'error' => 'CALL_NOT_FOUND'
+                ], 404);
             }
 
             // Get existing conversation history
