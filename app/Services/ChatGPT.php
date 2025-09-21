@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ChatGPT
 {
@@ -33,8 +34,8 @@ class ChatGPT
     {
         $this->params = $params;
         $this->token = config('services.chatgpt.key');
-        $this->temperature = 0.6;
-        $this->max_token = 500;
+        $this->temperature = 0.3; // Lower temperature for more consistent analysis
+        $this->max_token = 1000; // Increased for more detailed analysis
     }
 
     public function generate()
@@ -120,7 +121,7 @@ class ChatGPT
 
     public function generateContent($prompt)
     {
-        \Log::info('🤖 ChatGPT generateContent called', [
+        Log::info('🤖 ChatGPT generateContent called', [
             'prompt' => $prompt,
             'model' => 'gpt-4o-mini',
             'max_tokens' => $this->max_token,
@@ -135,7 +136,7 @@ class ChatGPT
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'You are an expert LinkedIn lead analysis assistant. Analyze messages and provide structured responses for lead qualification and conversation management.'],
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn conversation analyst specializing in lead qualification and call scheduling. You understand human communication patterns, context, and subtle cues. Analyze messages intelligently by understanding the underlying intent, sentiment, and context rather than relying on keyword matching. Provide structured, actionable insights for conversation management.'],
                         ['role' => 'user', 'content' => $prompt],
                     ],
                     'max_tokens' => $this->max_token,
@@ -145,11 +146,11 @@ class ChatGPT
                 ->throw()
                 ->json();
                 
-            \Log::info('✅ ChatGPT API response successful', [
+            Log::info('✅ ChatGPT API response successful', [
                 'response' => $response
             ]);
         } catch (\Throwable $th) {
-            \Log::error('❌ ChatGPT API call failed', [
+            Log::error('❌ ChatGPT API call failed', [
                 'error' => $th->getMessage(),
                 'trace' => $th->getTraceAsString()
             ]);
@@ -172,10 +173,47 @@ class ChatGPT
             $words = count(explode(" ", $content));
         }
 
+        // Clean up the content to ensure it's valid JSON
+        $content = $this->cleanJsonResponse($content);
+
         return [
             'content' => $content,
             'words' => $words
         ];
+    }
+
+    /**
+     * Clean and validate JSON response from AI
+     */
+    private function cleanJsonResponse($content)
+    {
+        // Remove any markdown formatting
+        $content = preg_replace('/```json\s*/', '', $content);
+        $content = preg_replace('/```\s*$/', '', $content);
+        
+        // Remove any leading/trailing whitespace
+        $content = trim($content);
+        
+        // Try to find JSON object in the response
+        if (preg_match('/\{.*\}/s', $content, $matches)) {
+            $content = $matches[0];
+        }
+        
+        // Validate JSON
+        $decoded = json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::warning('⚠️ AI returned invalid JSON, attempting to fix', [
+                'original_content' => $content,
+                'json_error' => json_last_error_msg()
+            ]);
+            
+            // Try to fix common JSON issues
+            $content = str_replace(["\n", "\r"], '', $content);
+            $content = preg_replace('/,\s*}/', '}', $content);
+            $content = preg_replace('/,\s*]/', ']', $content);
+        }
+        
+        return $content;
     }
 
     /**
@@ -191,7 +229,7 @@ class ChatGPT
             'language' => 'English'
         ];
 
-        \Log::info('🤖 ChatGPT generateCallMessage called', [
+        Log::info('🤖 ChatGPT generateCallMessage called', [
             'data' => $data,
             'api_key_exists' => !empty($this->token),
             'api_key_length' => strlen($this->token ?? '')
@@ -200,7 +238,7 @@ class ChatGPT
         $this->params = $data;
         $result = $this->generate();
         
-        \Log::info('🤖 ChatGPT generateCallMessage result', [
+        Log::info('🤖 ChatGPT generateCallMessage result', [
             'result' => $result
         ]);
         

@@ -280,118 +280,73 @@ class CallManagerController extends Controller
         ]);
 
         try {
-            // Analyze reply with AI
+            // Analyze reply with AI using intelligent context analysis
             $chatGPT = new ChatGPT();
             $context = $data['context'] ?? 'LinkedIn message response analysis';
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
+            $analysisPrompt = "You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
 
-Reply: {$data['message']}
-Lead Name: {$data['leadName']}
-Context: {$context}
+REPLY MESSAGE: {$data['message']}
+LEAD NAME: {$data['leadName']}
+CONTEXT: {$context}
 
-IMPORTANT: Look for these comprehensive key indicators:
+ANALYSIS INSTRUCTIONS:
+Analyze the reply message by understanding the context, tone, and underlying intent. Look beyond simple keyword matching and focus on:
 
-AVAILABLE/INTERESTED KEYWORDS:
-- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested'
-- 'yes', 'sure', 'absolutely', 'definitely', 'of course', 'certainly'
-- 'I can', 'I will', 'I would', 'I'd be happy to', 'I'd love to'
-- 'let's do it', 'let's meet', 'let's talk', 'let's connect'
-- 'when works for you', 'when are you free', 'when can we'
-- 'I'm free', 'I'm available', 'I'm open', 'I'm interested'
-- 'that works', 'that sounds good', 'that's perfect', 'that's great'
-- 'I'm in', 'count me in', 'sign me up', 'I'm game'
-- 'perfect timing', 'great timing', 'good timing'
-- 'I'd like to', 'I want to', 'I need to', 'I should'
-- 'schedule', 'book', 'arrange', 'set up', 'plan'
-- 'call me', 'reach out', 'get in touch', 'connect'
-- 'discuss', 'talk about', 'explore', 'learn more'
-- 'collaborate', 'work together', 'partnership'
-- 'opportunity', 'potential', 'possibility'
-- 'next week', 'this week', 'soon', 'asap', 'quickly'
-- 'convenient', 'good time', 'best time', 'preferred time'
-- 'morning', 'afternoon', 'evening', 'anytime'
-- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
-- 'weekend', 'weekday', 'business hours'
-- 'zoom', 'teams', 'meet', 'video call', 'phone call'
-- '15 minutes', '30 minutes', '1 hour', 'brief call'
-- 'demo', 'presentation', 'overview', 'introduction'
+1. **Intent Analysis**: What is the person actually trying to communicate?
+   - Are they expressing genuine interest in scheduling a call?
+   - Are they politely declining or showing disinterest?
+   - Are they asking for more information before deciding?
+   - Are they suggesting alternative times or methods?
+   - Are they being evasive or non-committal?
 
-BUSY/NOT_AVAILABLE KEYWORDS:
-- 'busy', 'not available', 'can't', 'unfortunately'
-- 'no', 'not interested', 'not right now', 'not at this time'
-- 'I can't', 'I won't', 'I don't', 'I'm not'
-- 'too busy', 'very busy', 'extremely busy', 'swamped'
-- 'no time', 'no availability', 'no openings'
-- 'not possible', 'not feasible', 'not doable'
-- 'maybe later', 'some other time', 'not now'
-- 'I'll pass', 'not for me', 'not interested'
-- 'decline', 'refuse', 'reject', 'turn down'
-- 'not a good time', 'bad timing', 'wrong time'
-- 'tied up', 'booked', 'scheduled', 'committed'
-- 'out of town', 'traveling', 'on vacation'
-- 'sick', 'ill', 'not feeling well'
-- 'family emergency', 'personal issues', 'urgent matters'
+2. **Sentiment Analysis**: What is the emotional tone and attitude?
+   - Positive: Enthusiastic, excited, eager, grateful
+   - Neutral: Professional, matter-of-fact, cautious
+   - Negative: Dismissive, frustrated, uninterested, annoyed
 
-SCHEDULING_REQUEST KEYWORDS:
-- 'when', 'what time', 'schedule', 'book', 'arrange'
-- 'what day', 'which day', 'what works', 'when works'
-- 'availability', 'free time', 'open time', 'schedule time'
-- 'calendar', 'agenda', 'appointment', 'meeting'
-- 'call me at', 'reach me at', 'contact me at'
-- 'best time', 'convenient time', 'preferred time'
-- 'morning', 'afternoon', 'evening', 'anytime'
-- 'this week', 'next week', 'soon', 'asap'
-- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
-- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+3. **Context Understanding**: Consider the full conversation context
+   - How does this reply relate to the call request?
+   - Are there any subtle cues about their availability or interest level?
+   - What might they be thinking or feeling based on their response?
 
-NEEDS_MORE_INFO KEYWORDS:
-- 'more info', 'tell me more', 'details', 'information'
-- 'what is', 'what are', 'how does', 'how do'
-- 'explain', 'describe', 'elaborate', 'clarify'
-- 'I need to know', 'I want to understand', 'I'd like to know'
-- 'can you tell me', 'could you explain', 'would you mind'
-- 'what about', 'how about', 'tell me about'
-- 'I'm curious', 'I'm wondering', 'I have questions'
-- 'before I decide', 'before we proceed', 'before we meet'
-- 'what exactly', 'what specifically', 'what precisely'
-- 'more details', 'additional info', 'further information'
+4. **Actionable Insights**: What should be the next step?
+   - If interested: How can we move forward with scheduling?
+   - If hesitant: What information might help them decide?
+   - If declining: Is there a way to maintain the relationship?
+   - If asking questions: What do they need to know?
 
-POSITIVE SENTIMENT KEYWORDS:
-- 'great', 'excellent', 'wonderful', 'fantastic', 'amazing'
-- 'perfect', 'ideal', 'exactly', 'precisely', 'spot on'
-- 'love it', 'love this', 'love the idea', 'love to'
-- 'excited', 'thrilled', 'enthusiastic', 'eager'
-- 'looking forward', 'can't wait', 'excited to'
-- 'thank you', 'thanks', 'appreciate', 'grateful'
-- 'yes', 'absolutely', 'definitely', 'of course', 'certainly'
-- 'sounds good', 'sounds great', 'sounds perfect'
-- 'that works', 'that's perfect', 'that's great'
-- 'I'm in', 'count me in', 'sign me up'
+REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
+{
+  \"intent\": \"available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request\",
+  \"sentiment\": \"positive|neutral|negative\",
+  \"next_action\": \"schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability\",
+  \"suggested_response\": \"Appropriate follow-up message based on analysis\",
+  \"lead_score\": 1-10,
+  \"is_positive\": true|false,
+  \"reasoning\": \"Brief explanation of your analysis\"
+}
 
-NEGATIVE SENTIMENT KEYWORDS:
-- 'not interested', 'not right for me', 'not a fit'
-- 'no thanks', 'no thank you', 'pass', 'I'll pass'
-- 'not now', 'not at this time', 'maybe later'
-- 'too busy', 'no time', 'can't', 'won't'
-- 'not possible', 'not feasible', 'not doable'
-- 'decline', 'refuse', 'reject', 'turn down'
-- 'not a good time', 'bad timing', 'wrong time'
+CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Determine:
-1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request
-2. Sentiment: positive, neutral, negative
-3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability
-4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)
-5. Lead Score: 1-10 (10 being highest conversion potential)
-6. Is Positive: true/false (true if interested, available, or positive sentiment)
-
-Respond in JSON format only.";
+Focus on understanding the human behind the message, not just matching words.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
             
+            // Log the raw AI response for debugging
+            Log::info('🤖 AI Analysis Raw Response', [
+                'raw_content' => $aiAnalysis['content'],
+                'json_decode_result' => $analysis,
+                'json_last_error' => json_last_error_msg()
+            ]);
+            
             // Ensure we have the required fields
-            if (!$analysis) {
+            if (!$analysis || json_last_error() !== JSON_ERROR_NONE) {
+                Log::warning('⚠️ AI Analysis failed or returned invalid JSON, using fallback', [
+                    'raw_content' => $aiAnalysis['content'],
+                    'json_error' => json_last_error_msg()
+                ]);
+                
                 $analysis = [
                     'intent' => 'unknown',
                     'sentiment' => 'neutral',
@@ -400,6 +355,23 @@ Respond in JSON format only.";
                     'nextAction' => 'follow_up_later',
                     'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
                 ];
+            } else {
+                // Validate that we have the required fields
+                $analysis = array_merge([
+                    'intent' => 'unknown',
+                    'sentiment' => 'neutral',
+                    'leadScore' => 5,
+                    'isPositive' => false,
+                    'nextAction' => 'follow_up_later',
+                    'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
+                ], $analysis);
+                
+                Log::info('✅ AI Analysis successful', [
+                    'intent' => $analysis['intent'],
+                    'sentiment' => $analysis['sentiment'],
+                    'leadScore' => $analysis['leadScore'],
+                    'isPositive' => $analysis['isPositive']
+                ]);
             }
 
             return response()->json([
@@ -442,113 +414,97 @@ Respond in JSON format only.";
                 'timestamp' => now()->toISOString()
             ];
             
-            // Analyze reply with AI
+            // Analyze reply with AI using intelligent context analysis
             $chatGPT = new ChatGPT();
-            $analysisPrompt = "Analyze this LinkedIn message reply for call scheduling intent:
+            $analysisPrompt = "You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
 
-Original Call Message: {$call->original_message}
-Reply: {$data['message']}
+ORIGINAL CALL MESSAGE: {$call->original_message}
+REPLY MESSAGE: {$data['message']}
 
-IMPORTANT: Look for these comprehensive key indicators:
+ANALYSIS INSTRUCTIONS:
+Analyze the reply message by understanding the context, tone, and underlying intent. Look beyond simple keyword matching and focus on:
 
-AVAILABLE/INTERESTED KEYWORDS:
-- 'available', 'free', 'open', 'can meet', 'sounds good', 'interested'
-- 'yes', 'sure', 'absolutely', 'definitely', 'of course', 'certainly'
-- 'I can', 'I will', 'I would', 'I'd be happy to', 'I'd love to'
-- 'let's do it', 'let's meet', 'let's talk', 'let's connect'
-- 'when works for you', 'when are you free', 'when can we'
-- 'I'm free', 'I'm available', 'I'm open', 'I'm interested'
-- 'that works', 'that sounds good', 'that's perfect', 'that's great'
-- 'I'm in', 'count me in', 'sign me up', 'I'm game'
-- 'perfect timing', 'great timing', 'good timing'
-- 'I'd like to', 'I want to', 'I need to', 'I should'
-- 'schedule', 'book', 'arrange', 'set up', 'plan'
-- 'call me', 'reach out', 'get in touch', 'connect'
-- 'discuss', 'talk about', 'explore', 'learn more'
-- 'collaborate', 'work together', 'partnership'
-- 'opportunity', 'potential', 'possibility'
-- 'next week', 'this week', 'soon', 'asap', 'quickly'
-- 'convenient', 'good time', 'best time', 'preferred time'
-- 'morning', 'afternoon', 'evening', 'anytime'
-- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
-- 'weekend', 'weekday', 'business hours'
-- 'zoom', 'teams', 'meet', 'video call', 'phone call'
-- '15 minutes', '30 minutes', '1 hour', 'brief call'
-- 'demo', 'presentation', 'overview', 'introduction'
+1. **Intent Analysis**: What is the person actually trying to communicate?
+   - Are they expressing genuine interest in scheduling a call?
+   - Are they politely declining or showing disinterest?
+   - Are they asking for more information before deciding?
+   - Are they suggesting alternative times or methods?
+   - Are they being evasive or non-committal?
 
-BUSY/NOT_AVAILABLE KEYWORDS:
-- 'busy', 'not available', 'can't', 'unfortunately'
-- 'no', 'not interested', 'not right now', 'not at this time'
-- 'I can't', 'I won't', 'I don't', 'I'm not'
-- 'too busy', 'very busy', 'extremely busy', 'swamped'
-- 'no time', 'no availability', 'no openings'
-- 'not possible', 'not feasible', 'not doable'
-- 'maybe later', 'some other time', 'not now'
-- 'I'll pass', 'not for me', 'not interested'
-- 'decline', 'refuse', 'reject', 'turn down'
-- 'not a good time', 'bad timing', 'wrong time'
-- 'tied up', 'booked', 'scheduled', 'committed'
-- 'out of town', 'traveling', 'on vacation'
-- 'sick', 'ill', 'not feeling well'
-- 'family emergency', 'personal issues', 'urgent matters'
+2. **Sentiment Analysis**: What is the emotional tone and attitude?
+   - Positive: Enthusiastic, excited, eager, grateful
+   - Neutral: Professional, matter-of-fact, cautious
+   - Negative: Dismissive, frustrated, uninterested, annoyed
 
-SCHEDULING_REQUEST KEYWORDS:
-- 'when', 'what time', 'schedule', 'book', 'arrange'
-- 'what day', 'which day', 'what works', 'when works'
-- 'availability', 'free time', 'open time', 'schedule time'
-- 'calendar', 'agenda', 'appointment', 'meeting'
-- 'call me at', 'reach me at', 'contact me at'
-- 'best time', 'convenient time', 'preferred time'
-- 'morning', 'afternoon', 'evening', 'anytime'
-- 'this week', 'next week', 'soon', 'asap'
-- 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
-- 'zoom', 'teams', 'meet', 'video call', 'phone call'
+3. **Context Understanding**: Consider the full conversation context
+   - How does this reply relate to the original call request?
+   - Are there any subtle cues about their availability or interest level?
+   - What might they be thinking or feeling based on their response?
 
-NEEDS_MORE_INFO KEYWORDS:
-- 'more info', 'tell me more', 'details', 'information'
-- 'what is', 'what are', 'how does', 'how do'
-- 'explain', 'describe', 'elaborate', 'clarify'
-- 'I need to know', 'I want to understand', 'I'd like to know'
-- 'can you tell me', 'could you explain', 'would you mind'
-- 'what about', 'how about', 'tell me about'
-- 'I'm curious', 'I'm wondering', 'I have questions'
-- 'before I decide', 'before we proceed', 'before we meet'
-- 'what exactly', 'what specifically', 'what precisely'
-- 'more details', 'additional info', 'further information'
+4. **Actionable Insights**: What should be the next step?
+   - If interested: How can we move forward with scheduling?
+   - If hesitant: What information might help them decide?
+   - If declining: Is there a way to maintain the relationship?
+   - If asking questions: What do they need to know?
 
-POSITIVE SENTIMENT KEYWORDS:
-- 'great', 'excellent', 'wonderful', 'fantastic', 'amazing'
-- 'perfect', 'ideal', 'exactly', 'precisely', 'spot on'
-- 'love it', 'love this', 'love the idea', 'love to'
-- 'excited', 'thrilled', 'enthusiastic', 'eager'
-- 'looking forward', 'can't wait', 'excited to'
-- 'thank you', 'thanks', 'appreciate', 'grateful'
-- 'yes', 'absolutely', 'definitely', 'of course', 'certainly'
-- 'sounds good', 'sounds great', 'sounds perfect'
-- 'that works', 'that's perfect', 'that's great'
-- 'I'm in', 'count me in', 'sign me up'
+REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
+{
+  \"intent\": \"available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request\",
+  \"sentiment\": \"positive|neutral|negative\",
+  \"next_action\": \"schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability\",
+  \"suggested_response\": \"Appropriate follow-up message based on analysis\",
+  \"lead_score\": 1-10,
+  \"is_positive\": true|false,
+  \"reasoning\": \"Brief explanation of your analysis\"
+}
 
-NEGATIVE SENTIMENT KEYWORDS:
-- 'not interested', 'not right for me', 'not a fit'
-- 'no thanks', 'no thank you', 'pass', 'I'll pass'
-- 'not now', 'not at this time', 'maybe later'
-- 'too busy', 'no time', 'can't', 'won't'
-- 'not possible', 'not feasible', 'not doable'
-- 'decline', 'refuse', 'reject', 'turn down'
-- 'not a good time', 'bad timing', 'wrong time'
+CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Determine:
-1. Intent: available, interested, not_interested, needs_more_info, reschedule_request, busy, greeting, scheduling_request
-2. Sentiment: positive, neutral, negative
-3. Next Action: schedule_call, send_calendar, send_info, follow_up_later, end_conversation, ask_availability
-4. Suggested Response: Generate appropriate follow-up message (if available/interested, offer calendar or ask for preferred time)
-5. Lead Score: 1-10 (10 being highest conversion potential)
-6. Is Positive: true/false (true if interested, available, or positive sentiment)
-
-Respond in JSON format only.";
+Focus on understanding the human behind the message, not just matching words.";
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
             $analysis = json_decode($aiAnalysis['content'], true);
+            
+            // Log the raw AI response for debugging
+            Log::info('🤖 AI Analysis Raw Response (processCallReply)', [
+                'raw_content' => $aiAnalysis['content'],
+                'json_decode_result' => $analysis,
+                'json_last_error' => json_last_error_msg()
+            ]);
+            
+            // Handle invalid JSON response
+            if (!$analysis || json_last_error() !== JSON_ERROR_NONE) {
+                Log::warning('⚠️ AI Analysis failed or returned invalid JSON, using fallback (processCallReply)', [
+                    'raw_content' => $aiAnalysis['content'],
+                    'json_error' => json_last_error_msg()
+                ]);
+                
+                $analysis = [
+                    'intent' => 'unknown',
+                    'sentiment' => 'neutral',
+                    'lead_score' => 5,
+                    'is_positive' => false,
+                    'next_action' => 'follow_up_later',
+                    'suggested_response' => 'Thank you for your response. I\'ll follow up with you soon.'
+                ];
+            } else {
+                // Validate that we have the required fields
+                $analysis = array_merge([
+                    'intent' => 'unknown',
+                    'sentiment' => 'neutral',
+                    'lead_score' => 5,
+                    'is_positive' => false,
+                    'next_action' => 'follow_up_later',
+                    'suggested_response' => 'Thank you for your response. I\'ll follow up with you soon.'
+                ], $analysis);
+                
+                Log::info('✅ AI Analysis successful (processCallReply)', [
+                    'intent' => $analysis['intent'],
+                    'sentiment' => $analysis['sentiment'],
+                    'lead_score' => $analysis['lead_score'],
+                    'is_positive' => $analysis['is_positive']
+                ]);
+            }
             
             // Update call status based on AI analysis
             $newStatus = $this->determineCallStatus($analysis['intent'] ?? 'unknown');
