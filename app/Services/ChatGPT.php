@@ -122,7 +122,7 @@ class ChatGPT
     {
         \Log::info('🤖 ChatGPT generateContent called', [
             'prompt' => $prompt,
-            'model' => 'gpt-3.5-turbo-instruct',
+            'model' => 'gpt-4o-mini',
             'max_tokens' => $this->max_token,
             'temperature' => $this->temperature
         ]);
@@ -132,9 +132,12 @@ class ChatGPT
                 'Authorization' => 'Bearer ' . $this->token,
                 'Content-Type' => 'application/json'
             ])
-                ->post('https://api.openai.com/v1/completions', [
-                    'model' => 'gpt-3.5-turbo-instruct',
-                    'prompt' => $prompt,
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn lead analysis assistant. Analyze messages and provide structured responses for lead qualification and conversation management.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
                     'max_tokens' => $this->max_token,
                     'temperature' => $this->temperature,
                     'n' => 1,
@@ -158,11 +161,14 @@ class ChatGPT
         if($response['choices']) {
             $content = '';
             foreach ($response['choices'] as $key => $value) {
-                $content .= trim($value["text"]) . "\r\n\r\n";
-                $words += count(explode(" ", trim($content)));
+                // Chat Completions API returns content in message.content instead of text
+                $text = $value['message']['content'] ?? '';
+                $content .= trim($text) . "\r\n\r\n";
+                $words += count(explode(" ", trim($text)));
             }
         }else {
-            $content = trim($response['choices'][0]["text"]);
+            $text = $response['choices'][0]['message']['content'] ?? '';
+            $content = trim($text);
             $words = count(explode(" ", $content));
         }
 
