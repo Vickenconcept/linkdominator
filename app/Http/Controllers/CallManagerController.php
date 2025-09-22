@@ -969,48 +969,55 @@ Keep it under 100 words.";
         $data['ai_analysis'] = $data['ai_analysis'] ?? null;
 
         try {
-            // Find the call record - it should already exist from initial storeCallStatus call
+            // Find the call record - MUST already exist from initial creation
+            Log::info('🔍 Looking for call record with:', [
+                'call_id' => $data['call_id'],
+                'connection_id' => $data['connection_id'],
+                'conversation_urn_id' => $data['conversation_urn_id']
+            ]);
+
             $call = CallStatus::where('id', $data['call_id'])
                 ->orWhere('connection_id', $data['call_id'])
+                ->orWhere(function ($q) use ($data) {
+                    if (!empty($data['connection_id'])) {
+                        $q->where('connection_id', $data['connection_id']);
+                    }
+                })
+                ->orWhere(function ($q) use ($data) {
+                    if (!empty($data['conversation_urn_id'])) {
+                        $q->where('conversation_urn_id', $data['conversation_urn_id']);
+                    }
+                })
                 ->first();
 
             if (!$call) {
-                // Fallback: Create call record if it doesn't exist (for conversations not initiated through campaign)
-                Log::warning('⚠️ Call record not found, creating fallback record', [
+                // Do NOT create fallback records anymore; ensure single-row per conversation
+                Log::warning('⚠️ Call record not found for storeConversationMessage', [
                     'call_id' => $data['call_id'],
                     'connection_id' => $data['connection_id'],
+                    'conversation_urn_id' => $data['conversation_urn_id'],
                     'lead_name' => $data['lead_name']
                 ]);
+
+                // Let's check what records actually exist
+                $existingRecords = CallStatus::where('connection_id', $data['connection_id'])
+                    ->orWhere('conversation_urn_id', $data['conversation_urn_id'])
+                    ->get(['id', 'connection_id', 'conversation_urn_id', 'recipient']);
                 
-                // Get user from LinkedIn ID header
-                $user = User::where('linkedin_id', $request->header('lk-id'))->first();
-                
-                if (!$user) {
-                    return response()->json([
-                        'message' => 'User not found. Please ensure you are properly authenticated.',
-                        'error' => 'USER_NOT_FOUND'
-                    ], 401);
-                }
-                
-                // Create fallback call record
-                $call = CallStatus::create([
-                    'recipient' => $data['lead_name'] ?? 'Unknown Lead',
-                    'connection_id' => $data['connection_id'],
-                    'conversation_urn_id' => $data['conversation_urn_id'],
-                    'call_status' => 'conversation_started',
-                    'user_id' => $user->id,
-                    'conversation_history' => json_encode([]),
-                    'interaction_count' => 0,
-                    'last_interaction_at' => now(),
-                    'original_message' => 'Conversation started outside of campaign system'
-                ]);
-                
-                Log::info('✅ Fallback call record created', [
-                    'call_id' => $call->id,
-                    'connection_id' => $call->connection_id,
-                    'lead_name' => $call->recipient
-                ]);
+                Log::info('🔍 Existing records found:', $existingRecords->toArray());
+
+                return response()->json([
+                    'message' => 'Call record not found. Please create the call via the initial endpoint and reuse its id.',
+                    'error' => 'CALL_NOT_FOUND'
+                ], 404);
             }
+
+            Log::info('✅ Found call record:', [
+                'id' => $call->id,
+                'connection_id' => $call->connection_id,
+                'conversation_urn_id' => $call->conversation_urn_id,
+                'recipient' => $call->recipient
+            ]);
 
             // Get existing conversation history
             $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
@@ -1048,7 +1055,7 @@ Keep it under 100 words.";
                 $updateData['ai_analysis'] = $analysis;
                 $updateData['lead_category'] = $this->categorizeLead($analysis);
                 $updateData['lead_score'] = $analysis['lead_score'] ?? 5;
-                
+
                 // Update call status based on analysis
                 if (isset($analysis['intent'])) {
                     $updateData['call_status'] = $this->determineCallStatus($analysis['intent']);
@@ -1058,12 +1065,12 @@ Keep it under 100 words.";
                 if (($analysis['is_positive'] ?? false) || 
                     in_array($analysis['intent'] ?? '', ['available', 'interested', 'scheduling_request']) ||
                     ($analysis['lead_score'] ?? 0) >= 7) {
-                    
+
                     if (!$call->calendar_link) {
                         $updateData['calendar_link'] = $this->generateCalendarLink($call);
                     }
-                    
-                    if ($updateData['call_status'] !== 'scheduling_initiated') {
+
+                    if (($updateData['call_status'] ?? null) !== 'scheduling_initiated') {
                         $updateData['call_status'] = 'scheduling_initiated';
                     }
                 }
@@ -1075,16 +1082,15 @@ Keep it under 100 words.";
                 'success' => true,
                 'message' => 'Conversation message stored successfully',
                 'call_id' => $call->id,
-                'conversation_count' => count($conversationHistory)
             ]);
+        } catch (\Throwable $th) {
+            Log::error('Failed to store conversation message: '.$th->getMessage());
 
-        } catch (\Exception $e) {
-            Log::error('Failed to store conversation message: ' . $e->getMessage());
-            
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to store message: ' . $e->getMessage()
-            ], 500);
+                'message' => 'Failed to store conversation message',
+                'error' => $th->getMessage()
+            ], 422);
         }
     }
 
