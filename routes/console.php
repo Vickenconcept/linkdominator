@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:post-scheduler')->everyFiveMinutes();
 Schedule::command('app:fetch-linkedin-feeds')->twiceDailyAt(12, 18, 15);
+Schedule::command('calls:send-reminders')->everyFifteenMinutes();
 
 // Running the scheduler
 // * * * * * cd /home/tubetargeterapp/app.linkdominator.com && /usr/local/bin/ea-php83 artisan schedule:run >> /dev/null 2>&1

@@ -13,17 +13,37 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
-Route::get('campaigns', [CampaignController::class, 'campaign']); // tested
-Route::get('campaign/{id}/leads', [CampaignController::class, 'campaignLeads']); // tested
-Route::get('campaign/{id}/sequence', [CampaignController::class, 'campaignSequence']); // tested
-Route::post('campaign/{id}/update', [CampaignController::class, 'campaignUpdate']);
-Route::post('campaign/{id}/update-node', [CampaignController::class, 'campaignSequenceUpdate']);
-Route::post('campaign/{id}/leadgen/store', [CampaignController::class, 'createLeadGenRunning']);
-Route::post('campaign/{campaignId}/leadgen/{leadId}/update', [CampaignController::class, 'createLeadGenRunning']);
-Route::get('campaign/{campaignId}/leadgen', [CampaignController::class, 'getLeadGenRunning']); // tested
-Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetworkDegree']);
+// Routes that don't require authentication (for chrome extension access)
+Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMessageReply']);
+Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
 
-Route::post('book-call/store', [CallManagerController::class, 'storeCallStatus']);
+// Chrome extension routes (require lk-id header validation)
+Route::middleware(['api'])->group(function() {
+    Route::get('campaigns', [CampaignController::class, 'campaign']); // tested
+    Route::get('campaigns/status-updates', [CampaignController::class, 'getCampaignStatusUpdates']); // real-time updates
+    Route::get('campaigns/{id}/debug-accept-rate', [CampaignController::class, 'debugAcceptRate']); // debug accept rate
+    Route::get('campaign/{id}/leads', [CampaignController::class, 'campaignLeads']); // tested
+    Route::get('campaign/{id}/sequence', [CampaignController::class, 'campaignSequence']); // tested
+    Route::post('campaign/{id}/update', [CampaignController::class, 'campaignUpdate']);
+    Route::post('campaign/{id}/update-node', [CampaignController::class, 'campaignSequenceUpdate']);
+    Route::post('campaign/{id}/leadgen/store', [CampaignController::class, 'createLeadGenRunning']);
+    Route::post('campaign/{campaignId}/leadgen/{leadId}/update', [CampaignController::class, 'updateLeadGenRunning']);
+    Route::get('campaign/{campaignId}/leadgen', [CampaignController::class, 'getLeadGenRunning']); // tested
+    Route::get('campaign/{campaignId}/leadgen/tracking', [CampaignController::class, 'getLeadGenTracking']); // new endpoint for tracking data
+    Route::post('lead/{leadId}/update', [CampaignController::class, 'updateLeadNetworkDegree']);
+
+    Route::post('book-call/store', [CallManagerController::class, 'storeCallStatus']);
+    Route::post('calls/generate-message', [CallManagerController::class, 'generateCallMessage']);
+    Route::post('calls/process-reply', [CallManagerController::class, 'processCallReply']);
+    Route::post('calls/schedule', [CallManagerController::class, 'scheduleCall']);
+    Route::get('calls/{id}/message', [CallManagerController::class, 'getCallMessage']);
+    Route::get('calls/{id}/scheduling', [CallManagerController::class, 'getSchedulingInfo']);
+    Route::get('calls/{id}/response', [CallManagerController::class, 'checkCallResponse']);
+    Route::post('calls/{id}/calendar-link', [CallManagerController::class, 'generateCalendarLinkForCall']);
+    Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
+    Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
+    Route::get('calls/{id}/conversation', [CallManagerController::class, 'getConversationHistory']);
+});
 
 Route::controller(LeadController::class)->group(function (){
     Route::get('leads/export', 'export')->name('leads.export');
@@ -33,6 +53,7 @@ Route::controller(LeadController::class)->group(function (){
 Route::get('aicontents', [AiwriterController::class, 'aicontents']); 
 
 Route::controller(ChromeApiController::class)->group(function (){
+    // Regular routes
     Route::get('accessCheck', 'accessCheck');
     Route::get('audience', 'getAudience');
     Route::post('audience', 'storeAudience');

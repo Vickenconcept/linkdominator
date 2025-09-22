@@ -69,26 +69,256 @@ class CampaignController extends Controller
             }
             $campaigns[$key]['total_leads'] = $totalList;
 
-            // Acceptance rate
-            $leadgen = CampaignLeadgenRunning::select('campaign_id', 'accept_status')
+            // Acceptance rate - Show percentage of invites sent (not accepted)
+            $leadgen = CampaignLeadgenRunning::select('campaign_id', 'accept_status', 'status_last_id')
                 ->where('campaign_id', $campaign->id)
                 ->get();
             $totalLeadgen = $leadgen->count();
             $acceptRate = 0;
 
+                    // Debug: Log all records for this campaign
+        logger("🔍 Campaign {$campaign->id} - All leadgen records:", [
+            'campaign_id' => $campaign->id,
+            'total_records' => $totalLeadgen,
+            'records' => $leadgen->toArray()
+        ]);
+        
+        // Also log the raw database query to see what's actually stored
+        $rawRecords = DB::table('campaign_leadgen_running')
+            ->where('campaign_id', $campaign->id)
+            ->get(['campaign_id', 'lead_id', 'accept_status', 'status_last_id', 'current_node_key', 'next_node_key']);
+        logger("🔍 Campaign {$campaign->id} - Raw database records:", [
+            'campaign_id' => $campaign->id,
+            'raw_records' => $rawRecords->toArray()
+        ]);
+
             if ($totalLeadgen > 0) {
-                $totalAcceptedStatus = 0;
+                $totalInvitesSent = 0;
+                $totalAccepted = 0;
+                
                 foreach ($leadgen as $leadgen) {
-                    if ($leadgen->accept_status == 1) {
-                        $totalAcceptedStatus += 1;
+                    // Debug: Log what we're checking
+                    // status_last_id values: 1 = initial, 2 = sent, 3 = accepted, 4 = error
+                    // Count as "invite sent" if status_last_id is 2 (sent)
+                    $isInviteSent = false;
+                    
+                    // Method 1: Check if status_last_id is 2 (sent)
+                    if ($leadgen->status_last_id == 2) {
+                        $isInviteSent = true;
                     }
+                    
+                    // Method 2: Fallback - check if current_node_key is not 0 (indicates processing)
+                    if (!$isInviteSent && $leadgen->current_node_key && $leadgen->current_node_key != 0) {
+                        $isInviteSent = true;
+                        logger("🔍 Using fallback method - current_node_key indicates processing");
+                    }
+                    
+                    // Count invites that have been sent (only if explicitly marked as sent)
+                    if ($isInviteSent) {
+                        $totalInvitesSent += 1;
+                    }
+                    // Count accepted invites
+                    if ($leadgen->accept_status == 1) {
+                        $totalAccepted += 1;
+                    }
+                    
+                    // Debug: Log each record check
+                    logger("🔍 Record check:", [
+                        'campaign_id' => $campaign->id,
+                        'status_last_id' => $leadgen->status_last_id,
+                        'status_last_id_type' => gettype($leadgen->status_last_id),
+                        'accept_status' => $leadgen->accept_status,
+                        'current_node_key' => $leadgen->current_node_key,
+                        'is_invite_sent' => $isInviteSent,
+                        'total_invites_sent_so_far' => $totalInvitesSent
+                    ]);
                 }
-                $acceptRate = round(($totalAcceptedStatus / $totalLeadgen) * 100);
+                
+                // Calculate actual acceptance rate (accepted / sent)
+                if ($totalInvitesSent > 0) {
+                    $acceptRate = round(($totalAccepted / $totalInvitesSent) * 100);
+                }
+                
+                // Log for debugging
+                logger("📊 Campaign {$campaign->id} accept rate calculation:", [
+                    'campaign_id' => $campaign->id,
+                    'total_leadgen' => $totalLeadgen,
+                    'total_invites_sent' => $totalInvitesSent,
+                    'total_accepted' => $totalAccepted,
+                    'accept_rate' => $acceptRate
+                ]);
+            } else {
+                logger("⚠️ Campaign {$campaign->id} - No leadgen records found");
             }
             $campaigns[$key]['accept_rate'] = $acceptRate;
         }
 
         return view('campaign.index', compact('campaigns'));
+    }
+
+    /**
+     * Debug accept rate calculation for a specific campaign
+     */
+    public function debugAcceptRate(Request $request, string $id)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $campaign = Campaign::findOrFail($id);
+        
+        // Get all leadgen records for this campaign
+        $leadgen = CampaignLeadgenRunning::select('campaign_id', 'lead_id', 'accept_status', 'status_last_id', 'current_node_key', 'next_node_key')
+            ->where('campaign_id', $id)
+            ->get();
+        
+        $totalLeadgen = $leadgen->count();
+        $totalInvitesSent = 0;
+        $totalAccepted = 0;
+        
+        $detailedRecords = [];
+        
+        foreach ($leadgen as $record) {
+            $isInviteSent = false;
+            
+            // status_last_id values: 1 = initial, 2 = sent, 3 = accepted, 4 = error
+            if ($record->status_last_id == 2) {
+                $isInviteSent = true;
+            }
+            
+            if ($isInviteSent) {
+                $totalInvitesSent += 1;
+            }
+            if ($record->accept_status == 1) {
+                $totalAccepted += 1;
+            }
+            
+            $detailedRecords[] = [
+                'lead_id' => $record->lead_id,
+                'status_last_id' => $record->status_last_id,
+                'status_last_id_type' => gettype($record->status_last_id),
+                'accept_status' => $record->accept_status,
+                'is_invite_sent' => $isInviteSent,
+                'current_node_key' => $record->current_node_key,
+                'next_node_key' => $record->next_node_key
+            ];
+        }
+        
+        $acceptRate = $totalInvitesSent > 0 ? round(($totalAccepted / $totalInvitesSent) * 100) : 0;
+        
+        return response()->json([
+            'campaign_id' => $id,
+            'campaign_name' => $campaign->name,
+            'total_records' => $totalLeadgen,
+            'total_invites_sent' => $totalInvitesSent,
+            'total_accepted' => $totalAccepted,
+            'accept_rate' => $acceptRate,
+            'detailed_records' => $detailedRecords,
+            'calculation_logic' => [
+                'condition' => 'accept_status == 1 (accepted) / status_last_id == 2 (sent)',
+                'formula' => "($totalAccepted / $totalInvitesSent) * 100 = $acceptRate%"
+            ]
+        ]);
+    }
+
+    /**
+     * Get real-time campaign status updates for AJAX requests
+     */
+    public function getCampaignStatusUpdates(Request $request)
+    {
+        try {
+            $userId = auth()->user()->id;
+
+            $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end) as total_lead_list";
+
+            $campaigns = Campaign::select(DB::raw($query))
+                ->join('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
+                ->leftJoin('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
+                ->where('campaigns.user_id', $userId)
+                ->groupBy('id', 'name', 'status', 'created_at', 'sequence_type', 'process_condition', 'user_id')
+                ->orderBy('campaigns.id', 'desc')
+                ->get();
+
+            foreach ($campaigns as $key => $campaign) {
+                // Append leads
+                $query1 = "campaign_lists.id, sn_leads_lists.name as name, campaign_lists.list_hash as list_hash, count(sn_leads.id) as leads, 'sn' as source, date(sn_leads_lists.created_at) as created_date";
+                $first = CampaignList::select(DB::raw($query1))
+                    ->join('campaigns', 'campaign_lists.campaign_id', '=', 'campaigns.id')
+                    ->join('sn_leads_lists', 'campaign_lists.list_hash', '=', 'sn_leads_lists.list_hash')
+                    ->leftJoin('sn_leads', 'campaign_lists.list_hash', '=', 'sn_leads.sn_list_id')
+                    ->where('campaigns.user_id', $userId)
+                    ->where('campaigns.id', $campaign->id)
+                    ->groupBy('campaign_lists.id', 'name', 'list_hash', 'source', 'created_date');
+
+                $query2 = "campaign_lists.id, audiences.audience_name as name, audiences.audience_id as list_hash, count(audience_lists.id) as leads, 'aud' as source, date(audiences.created_at) as created_date";
+                $clist = CampaignList::select(DB::raw($query2))
+                    ->join('campaigns', 'campaign_lists.campaign_id', '=', 'campaigns.id')
+                    ->join('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
+                    ->leftJoin('audience_lists', 'campaign_lists.list_hash', '=', 'audience_lists.audience_id')
+                    ->where('campaigns.user_id', $userId)
+                    ->where('campaigns.id', $campaign->id)
+                    ->groupBy('campaign_lists.id', 'audiences.audience_name', 'audiences.audience_id', 'source', 'created_date')
+                    ->union($first)
+                    ->get();
+
+                $totalList = 0;
+
+                if (count($clist) > 0) {
+                    foreach ($clist as $clist) {
+                        $totalList += $clist->leads;
+                    }
+                }
+                $campaigns[$key]['total_leads'] = $totalList;
+
+                // Acceptance rate - Show percentage of invites sent (not accepted)
+                $leadgen = CampaignLeadgenRunning::select('campaign_id', 'accept_status', 'status_last_id')
+                    ->where('campaign_id', $campaign->id)
+                    ->get();
+                $totalLeadgen = $leadgen->count();
+                $acceptRate = 0;
+
+                if ($totalLeadgen > 0) {
+                    $totalInvitesSent = 0;
+                    $totalAccepted = 0;
+                    
+                    foreach ($leadgen as $leadgen) {
+                        // Count invites that have been sent (status_last_id = 2 means sent)
+                        if ($leadgen->status_last_id == 2) {
+                            $totalInvitesSent += 1;
+                        }
+                        // Count accepted invites
+                        if ($leadgen->accept_status == 1) {
+                            $totalAccepted += 1;
+                        }
+                    }
+                    
+                    // Calculate actual acceptance rate (accepted / sent)
+                    if ($totalInvitesSent > 0) {
+                        $acceptRate = round(($totalAccepted / $totalInvitesSent) * 100);
+                    }
+                }
+                $campaigns[$key]['accept_rate'] = $acceptRate;
+            }
+
+            return response()->json([
+                'success' => true,
+                'campaigns' => $campaigns,
+                'timestamp' => now()
+            ]);
+
+        } catch (\Exception $e) {
+            logger('Error getting campaign status updates: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to get campaign updates',
+                'timestamp' => now()
+            ], 500);
+        }
     }
 
     /**
@@ -282,6 +512,8 @@ class CampaignController extends Controller
      */
     public function destroy(string $id)
     {
+        // Delete campaign tracking data first
+        CampaignLeadgenRunning::where('campaign_id', $id)->delete();
         CampaignSequenceEndorse::where('campaign_id', $id)->delete();
         CampaignList::where('campaign_id', $id)->delete();
         Campaign::where('id', $id)->delete();
@@ -519,20 +751,7 @@ class CampaignController extends Controller
         // }
 
 
-        function objectToArray($data)
-        {
-            if (is_object($data)) {
-                $data = get_object_vars($data);
-            }
-
-            if (is_array($data)) {
-                return array_map('objectToArray', $data); // recursive call
-            }
-
-            return $data;
-        }
-
-        $node_model = objectToArray($node_model);
+        $node_model = $this->objectToArray($node_model);
 
         // Continue your logic...
         foreach ($node_model as $key => $item) {
@@ -550,7 +769,7 @@ class CampaignController extends Controller
                 ]);
         } catch (\Throwable $th) {
             return response()->json([
-                'message' => $th->getMessage
+                'message' => $th->getMessage()
             ], 422);
         }
 
@@ -574,6 +793,17 @@ class CampaignController extends Controller
         }
 
         $campaign = Campaign::findOrFail($id);
+        
+        // Check if leadgen running already exists for this campaign
+        $existingCount = CampaignLeadgenRunning::where('campaign_id', $id)->count();
+        if ($existingCount > 0) {
+            return response()->json([
+                'message' => 'Leadgen running already exists for this campaign',
+                'existing_count' => $existingCount,
+                'status' => 200
+            ], 200);
+        }
+        
         $leads = [];
 
         $clist = $this->getCampaignList($campaign->id, $campaign->user_id);
@@ -586,18 +816,27 @@ class CampaignController extends Controller
 
         $leads = $this->leadResource($leads);
 
-        foreach ($leads as $key => $lead) {
-            CampaignLeadgenRunning::create([
-                // 'lead_id' => $lead->id,
-                // 'lead_src' => $lead->source,
-                // 'lead_list' => $lead->listId,
-                'lead_id' => $lead['id'],
-                'lead_src' => $lead['source'],
-                'lead_list' => $lead['listId'],
-                'campaign_id' => (int)$id,
-                'current_node_key' => 0,
-                'next_node_key' => 0,
-            ]);
+        // Remove duplicates based on lead_id
+        $uniqueLeads = collect($leads)->unique('id')->values()->all();
+        
+        foreach ($uniqueLeads as $key => $lead) {
+            // Double-check to prevent race conditions
+            $exists = CampaignLeadgenRunning::where('campaign_id', $id)
+                ->where('lead_id', $lead['id'])
+                ->exists();
+                
+            if (!$exists) {
+                CampaignLeadgenRunning::create([
+                    'lead_id' => $lead['id'],
+                    'lead_src' => $lead['source'],
+                    'lead_list' => $lead['listId'],
+                    'campaign_id' => (int)$id,
+                    'current_node_key' => 0,
+                    'next_node_key' => 0,
+                    'accept_status' => 0, // Initialize as not accepted
+                    'status_last_id' => 1, // Start at step 1
+                ]);
+            }
         }
 
         return response()->json([
@@ -612,27 +851,88 @@ class CampaignController extends Controller
      */
     public function updateLeadGenRunning(Request $request, string $campaignId, string $leadId)
     {
+        logger('🔄 updateLeadGenRunning called with:', [
+            'campaignId' => $campaignId,
+            'leadId' => $leadId,
+            'request_data' => $request->all(),
+            'headers' => $request->headers->all(),
+            'method' => $request->method(),
+            'url' => $request->url(),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+        
         try {
-            $this->checkAuthorization($request);
+            $user = $this->checkAuthorization($request);
+            logger('✅ Authorization successful for user:', ['user_id' => $user->id, 'linkedin_id' => $user->linkedin_id]);
         } catch (\Throwable $th) {
+            logger('❌ Authorization failed:', ['error' => $th->getMessage()]);
             return response()->json([
                 "message" => $th->getMessage(),
                 "status" => 400
             ], 400);
         }
 
-        CampaignLeadgenRunning::where('campaign_id', $campaignId)
+        // Log the specific update being made
+        $updateData = [
+            'campaign_id' => $campaignId,
+            'lead_id' => $leadId,
+            'accept_status' => $request->acceptedStatus,
+            'current_node_key' => $request->currentNodeKey,
+            'next_node_key' => $request->nextNodeKey,
+            'status_last_id' => $request->statusLastId
+        ];
+        
+        logger('📝 Updating CampaignLeadgenRunning with data:', $updateData);
+        
+        // Check if this is an acceptance update
+        if ($request->acceptedStatus == 1) {
+            logger('🎉 INVITE ACCEPTANCE UPDATE DETECTED!', [
+                'campaign_id' => $campaignId,
+                'lead_id' => $leadId,
+                'status_last_id' => $request->statusLastId,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+        }
+
+        $result = CampaignLeadgenRunning::where('campaign_id', $campaignId)
             ->where('lead_id', $leadId)
             ->update([
                 'accept_status' => $request->acceptedStatus,
                 'current_node_key' => $request->currentNodeKey,
                 'next_node_key' => $request->nextNodeKey,
-                'status_last_id' => $request->statusLastId
+                'status_last_id' => (string) $request->statusLastId // Force string storage
             ]);
+
+        logger('✅ Update result:', [
+            'rows_affected' => $result,
+            'campaign_id' => $campaignId,
+            'lead_id' => $leadId,
+            'accept_status' => $request->acceptedStatus,
+            'status_last_id' => $request->statusLastId
+        ]);
+        
+        // Log the updated record for verification
+        $updatedRecord = CampaignLeadgenRunning::where('campaign_id', $campaignId)
+            ->where('lead_id', $leadId)
+            ->first();
+            
+        if ($updatedRecord) {
+            logger('🔍 Updated record verification:', [
+                'campaign_id' => $updatedRecord->campaign_id,
+                'lead_id' => $updatedRecord->lead_id,
+                'accept_status' => $updatedRecord->accept_status,
+                'status_last_id' => $updatedRecord->status_last_id,
+                'current_node_key' => $updatedRecord->current_node_key,
+                'next_node_key' => $updatedRecord->next_node_key,
+                'updated_at' => $updatedRecord->updated_at
+            ]);
+        }
 
         return response()->json([
             'message' => 'Updated successful',
-            'status' => 201
+            'status' => 201,
+            'rows_affected' => $result,
+            'updated_record' => $updatedRecord
         ], 201);
     }
 
@@ -670,6 +970,71 @@ class CampaignController extends Controller
         ]);
     }
 
+    public function getLeadGenTracking(Request $request, string $campaignId)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        // Get campaign tracking data directly from campaign_leadgen_running table
+        $campaignLeadgen = new CampaignLeadgenRunning;
+
+        $trackingData = $campaignLeadgen->where('campaign_id', $campaignId)->get();
+
+        // Transform the data to include lead information
+        $leadsWithTracking = [];
+        
+        foreach ($trackingData as $tracking) {
+            // Get the actual lead data based on lead_src
+            $leadData = null;
+            
+            if ($tracking->lead_src === 'aud') {
+                // Get from audience_list table
+                $leadData = \App\Models\AudienceList::where('id', $tracking->lead_id)->first();
+            } else {
+                // Get from sn_leads table
+                $leadData = \App\Models\SnLead::where('id', $tracking->lead_id)->first();
+            }
+            
+            if ($leadData) {
+                $leadsWithTracking[] = [
+                    'id' => $leadData->id,
+                    'name' => $leadData->con_first_name . ' ' . $leadData->con_last_name ?? $leadData->first_name . ' ' . $leadData->last_name,
+                    'firstName' => $leadData->con_first_name ?? $leadData->first_name,
+                    'lastName' => $leadData->con_last_name ?? $leadData->last_name,
+                    'headline' => $leadData->con_job_title ?? $leadData->headline,
+                    'email' => $leadData->con_email ?? $leadData->email,
+                    'location' => $leadData->con_location ?? $leadData->geolocation,
+                    'connectionId' => $leadData->con_id ?? $leadData->lid,
+                    'source' => $leadData->con_public_identifier ?? $leadData->sn_lid,
+                    'listId' => $tracking->lead_list,
+                    'memberUrn' => $leadData->con_member_urn ?? $leadData->object_urn,
+                    'trackingId' => $leadData->con_tracking_id ?? null,
+                    'networkDistance' => $leadData->con_distance ?? $leadData->degree,
+                    'createdAt' => $leadData->created_at ?? null,
+                    // Campaign tracking fields
+                    'accept_status' => $tracking->accept_status,
+                    'status_last_id' => $tracking->status_last_id,
+                    'lead_src' => $tracking->lead_src,
+                    'connection_id' => $tracking->lead_id,
+                    'current_node_key' => $tracking->current_node_key,
+                    'next_node_key' => $tracking->next_node_key,
+                    'campaign_id' => $tracking->campaign_id
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => $leadsWithTracking,
+            'status' => 200
+        ]);
+    }
+
     public function updateLeadNetworkDegree(Request $request, string $leadId)
     {
         try {
@@ -698,4 +1063,21 @@ class CampaignController extends Controller
             'status' => 201
         ], 201);
     }
+
+    /**
+     * Recursively convert objects to arrays.
+     */
+    private function objectToArray($data)
+    {
+        if (is_object($data)) {
+            $data = get_object_vars($data);
+        }
+
+        if (is_array($data)) {
+            return array_map([$this, 'objectToArray'], $data); // recursive call
+        }
+
+        return $data;
+    }
 }
+

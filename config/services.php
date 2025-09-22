@@ -52,5 +52,10 @@ return [
 
     'rapidapi' => [
         'key' => env('RAPIDAPI_KEY')
+    ],
+
+    'calendly' => [
+        'link' => env('CALENDLY_LINK', 'https://calendly.com/your-username'),
+        'enabled' => env('CALENDLY_ENABLED', false)
     ]
 ];

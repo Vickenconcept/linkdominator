@@ -14,10 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->redirectGuestsTo('/auth/signin');
 
+        // Exclude API routes from CSRF validation
         $middleware->validateCsrfTokens(except: [
             'ipn/*',
-            'comment/campaign-activities/generate'
+            'comment/campaign-activities/generate',
+            'api/*'
         ]);
+        
+        // Add CORS middleware to API routes
+        $middleware->appendToGroup('api', \App\Http\Middleware\CorsMiddleware::class);
+        
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
