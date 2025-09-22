@@ -245,6 +245,15 @@ class CallManagerController extends Controller
      */
     public function generateCallMessage(Request $request)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         $data = $request->validate([
             'recipient_name' => 'required|string',
             'company' => 'nullable|string',
@@ -276,23 +285,68 @@ class CallManagerController extends Controller
      */
     public function analyzeMessageReply(Request $request)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         $data = $request->validate([
             'message' => 'required|string',
             'leadName' => 'required|string',
             'context' => 'nullable|string',
             'original_message' => 'nullable|string',
-            'call_id' => 'nullable|string'
+            'call_id' => 'nullable|string',
+            'connection_id' => 'nullable|string',
+            'conversation_urn_id' => 'nullable|string'
         ]);
 
         try {
-            // Get original message if not provided or if call_id is provided
+            // Get original message with robust lookup strategy
             $originalMessage = $data['original_message'] ?? null;
-            if (!$originalMessage && $data['call_id']) {
-                $call = CallStatus::where('id', $data['call_id'])
-                    ->orWhere('connection_id', $data['call_id'])
-                    ->first();
+            $call = null;
+            
+            if (!$originalMessage) {
+                // Try multiple lookup strategies
+                if ($data['call_id']) {
+                    // First try: direct ID lookup
+                    if (is_numeric($data['call_id'])) {
+                        $call = CallStatus::where('id', $data['call_id'])->first();
+                    }
+                    
+                    // Second try: treat call_id as connection_id (for extension temporary IDs)
+                    if (!$call && !is_numeric($data['call_id'])) {
+                        $call = CallStatus::where('connection_id', $data['call_id'])->first();
+                    }
+                }
+                
+                // Third try: explicit connection_id parameter
+                if (!$call && $data['connection_id']) {
+                    $call = CallStatus::where('connection_id', $data['connection_id'])->first();
+                }
+                
+                // Fourth try: conversation_urn_id parameter
+                if (!$call && $data['conversation_urn_id']) {
+                    $call = CallStatus::where('conversation_urn_id', $data['conversation_urn_id'])->first();
+                }
+                
                 if ($call) {
                     $originalMessage = $call->original_message ?? 'No original message available';
+                    Log::info('✅ Found call record for analysis:', [
+                        'id' => $call->id,
+                        'connection_id' => $call->connection_id,
+                        'conversation_urn_id' => $call->conversation_urn_id,
+                        'has_original_message' => !empty($call->original_message)
+                    ]);
+                } else {
+                    Log::warning('⚠️ No call record found for analysis', [
+                        'call_id' => $data['call_id'],
+                        'connection_id' => $data['connection_id'],
+                        'conversation_urn_id' => $data['conversation_urn_id']
+                    ]);
                 }
             }
             
@@ -426,6 +480,15 @@ EOD;
      */
     public function processCallReply(Request $request)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         $data = $request->validate([
             'call_id' => 'required|exists:call_status,id',
             'message' => 'required|string',
@@ -725,7 +788,7 @@ EOD;
         }
         
         // Fallback to internal scheduling page
-        $baseUrl = config('app.url');
+        $baseUrl = rtrim(config('app.url'), '/');
         return "{$baseUrl}/schedule-call/{$call->id}";
     }
 
@@ -793,6 +856,15 @@ Keep it under 100 words.";
      */
     public function scheduleCall(Request $request)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         $data = $request->validate([
             'call_id' => 'required|exists:call_status,id',
             'scheduled_time' => 'required|date|after:now',
@@ -954,6 +1026,15 @@ Keep it under 100 words.";
      */
     public function storeConversationMessage(Request $request)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         $data = $request->validate([
             'call_id' => 'required|string',
             'message' => 'required|string',
@@ -1084,7 +1165,11 @@ Keep it under 100 words.";
                 'call_id' => $call->id,
             ]);
         } catch (\Throwable $th) {
-            Log::error('Failed to store conversation message: '.$th->getMessage());
+            Log::error('Failed to store conversation message: '.$th->getMessage(), [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -1099,6 +1184,15 @@ Keep it under 100 words.";
      */
     public function getConversationHistory(Request $request, $callId)
     {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ],400);
+        }
+
         try {
             $call = CallStatus::where('id', $callId)
                 ->orWhere('connection_id', $callId)
