@@ -774,26 +774,25 @@ EOD;
             $chatGPT = new ChatGPT();
             
             $originalMessageText = $call->original_message ?? 'No original message available';
-            $prompt = "Generate a professional message to schedule a call with this lead:
+            $calendarLink = $call->calendar_link ?? 'https://app.linkdominator.com/schedule-call/' . $call->id;
+            
+            $prompt = "Generate a simple follow-up message to schedule a call. This is a LinkedIn conversation follow-up, so keep it casual and direct. 
 
-Lead: {$call->recipient}
-Company: {$call->company}
-Industry: {$call->industry}
-Original Message: {$originalMessageText}
+Requirements:
+- Just ask them to select a convenient time using the calendar link
+- Use the exact calendar link: {$calendarLink}
+- No placeholders like [Your Name], [Your Company], etc.
+- No signatures or formal closings
+- Keep it under 30 words
+- Be friendly and conversational
 
-Create a message that:
-1. Acknowledges their interest
-2. Proposes specific time slots
-3. Includes a calendar link
-4. Is professional and engaging
-
-Keep it under 100 words.";
+Example style: 'Hi [Name], here's the link to schedule a call at your convenience: [link]. Let me know if you have any questions!'";
 
             $result = $chatGPT->generateContent($prompt);
             return $result['content'];
             
         } catch (\Throwable $th) {
-            return "Hi {$call->recipient}, I'd love to schedule a call to discuss how we can help your business. Please let me know your availability for this week, or you can book directly here: {$call->calendar_link}";
+            return "Hi {$call->recipient}, here's the link to schedule a call at your convenience: {$call->calendar_link}. Let me know if you have any questions!";
         }
     }
 
@@ -1183,9 +1182,14 @@ Keep it under 100 words.";
             }
             
             // Original logic for database call IDs
-            $call = CallStatus::where('id', $callId)
-                ->where('user_id', Auth::id())
-                ->firstOrFail();
+            // Find call record by ID only (not by user_id) since call records might be created without proper user association
+            $call = CallStatus::where('id', $callId)->first();
+            
+            if (!$call) {
+                return response()->json([
+                    'error' => 'Call record not found'
+                ], 404);
+            }
 
             // Generate calendar link
             $calendarLink = $this->generateCalendarLink($call);
@@ -1235,15 +1239,15 @@ Keep it under 100 words.";
         try {
             $chatGPT = new ChatGPT();
             
-            $prompt = "Generate a professional message to schedule a call with a LinkedIn lead who has shown interest. Keep it concise, friendly, and include a calendar booking link. The message should be professional but not overly formal.";
+            $prompt = "Generate a simple LinkedIn follow-up message to schedule a call. Keep it casual and direct - just ask them to select a convenient time using the calendar link. No placeholders, no signatures, no formal closings. Under 30 words, friendly and conversational.";
             
             $response = $chatGPT->generateContent($prompt);
             
-            return $response['content'] ?? "Great! I'd love to schedule a call with you to discuss further. Please use this link to book a time that works for you: [CALENDAR_LINK]";
+            return $response['content'] ?? "Hi! Here's the link to schedule a call at your convenience: [CALENDAR_LINK]. Let me know if you have any questions!";
             
         } catch (\Exception $e) {
             Log::error('Failed to generate simple scheduling message: ' . $e->getMessage());
-            return "Great! I'd love to schedule a call with you to discuss further. Please use this link to book a time that works for you: [CALENDAR_LINK]";
+            return "Hi! Here's the link to schedule a call at your convenience: [CALENDAR_LINK]. Let me know if you have any questions!";
         }
     }
 
