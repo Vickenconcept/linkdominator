@@ -1252,6 +1252,30 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
     }
 
     /**
+     * Show call details page
+     */
+    public function showCallDetails($id)
+    {
+        try {
+            $call = CallStatus::findOrFail($id);
+            
+            // Parse conversation history
+            $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
+            
+            // Parse AI analysis
+            $aiAnalysis = null;
+            if ($call->ai_analysis) {
+                $aiAnalysis = is_string($call->ai_analysis) ? json_decode($call->ai_analysis, true) : $call->ai_analysis;
+            }
+            
+            return view('calls.show', compact('call', 'conversationHistory', 'aiAnalysis'));
+            
+        } catch (\Exception $e) {
+            return redirect()->route('calls')->with('error', 'Call not found');
+        }
+    }
+
+    /**
      * Determine if response is positive based on AI analysis
      */
     private function isPositiveResponse($aiAnalysis)
