@@ -663,7 +663,7 @@ EOD;
                     'scheduling_message' => $this->generateSchedulingMessage($call)
                 ];
             }
-            
+                        
             return response()->json([
                 'message' => 'Reply processed successfully',
                 'analysis' => $analysis,
