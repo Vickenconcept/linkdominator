@@ -975,17 +975,41 @@ Keep it under 100 words.";
                 ->first();
 
             if (!$call) {
-                // This should never happen - call should exist from initial storeCallStatus
-                Log::error('❌ Call record not found for conversation message', [
+                // Fallback: Create call record if it doesn't exist (for conversations not initiated through campaign)
+                Log::warning('⚠️ Call record not found, creating fallback record', [
                     'call_id' => $data['call_id'],
                     'connection_id' => $data['connection_id'],
                     'lead_name' => $data['lead_name']
                 ]);
                 
-                return response()->json([
-                    'message' => 'Call record not found. Please ensure the call was properly initialized first.',
-                    'error' => 'CALL_NOT_FOUND'
-                ], 404);
+                // Get user from LinkedIn ID header
+                $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+                
+                if (!$user) {
+                    return response()->json([
+                        'message' => 'User not found. Please ensure you are properly authenticated.',
+                        'error' => 'USER_NOT_FOUND'
+                    ], 401);
+                }
+                
+                // Create fallback call record
+                $call = CallStatus::create([
+                    'recipient' => $data['lead_name'] ?? 'Unknown Lead',
+                    'connection_id' => $data['connection_id'],
+                    'conversation_urn_id' => $data['conversation_urn_id'],
+                    'call_status' => 'conversation_started',
+                    'user_id' => $user->id,
+                    'conversation_history' => json_encode([]),
+                    'interaction_count' => 0,
+                    'last_interaction_at' => now(),
+                    'original_message' => 'Conversation started outside of campaign system'
+                ]);
+                
+                Log::info('✅ Fallback call record created', [
+                    'call_id' => $call->id,
+                    'connection_id' => $call->connection_id,
+                    'lead_name' => $call->recipient
+                ]);
             }
 
             // Get existing conversation history
