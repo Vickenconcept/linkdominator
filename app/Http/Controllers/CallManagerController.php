@@ -245,15 +245,6 @@ class CallManagerController extends Controller
      */
     public function generateCallMessage(Request $request)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         $data = $request->validate([
             'recipient_name' => 'required|string',
             'company' => 'nullable|string',
@@ -285,15 +276,6 @@ class CallManagerController extends Controller
      */
     public function analyzeMessageReply(Request $request)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         $data = $request->validate([
             'message' => 'required|string',
             'leadName' => 'required|string',
@@ -480,15 +462,6 @@ EOD;
      */
     public function processCallReply(Request $request)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         $data = $request->validate([
             'call_id' => 'required|exists:call_status,id',
             'message' => 'required|string',
@@ -663,7 +636,7 @@ EOD;
                     'scheduling_message' => $this->generateSchedulingMessage($call)
                 ];
             }
-                        
+            
             return response()->json([
                 'message' => 'Reply processed successfully',
                 'analysis' => $analysis,
@@ -856,15 +829,6 @@ Keep it under 100 words.";
      */
     public function scheduleCall(Request $request)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         $data = $request->validate([
             'call_id' => 'required|exists:call_status,id',
             'scheduled_time' => 'required|date|after:now',
@@ -1026,15 +990,6 @@ Keep it under 100 words.";
      */
     public function storeConversationMessage(Request $request)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         $data = $request->validate([
             'call_id' => 'required|string',
             'message' => 'required|string',
@@ -1165,11 +1120,7 @@ Keep it under 100 words.";
                 'call_id' => $call->id,
             ]);
         } catch (\Throwable $th) {
-            Log::error('Failed to store conversation message: '.$th->getMessage(), [
-                'error' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
-                'request_data' => $request->all()
-            ]);
+            Log::error('Failed to store conversation message: '.$th->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -1184,15 +1135,6 @@ Keep it under 100 words.";
      */
     public function getConversationHistory(Request $request, $callId)
     {
-        try {
-            $this->checkAuthorization($request);
-        } catch (\Throwable $th) {
-            return response()->json([
-                "message" => $th->getMessage(),
-                "status" => 400
-            ],400);
-        }
-
         try {
             $call = CallStatus::where('id', $callId)
                 ->orWhere('connection_id', $callId)

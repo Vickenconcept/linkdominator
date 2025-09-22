@@ -12,11 +12,13 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+
+// Routes that don't require authentication (for chrome extension access)
+Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMessageReply']);
+Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
+
 // Chrome extension routes (require lk-id header validation)
 Route::middleware(['api'])->group(function() {
-    // Routes that don't require authentication (for chrome extension access)
-    Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMessageReply']);
-    Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
     Route::get('campaigns', [CampaignController::class, 'campaign']); // tested
     Route::get('campaigns/status-updates', [CampaignController::class, 'getCampaignStatusUpdates']); // real-time updates
     Route::get('campaigns/{id}/debug-accept-rate', [CampaignController::class, 'debugAcceptRate']); // debug accept rate
