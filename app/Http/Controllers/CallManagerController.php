@@ -131,8 +131,9 @@ class CallManagerController extends Controller
 
         $user = User::where('linkedin_id', $request->header('lk-id'))->first();
 
-        // Generate AI-powered call message if not provided
+        // Generate/transform original message based on inputs
         $originalMessage = $request->original_message ?? null;
+        $paraphraseUserMessage = filter_var($request->input('paraphrase_user_message', false), FILTER_VALIDATE_BOOLEAN);
         
         Log::info('🔍 Call message generation debug', [
             'original_message_provided' => $originalMessage,
@@ -142,7 +143,18 @@ class CallManagerController extends Controller
             'will_generate_ai' => (!$originalMessage && $request->recipient)
         ]);
         
-        if (!$originalMessage && $request->recipient) {
+        if ($originalMessage && $paraphraseUserMessage) {
+            Log::info('📝 Paraphrasing user-provided message');
+            try {
+                $chatGPT = new ChatGPT();
+                $prompt = "Paraphrase the following outreach message to be concise, friendly, and professional. Keep intent and meaning, improve clarity, and limit to ~80-120 words. Return only the rewritten message.\n\nMESSAGE:\n" . $originalMessage;
+                $result = $chatGPT->generateContent($prompt);
+                $originalMessage = trim($result['content']);
+                Log::info('✅ Paraphrase completed');
+            } catch (\Throwable $th) {
+                Log::warning('⚠️ Paraphrase failed, using original as-is', ['error' => $th->getMessage()]);
+            }
+        } elseif (!$originalMessage && $request->recipient) {
             Log::info('🤖 Generating AI call message', [
                 'recipient' => $request->recipient,
                 'company' => $request->company,
