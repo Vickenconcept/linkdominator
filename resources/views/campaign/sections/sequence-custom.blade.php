@@ -300,7 +300,14 @@
                             </div>
                         </div>
                         <div class="mt-2 call-message-space" style="display: none;">
-                            <textarea id="call-message" name="call_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
+                            <div class="mb-3">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" id="use-ai-paraphrase" name="use_ai_paraphrase" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                    <span>Use AI (paraphrase my message)</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">If checked, AI will improve and paraphrase your message. If unchecked, your exact message will be sent.</p>
+                            </div>
+                            <textarea id="call-message" name="call_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" placeholder="Enter your call message here..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -567,6 +574,7 @@ const init = () => {
                 document.querySelector('.custom-modal-btn').click()
 
                 callMessageTextField.value = nodeDataModel[nodeIndex].message
+                document.querySelector('#use-ai-paraphrase').checked = nodeDataModel[nodeIndex].paraphrase_user_message || false
                 callMessageSpace.style.display = 'block'
                 callFields.style.display = 'block'
                 modalTitle.innerHTML = 'Book a Call'
@@ -605,6 +613,7 @@ const init = () => {
     applyActionMain.addEventListener('click', () => {
         if(nodeDataModel[nodeIndex].type == 'action' && nodeDataModel[nodeIndex].value == 'call'){
             nodeDataModel[nodeIndex].message = callMessageTextField.value
+            nodeDataModel[nodeIndex].paraphrase_user_message = document.querySelector('#use-ai-paraphrase').checked
             callMessageSpace.style.display = 'none'
             callFields.style.display = 'none'
         }else if(nodeDataModel[nodeIndex].type == 'action' && nodeDataModel[nodeIndex].value == 'send-invites'){

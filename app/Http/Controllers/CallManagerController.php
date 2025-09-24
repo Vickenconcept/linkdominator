@@ -131,8 +131,9 @@ class CallManagerController extends Controller
 
         $user = User::where('linkedin_id', $request->header('lk-id'))->first();
 
-        // Generate AI-powered call message if not provided
+        // Generate/transform original message based on inputs
         $originalMessage = $request->original_message ?? null;
+        $paraphraseUserMessage = filter_var($request->input('paraphrase_user_message', false), FILTER_VALIDATE_BOOLEAN);
         
         Log::info('🔍 Call message generation debug', [
             'original_message_provided' => $originalMessage,
@@ -142,7 +143,18 @@ class CallManagerController extends Controller
             'will_generate_ai' => (!$originalMessage && $request->recipient)
         ]);
         
-        if (!$originalMessage && $request->recipient) {
+        if ($originalMessage && $paraphraseUserMessage) {
+            Log::info('📝 Paraphrasing user-provided message');
+            try {
+                $chatGPT = new ChatGPT();
+                $prompt = "Paraphrase the following outreach message to be concise, friendly, and professional. Keep intent and meaning, improve clarity, and limit to ~80-120 words. Return only the rewritten message.\n\nMESSAGE:\n" . $originalMessage;
+                $result = $chatGPT->generateContent($prompt);
+                $originalMessage = trim($result['content']);
+                Log::info('✅ Paraphrase completed');
+            } catch (\Throwable $th) {
+                Log::warning('⚠️ Paraphrase failed, using original as-is', ['error' => $th->getMessage()]);
+            }
+        } elseif (!$originalMessage && $request->recipient) {
             Log::info('🤖 Generating AI call message', [
                 'recipient' => $request->recipient,
                 'company' => $request->company,
@@ -225,7 +237,69 @@ class CallManagerController extends Controller
             'original_message' => $originalMessage
         ]);
 
-        $callStatus = CallStatus::create($attributes);
+        // Upsert behavior: if a record already exists for this user and connection, update instead of create
+        $existing = null;
+        if (!empty($attributes['user_id'])) {
+            $existing = CallStatus::when(!empty($attributes['connection_id'] ?? null), function ($q) use ($attributes) {
+                    $q->where('connection_id', $attributes['connection_id']);
+                })
+                ->when(!empty($attributes['conversation_urn_id'] ?? null), function ($q) use ($attributes) {
+                    $q->orWhere('conversation_urn_id', $attributes['conversation_urn_id']);
+                })
+                ->where('user_id', $attributes['user_id'])
+                ->first();
+        }
+
+        if ($existing) {
+            // Overwrite like creating anew, but on the same row
+            $updateData = $attributes;
+
+            // Always reset conversation-related fields for a fresh start
+            if (Schema::hasColumn('call_status', 'conversation_history')) {
+                $updateData['conversation_history'] = json_encode([]);
+            }
+            if (Schema::hasColumn('call_status', 'ai_analysis')) {
+                $updateData['ai_analysis'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'calendar_link')) {
+                $updateData['calendar_link'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'scheduled_time')) {
+                $updateData['scheduled_time'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'meeting_link')) {
+                $updateData['meeting_link'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'lead_category')) {
+                $updateData['lead_category'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'lead_score')) {
+                $updateData['lead_score'] = null;
+            }
+            if (Schema::hasColumn('call_status', 'last_interaction_at')) {
+                $updateData['last_interaction_at'] = now();
+            }
+            if (Schema::hasColumn('call_status', 'interaction_count')) {
+                $updateData['interaction_count'] = 1;
+            }
+
+            // Ensure we keep identifiers up to date if provided
+            // original_message: use newly generated/provided when present
+            if (empty($updateData['original_message'])) {
+                // If no new original_message was generated, keep existing one
+                unset($updateData['original_message']);
+            }
+
+            $existing->update($updateData);
+            $callStatus = $existing;
+            Log::info('🔁 Updated existing CallStatus by connection/conversation for user', [
+                'call_id' => $existing->id,
+                'connection_id' => $existing->connection_id,
+                'conversation_urn_id' => $existing->conversation_urn_id
+            ]);
+        } else {
+            $callStatus = CallStatus::create($attributes);
+        }
 
         Log::info('✅ CallStatus created', [
             'call_id' => $callStatus->id,
@@ -235,9 +309,9 @@ class CallManagerController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Call status created successfully',
+            'message' => $existing ? 'Call status updated successfully' : 'Call status created successfully',
             'call_id' => $callStatus->id
-        ],201);
+        ], $existing ? 200 : 201);
     }
 
     /**
@@ -1248,6 +1322,30 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
         } catch (\Exception $e) {
             Log::error('Failed to generate simple scheduling message: ' . $e->getMessage());
             return "Hi! Here's the link to schedule a call at your convenience: [CALENDAR_LINK]. Let me know if you have any questions!";
+        }
+    }
+
+    /**
+     * Show call details page
+     */
+    public function showCallDetails($id)
+    {
+        try {
+            $call = CallStatus::findOrFail($id);
+            
+            // Parse conversation history
+            $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
+            
+            // Parse AI analysis
+            $aiAnalysis = null;
+            if ($call->ai_analysis) {
+                $aiAnalysis = is_string($call->ai_analysis) ? json_decode($call->ai_analysis, true) : $call->ai_analysis;
+            }
+            
+            return view('calls.show', compact('call', 'conversationHistory', 'aiAnalysis'));
+            
+        } catch (\Exception $e) {
+            return redirect()->route('calls')->with('error', 'Call not found');
         }
     }
 
