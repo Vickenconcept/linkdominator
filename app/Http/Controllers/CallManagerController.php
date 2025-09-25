@@ -346,7 +346,7 @@ class CallManagerController extends Controller
     }
 
     /**
-     * Analyze a message reply with AI (simple version for extension)
+     * Analyze a message reply with AI using full conversation context
      */
     public function analyzeMessageReply(Request $request)
     {
@@ -361,8 +361,9 @@ class CallManagerController extends Controller
         ]);
 
         try {
-            // Get original message with robust lookup strategy
+            // Get original message and conversation thread with robust lookup strategy
             $originalMessage = $data['original_message'] ?? null;
+            $conversationThread = [];
             $call = null;
             
             if (!$originalMessage) {
@@ -391,11 +392,16 @@ class CallManagerController extends Controller
                 
                 if ($call) {
                     $originalMessage = $call->original_message ?? 'No original message available';
-                    Log::info('✅ Found call record for analysis:', [
+                    
+                    // Get conversation thread for enhanced analysis
+                    $conversationThread = json_decode($call->conversation_history ?? '[]', true) ?: [];
+                    
+                    Log::info('✅ Found call record for enhanced analysis:', [
                         'id' => $call->id,
                         'connection_id' => $call->connection_id,
                         'conversation_urn_id' => $call->conversation_urn_id,
-                        'has_original_message' => !empty($call->original_message)
+                        'has_original_message' => !empty($call->original_message),
+                        'conversation_count' => count($conversationThread)
                     ]);
                 } else {
                     Log::warning('⚠️ No call record found for analysis', [
@@ -406,15 +412,69 @@ class CallManagerController extends Controller
                 }
             }
             
-            // Analyze reply with AI using intelligent context analysis
+            // Analyze reply with AI using enhanced conversation context
             $chatGPT = new ChatGPT();
             $context = $data['context'] ?? 'LinkedIn message response analysis';
             
-            // Build the analysis prompt with original message context
-            $originalMessageText = $originalMessage ?: 'Not provided - this appears to be the start of the conversation';
-            
-            // Use heredoc syntax for maximum reliability
-            $analysisPrompt = <<<EOD
+            // Use enhanced conversation analysis if we have conversation history
+            if (!empty($conversationThread)) {
+                Log::info('🧠 Using enhanced conversation thread analysis', [
+                    'conversation_count' => count($conversationThread),
+                    'lead_name' => $data['leadName']
+                ]);
+                
+                $analysis = $chatGPT->analyzeConversationThread(
+                    $conversationThread,
+                    $originalMessage ?: 'No original message available',
+                    $data['message'],
+                    $data['leadName']
+                );
+                
+                // Map the enhanced analysis to the expected format for backward compatibility
+                $mappedAnalysis = [
+                    'intent' => $analysis['current_intent'] ?? 'unknown',
+                    'sentiment' => $this->extractSentimentFromAnalysis($analysis),
+                    'next_action' => $analysis['next_action'] ?? 'follow_up_later',
+                    'suggested_response' => $analysis['suggested_response'] ?? 'Thank you for your response. I\'ll follow up with you soon.',
+                    'lead_score' => $analysis['lead_score'] ?? 5,
+                    'is_positive' => $analysis['is_positive'] ?? false,
+                    'reasoning' => $analysis['reasoning'] ?? 'Enhanced conversation analysis',
+                    
+                    // Additional enhanced fields
+                    'conversation_summary' => $analysis['conversation_summary'] ?? '',
+                    'lead_communication_style' => $analysis['lead_communication_style'] ?? '',
+                    'engagement_pattern' => $analysis['engagement_pattern'] ?? '',
+                    'underlying_concerns' => $analysis['underlying_concerns'] ?? '',
+                    'sentiment_evolution' => $analysis['sentiment_evolution'] ?? '',
+                    'context_insights' => $analysis['context_insights'] ?? '',
+                    'recommended_approach' => $analysis['recommended_approach'] ?? '',
+                    'confidence_level' => $analysis['confidence_level'] ?? 'medium'
+                ];
+                
+                Log::info('✅ Enhanced conversation analysis completed', [
+                    'intent' => $mappedAnalysis['intent'],
+                    'sentiment' => $mappedAnalysis['sentiment'],
+                    'lead_score' => $mappedAnalysis['lead_score'],
+                    'is_positive' => $mappedAnalysis['is_positive'],
+                    'confidence_level' => $mappedAnalysis['confidence_level']
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'analysis' => $mappedAnalysis,
+                    'message' => 'Enhanced conversation analysis completed successfully',
+                    'enhanced_analysis' => true
+                ]);
+            } else {
+                // Fallback to original simple analysis if no conversation history
+                Log::info('🔄 Using simple analysis (no conversation history)', [
+                    'lead_name' => $data['leadName']
+                ]);
+                
+                $originalMessageText = $originalMessage ?: 'Not provided - this appears to be the start of the conversation';
+                
+                // Use heredoc syntax for maximum reliability
+                $analysisPrompt = <<<EOD
 You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
 
 ORIGINAL CALL MESSAGE: {$originalMessageText}
@@ -470,55 +530,57 @@ CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional te
 Focus on understanding the human behind the message, not just matching words.
 EOD;
 
-            $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
-            $analysis = json_decode($aiAnalysis['content'], true);
-            
-            // Log the raw AI response for debugging
-            Log::info('🤖 AI Analysis Raw Response', [
-                'raw_content' => $aiAnalysis['content'],
-                'json_decode_result' => $analysis,
-                'json_last_error' => json_last_error_msg()
-            ]);
-            
-            // Ensure we have the required fields
-            if (!$analysis || json_last_error() !== JSON_ERROR_NONE) {
-                Log::warning('⚠️ AI Analysis failed or returned invalid JSON, using fallback', [
+                $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
+                $analysis = json_decode($aiAnalysis['content'], true);
+                
+                // Log the raw AI response for debugging
+                Log::info('🤖 AI Analysis Raw Response (Simple)', [
                     'raw_content' => $aiAnalysis['content'],
-                    'json_error' => json_last_error_msg()
+                    'json_decode_result' => $analysis,
+                    'json_last_error' => json_last_error_msg()
                 ]);
                 
-                $analysis = [
-                    'intent' => 'unknown',
-                    'sentiment' => 'neutral',
-                    'leadScore' => 5,
-                    'isPositive' => false,
-                    'nextAction' => 'follow_up_later',
-                    'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
-                ];
-            } else {
-                // Validate that we have the required fields
-                $analysis = array_merge([
-                    'intent' => 'unknown',
-                    'sentiment' => 'neutral',
-                    'leadScore' => 5,
-                    'isPositive' => false,
-                    'nextAction' => 'follow_up_later',
-                    'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
-                ], $analysis);
-                
-                Log::info('✅ AI Analysis successful', [
-                    'intent' => $analysis['intent'],
-                    'sentiment' => $analysis['sentiment'],
-                    'leadScore' => $analysis['leadScore'],
-                    'isPositive' => $analysis['isPositive']
+                // Ensure we have the required fields
+                if (!$analysis || json_last_error() !== JSON_ERROR_NONE) {
+                    Log::warning('⚠️ AI Analysis failed or returned invalid JSON, using fallback', [
+                        'raw_content' => $aiAnalysis['content'],
+                        'json_error' => json_last_error_msg()
+                    ]);
+                    
+                    $analysis = [
+                        'intent' => 'unknown',
+                        'sentiment' => 'neutral',
+                        'leadScore' => 5,
+                        'isPositive' => false,
+                        'nextAction' => 'follow_up_later',
+                        'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
+                    ];
+                } else {
+                    // Validate that we have the required fields
+                    $analysis = array_merge([
+                        'intent' => 'unknown',
+                        'sentiment' => 'neutral',
+                        'leadScore' => 5,
+                        'isPositive' => false,
+                        'nextAction' => 'follow_up_later',
+                        'suggestedResponse' => 'Thank you for your response. I\'ll follow up with you soon.'
+                    ], $analysis);
+                    
+                    Log::info('✅ AI Analysis successful (Simple)', [
+                        'intent' => $analysis['intent'],
+                        'sentiment' => $analysis['sentiment'],
+                        'leadScore' => $analysis['leadScore'],
+                        'isPositive' => $analysis['isPositive']
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'analysis' => $analysis,
+                    'message' => 'Analysis completed successfully',
+                    'enhanced_analysis' => false
                 ]);
             }
-
-            return response()->json([
-                'success' => true,
-                'analysis' => $analysis,
-                'message' => 'Analysis completed successfully'
-            ]);
 
         } catch (\Exception $e) {
             Log::error('Message analysis failed: ' . $e->getMessage());
@@ -529,6 +591,38 @@ EOD;
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Extract sentiment from enhanced analysis
+     */
+    private function extractSentimentFromAnalysis($analysis)
+    {
+        // Try to extract sentiment from various fields in the enhanced analysis
+        $sentimentEvolution = $analysis['sentiment_evolution'] ?? '';
+        $contextInsights = $analysis['context_insights'] ?? '';
+        $reasoning = $analysis['reasoning'] ?? '';
+        
+        // Look for sentiment indicators in the text
+        $positiveIndicators = ['positive', 'enthusiastic', 'excited', 'interested', 'eager', 'grateful'];
+        $negativeIndicators = ['negative', 'dismissive', 'frustrated', 'uninterested', 'annoyed', 'declining'];
+        
+        $text = strtolower($sentimentEvolution . ' ' . $contextInsights . ' ' . $reasoning);
+        
+        foreach ($positiveIndicators as $indicator) {
+            if (strpos($text, $indicator) !== false) {
+                return 'positive';
+            }
+        }
+        
+        foreach ($negativeIndicators as $indicator) {
+            if (strpos($text, $indicator) !== false) {
+                return 'negative';
+            }
+        }
+        
+        // Default to neutral if no clear sentiment found
+        return 'neutral';
     }
 
     /**
