@@ -1514,4 +1514,36 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             ], 422);
         }
     }
+
+    /**
+     * Search for call record by connection_id
+     */
+    public function searchByConnection($connectionId)
+    {
+        try {
+            $callStatus = CallStatus::where('connection_id', $connectionId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if (!$callStatus) {
+                return response()->json([
+                    'message' => 'No call record found for this connection_id',
+                    'call_id' => null
+                ], 404);
+            }
+
+            return response()->json([
+                'message' => 'Call record found',
+                'call_id' => $callStatus->id,
+                'call_status' => $callStatus->call_status,
+                'lead_name' => $callStatus->recipient,
+                'created_at' => $callStatus->created_at
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Failed to search call record: ' . $th->getMessage()
+            ], 500);
+        }
+    }
 }

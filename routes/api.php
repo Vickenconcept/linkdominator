@@ -43,6 +43,7 @@ Route::middleware(['api'])->group(function() {
     Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
     Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
     Route::get('calls/{id}/conversation', [CallManagerController::class, 'getConversationHistory']);
+    Route::get('calls/search-by-connection/{connectionId}', [CallManagerController::class, 'searchByConnection']);
 });
 
 Route::controller(LeadController::class)->group(function (){
