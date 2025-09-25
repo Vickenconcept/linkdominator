@@ -244,4 +244,206 @@ class ChatGPT
         
         return $result;
     }
+
+    /**
+     * Analyze full conversation thread for enhanced context understanding
+     */
+    public function analyzeConversationThread($conversationThread, $originalMessage, $lastReply, $leadName)
+    {
+        Log::info('🤖 ChatGPT analyzeConversationThread called', [
+            'conversation_count' => count($conversationThread),
+            'lead_name' => $leadName,
+            'has_original_message' => !empty($originalMessage),
+            'has_last_reply' => !empty($lastReply)
+        ]);
+
+        try {
+            // Build conversation summary
+            $conversationSummary = $this->buildConversationSummary($conversationThread);
+            
+            $prompt = <<<EOD
+You are an expert LinkedIn conversation analyst with deep understanding of human communication patterns, context, and conversation flow. Analyze this ENTIRE conversation thread to provide comprehensive insights.
+
+CONVERSATION THREAD ANALYSIS:
+{$conversationSummary}
+
+ORIGINAL CALL MESSAGE: {$originalMessage}
+LATEST REPLY: {$lastReply}
+LEAD NAME: {$leadName}
+
+ANALYSIS INSTRUCTIONS:
+Analyze the FULL conversation context, not just the last message. Consider:
+
+1. **Conversation Flow & Progression**:
+   - How has the conversation evolved from the original message?
+   - What patterns do you see in the lead's responses?
+   - Are there repeated themes or concerns?
+   - How has the lead's engagement level changed over time?
+
+2. **Lead Behavior Analysis**:
+   - What does the conversation reveal about the lead's communication style?
+   - Are they being consistent in their responses or showing mixed signals?
+   - What are their underlying concerns or interests?
+   - How do they respond to different types of messages?
+
+3. **Context Understanding**:
+   - What is the lead really thinking based on ALL their responses?
+   - Are there subtle cues that only become clear when viewing the full conversation?
+   - What information have they shared that might be relevant?
+   - How has their sentiment evolved throughout the conversation?
+
+4. **Intent & Sentiment Evolution**:
+   - How has their intent changed from message to message?
+   - What is their current true sentiment considering the full context?
+   - Are they showing genuine interest or just being polite?
+   - What does their response pattern suggest about their decision-making process?
+
+5. **Strategic Insights**:
+   - What approach would work best based on their communication pattern?
+   - What information do they need to make a decision?
+   - How can we address their underlying concerns?
+   - What would be the most appropriate next step?
+
+REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
+{
+  "conversation_summary": "Brief summary of the conversation flow and key points",
+  "lead_communication_style": "Description of how the lead communicates (direct, cautious, enthusiastic, etc.)",
+  "engagement_pattern": "Analysis of how the lead's engagement has changed over time",
+  "underlying_concerns": "Any concerns or hesitations the lead has expressed or implied",
+  "current_intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request|hesitant|mixed_signals",
+  "sentiment_evolution": "How sentiment has changed throughout the conversation",
+  "context_insights": "Key insights that only become clear from full conversation context",
+  "recommended_approach": "What approach would work best for this specific lead",
+  "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability|address_concerns",
+  "suggested_response": "Personalized response that considers the full conversation context",
+  "lead_score": 1-10,
+  "is_positive": true|false,
+  "confidence_level": "high|medium|low",
+  "reasoning": "Detailed explanation of your analysis considering the full conversation"
+}
+
+CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
+
+Focus on understanding the human behind ALL the messages, not just the latest one.
+EOD;
+
+            $aiAnalysis = $this->generateContent($prompt);
+            $analysis = json_decode($aiAnalysis['content'], true);
+            
+            Log::info('🤖 Conversation Thread Analysis Result', [
+                'raw_content' => $aiAnalysis['content'],
+                'json_decode_result' => $analysis,
+                'json_last_error' => json_last_error_msg()
+            ]);
+            
+            // Ensure we have the required fields with fallbacks
+            if (!$analysis || json_last_error() !== JSON_ERROR_NONE) {
+                Log::warning('⚠️ Conversation Thread Analysis failed, using fallback', [
+                    'raw_content' => $aiAnalysis['content'],
+                    'json_error' => json_last_error_msg()
+                ]);
+                
+                $analysis = [
+                    'conversation_summary' => 'Unable to analyze full conversation',
+                    'lead_communication_style' => 'Unknown',
+                    'engagement_pattern' => 'Unknown',
+                    'underlying_concerns' => 'None identified',
+                    'current_intent' => 'unknown',
+                    'sentiment_evolution' => 'Unknown',
+                    'context_insights' => 'Limited analysis available',
+                    'recommended_approach' => 'Standard follow-up',
+                    'next_action' => 'follow_up_later',
+                    'suggested_response' => 'Thank you for your response. I\'ll follow up with you soon.',
+                    'lead_score' => 5,
+                    'is_positive' => false,
+                    'confidence_level' => 'low',
+                    'reasoning' => 'Analysis failed - using fallback'
+                ];
+            } else {
+                // Validate and merge with defaults
+                $analysis = array_merge([
+                    'conversation_summary' => 'Conversation analyzed',
+                    'lead_communication_style' => 'Professional',
+                    'engagement_pattern' => 'Consistent',
+                    'underlying_concerns' => 'None identified',
+                    'current_intent' => 'unknown',
+                    'sentiment_evolution' => 'Stable',
+                    'context_insights' => 'Standard conversation flow',
+                    'recommended_approach' => 'Standard follow-up',
+                    'next_action' => 'follow_up_later',
+                    'suggested_response' => 'Thank you for your response. I\'ll follow up with you soon.',
+                    'lead_score' => 5,
+                    'is_positive' => false,
+                    'confidence_level' => 'medium',
+                    'reasoning' => 'Analysis completed'
+                ], $analysis);
+                
+                Log::info('✅ Conversation Thread Analysis successful', [
+                    'current_intent' => $analysis['current_intent'],
+                    'lead_score' => $analysis['lead_score'],
+                    'is_positive' => $analysis['is_positive'],
+                    'confidence_level' => $analysis['confidence_level']
+                ]);
+            }
+
+            return $analysis;
+
+        } catch (\Throwable $th) {
+            Log::error('❌ Conversation Thread Analysis failed', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            
+            // Return fallback analysis
+            return [
+                'conversation_summary' => 'Analysis failed',
+                'lead_communication_style' => 'Unknown',
+                'engagement_pattern' => 'Unknown',
+                'underlying_concerns' => 'None identified',
+                'current_intent' => 'unknown',
+                'sentiment_evolution' => 'Unknown',
+                'context_insights' => 'Analysis unavailable',
+                'recommended_approach' => 'Standard follow-up',
+                'next_action' => 'follow_up_later',
+                'suggested_response' => 'Thank you for your response. I\'ll follow up with you soon.',
+                'lead_score' => 5,
+                'is_positive' => false,
+                'confidence_level' => 'low',
+                'reasoning' => 'Analysis failed: ' . $th->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Build a structured summary of the conversation thread
+     */
+    private function buildConversationSummary($conversationThread)
+    {
+        if (empty($conversationThread)) {
+            return "No conversation history available.";
+        }
+
+        $summary = "CONVERSATION THREAD:\n\n";
+        
+        foreach ($conversationThread as $index => $message) {
+            $messageType = $message['type'] ?? 'unknown';
+            $messageText = $message['message'] ?? '';
+            $timestamp = $message['timestamp'] ?? '';
+            $messageTypeLabel = ucfirst($messageType);
+            
+            $summary .= "Message " . ($index + 1) . " ({$messageTypeLabel}):\n";
+            $summary .= "Time: {$timestamp}\n";
+            $summary .= "Content: {$messageText}\n";
+            
+            // Add any AI analysis if present
+            if (isset($message['ai_analysis']) && is_array($message['ai_analysis'])) {
+                $aiAnalysis = $message['ai_analysis'];
+                $summary .= "AI Analysis: Intent={$aiAnalysis['intent']}, Sentiment={$aiAnalysis['sentiment']}, Score={$aiAnalysis['lead_score']}\n";
+            }
+            
+            $summary .= "\n---\n\n";
+        }
+        
+        return $summary;
+    }
 }
