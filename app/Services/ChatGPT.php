@@ -136,7 +136,7 @@ class ChatGPT
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'You are an expert LinkedIn conversation analyst specializing in lead qualification and call scheduling. You understand human communication patterns, context, and subtle cues. Analyze messages intelligently by understanding the underlying intent, sentiment, and context rather than relying on keyword matching. Provide structured, actionable insights for conversation management.'],
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn conversation analyst specializing in lead qualification and call scheduling. You understand human communication patterns, context, and subtle cues. Your primary goal is to help schedule meetings with prospects. Analyze messages intelligently by understanding the underlying intent, sentiment, and context rather than relying on keyword matching. Always look for opportunities to suggest or schedule meetings. Provide natural, human-like responses without placeholders or brackets. Focus on moving conversations toward scheduling calls or meetings.'],
                         ['role' => 'user', 'content' => $prompt],
                     ],
                     'max_tokens' => $this->max_token,
@@ -262,7 +262,7 @@ class ChatGPT
             $conversationSummary = $this->buildConversationSummary($conversationThread);
             
             $prompt = <<<EOD
-You are an expert LinkedIn conversation analyst with deep understanding of human communication patterns, context, and conversation flow. Analyze this ENTIRE conversation thread to provide comprehensive insights.
+You are an expert LinkedIn conversation analyst with deep understanding of human communication patterns, context, and conversation flow. Your PRIMARY GOAL is to help schedule meetings with prospects. Analyze this ENTIRE conversation thread to provide comprehensive insights.
 
 CONVERSATION THREAD ANALYSIS:
 {$conversationSummary}
@@ -298,11 +298,19 @@ Analyze the FULL conversation context, not just the last message. Consider:
    - Are they showing genuine interest or just being polite?
    - What does their response pattern suggest about their decision-making process?
 
-5. **Strategic Insights**:
-   - What approach would work best based on their communication pattern?
-   - What information do they need to make a decision?
-   - How can we address their underlying concerns?
-   - What would be the most appropriate next step?
+5. **Strategic Insights for Meeting Scheduling**:
+   - What approach would work best to get them to agree to a meeting?
+   - What information do they need to make a decision about scheduling?
+   - How can we address their underlying concerns to move toward a meeting?
+   - What would be the most appropriate next step to schedule a call?
+
+6. **Meeting Scheduling Focus**:
+   - Always look for opportunities to suggest or schedule meetings
+   - If they show any interest, immediately suggest a meeting
+   - If they have concerns, address them and then suggest a meeting
+   - If they're hesitant, offer a brief meeting to discuss their concerns
+   - If they're busy, suggest a quick 15-minute call
+   - If they're interested, suggest a longer meeting to discuss details
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
@@ -313,9 +321,9 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
   "current_intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request|hesitant|mixed_signals",
   "sentiment_evolution": "How sentiment has changed throughout the conversation",
   "context_insights": "Key insights that only become clear from full conversation context",
-  "recommended_approach": "What approach would work best for this specific lead",
+  "recommended_approach": "What approach would work best to get them to agree to a meeting",
   "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability|address_concerns",
-  "suggested_response": "Personalized response that considers the full conversation context",
+  "suggested_response": "Natural, human-like response that focuses on scheduling a meeting. No placeholders, brackets, or generic text. Be specific and personal.",
   "lead_score": 1-10,
   "is_positive": true|false,
   "confidence_level": "high|medium|low",
@@ -324,7 +332,7 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind ALL the messages, not just the latest one.
+Focus on understanding the human behind ALL the messages and always look for opportunities to schedule meetings.
 EOD;
 
             $aiAnalysis = $this->generateContent($prompt);
