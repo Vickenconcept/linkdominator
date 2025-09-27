@@ -16,6 +16,7 @@ Route::get('/user', function (Request $request) {
 // Routes that don't require authentication (for chrome extension access)
 Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMessageReply']);
 Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
+Route::get('calls/{id}/status', [CallManagerController::class, 'getCallStatus']);
 
 // Chrome extension routes (require lk-id header validation)
 Route::middleware(['api'])->group(function() {
@@ -43,6 +44,10 @@ Route::middleware(['api'])->group(function() {
     Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
     Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
     Route::get('calls/{id}/conversation', [CallManagerController::class, 'getConversationHistory']);
+    Route::get('calls/search-by-connection/{connectionId}', [CallManagerController::class, 'searchByConnection']);
+    Route::get('calls/ready-to-send', [CallManagerController::class, 'getMessagesReadyToSend']);
+    Route::post('calls/{id}/update-status', [CallManagerController::class, 'updateMessageStatus']);
+    Route::post('calls/{id}/pending-message', [CallManagerController::class, 'updatePendingMessage']);
 });
 
 Route::controller(LeadController::class)->group(function (){
@@ -76,4 +81,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::get('snleads/lists', 'getSnLeadList');
     Route::post('snleads/list/store', 'storeSnLeadList');
     Route::post('activites', 'storeUserActivity');
+    
+    // Call management routes
+    Route::get('calls/check-existing', 'checkExistingCall');
 }); 
