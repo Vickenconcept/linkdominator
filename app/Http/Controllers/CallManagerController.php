@@ -1116,12 +1116,12 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             }
         }
         
-        // If message was sent, clear pending message and scheduled time (but don't change call_status)
+        // If message was sent, clear pending message and scheduled time, and update call_status
         if ($status === 'response_sent') {
             $updateData['pending_message'] = null;
             $updateData['scheduled_send_at'] = null;
-            // Don't update call_status - keep it as is
-            unset($updateData['call_status']);
+            // Update call_status to indicate message was sent
+            $updateData['call_status'] = 'response_sent';
             
             // Add the sent message to conversation history
             if ($sentMessage) {
@@ -1204,7 +1204,23 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             $updateData['ai_analysis'] = $analysis;
         }
         
+        // Log what we're about to update
+        Log::info('🔍 updatePendingMessage: About to update fields', [
+            'call_id' => $call->id,
+            'fields_to_update' => array_keys($updateData),
+            'original_message_before' => $call->original_message,
+            'pending_message_being_set' => $pendingMessage
+        ]);
+
         $call->update($updateData);
+
+        // Log what actually changed
+        $call->refresh();
+        Log::info('🔍 updatePendingMessage: After update', [
+            'call_id' => $call->id,
+            'original_message_after' => $call->original_message,
+            'pending_message_after' => $call->pending_message
+        ]);
 
         return response()->json([
             'message' => 'Pending message updated successfully',
@@ -1250,6 +1266,7 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             'call_status' => $call->call_status ?? 'pending_review',
             'scheduled_send_at' => $call->scheduled_send_at,
             'original_message' => $call->original_message,
+            'pending_message' => $call->pending_message,
             'ai_analysis' => $call->ai_analysis
         ]);
     }
@@ -1783,6 +1800,45 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
         } catch (\Throwable $th) {
             return response()->json([
                 'message' => 'Failed to search call record: ' . $th->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if a call record already exists for a connection
+     */
+    public function checkExistingCall(Request $request)
+    {
+        $connectionId = $request->query('connection_id');
+        
+        if (!$connectionId) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Connection ID is required'
+            ], 400);
+        }
+
+        try {
+            $call = CallStatus::where('connection_id', $connectionId)
+                ->where('user_id', Auth::id())
+                ->first();
+
+            if ($call) {
+                return response()->json([
+                    'exists' => true,
+                    'call_id' => $call->id,
+                    'message' => 'Call record found'
+                ]);
+            } else {
+                return response()->json([
+                    'exists' => false,
+                    'message' => 'No call record found'
+                ]);
+            }
+        } catch (\Throwable $th) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Failed to check existing call: ' . $th->getMessage()
             ], 500);
         }
     }

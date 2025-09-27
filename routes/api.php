@@ -81,4 +81,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::get('snleads/lists', 'getSnLeadList');
     Route::post('snleads/list/store', 'storeSnLeadList');
     Route::post('activites', 'storeUserActivity');
+    
+    // Call management routes
+    Route::get('calls/check-existing', 'checkExistingCall');
 }); 
