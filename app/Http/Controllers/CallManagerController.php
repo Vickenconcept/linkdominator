@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Http;
 
 class CallManagerController extends Controller
 {
@@ -920,8 +921,8 @@ EOD;
         // Generate calendar link (placeholder - integrate with actual calendar service)
         $calendarLink = $this->generateCalendarLink($call);
         
-        // Generate AI-powered scheduling message
-        $schedulingMessage = $this->generateSchedulingMessage($call);
+        // Generate AI-powered scheduling message with the generated calendar link
+        $schedulingMessage = $this->generateSchedulingMessage($call, $calendarLink);
         
         // Update call status
         $call->update([
@@ -943,18 +944,75 @@ EOD;
      */
     private function generateCalendarLink($call)
     {
-        // Check if Calendly is enabled and configured
-        if (config('services.calendly.enabled') && config('services.calendly.link')) {
-            $calendlyLink = config('services.calendly.link');
+        // Check if Calendly is enabled and user has connected their account
+        if (config('services.calendly.enabled')) {
+            $user = Auth::user();
             
-            // Add recipient info as a parameter if it's a Calendly link
-            if (strpos($calendlyLink, 'calendly.com') !== false) {
-                $recipientName = urlencode($call->recipient);
-                $company = urlencode($call->company ?? '');
-                return "{$calendlyLink}?name={$recipientName}&email=&a1={$company}";
+            Log::info('Generating calendar link:', [
+                'user_id' => $user ? $user->id : 'not authenticated',
+                'has_access_token' => $user && $user->calendly_access_token ? 'yes' : 'no'
+            ]);
+            
+            // Use the connected user's Calendly scheduling URL
+            if ($user && $user->calendly_access_token) {
+                try {
+                    // Get user's Calendly info to get their scheduling URL
+                    $response = Http::withToken($user->calendly_access_token)
+                        ->get('https://api.calendly.com/users/me');
+                    
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $calendlyLink = $data['resource']['scheduling_url'] ?? null;
+                        
+                        Log::info('Calendly API response:', [
+                            'scheduling_url' => $calendlyLink,
+                            'user_name' => $data['resource']['name'] ?? 'unknown'
+                        ]);
+                        
+                        if ($calendlyLink) {
+                            $recipientName = urlencode($call->recipient);
+                            $company = urlencode($call->company ?? '');
+                            $email = urlencode($call->recipient); // Use recipient as email placeholder
+                            
+                            // Add call_id as custom parameter to help with webhook matching
+                            $callId = urlencode($call->id);
+                            
+                            $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}";
+                            
+                            Log::info('Generated Calendly link from API:', ['link' => $finalLink]);
+                            
+                            return $finalLink;
+                        }
+                    } else {
+                        Log::warning('Calendly API call failed:', [
+                            'status' => $response->status(),
+                            'body' => $response->body()
+                        ]);
+                    }
+                } catch (\Throwable $th) {
+                    Log::warning('Failed to get user Calendly scheduling URL:', [
+                        'user_id' => $user->id,
+                        'error' => $th->getMessage()
+                    ]);
+                }
             }
             
-            return $calendlyLink;
+            // Fallback to config link if user hasn't connected or API call failed
+            $calendlyLink = config('services.calendly.link');
+            Log::info('Using fallback config link:', ['link' => $calendlyLink]);
+            
+            if ($calendlyLink && strpos($calendlyLink, 'calendly.com') !== false) {
+                $recipientName = urlencode($call->recipient);
+                $company = urlencode($call->company ?? '');
+                $email = urlencode($call->recipient);
+                $callId = urlencode($call->id);
+                
+                $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}";
+                
+                Log::info('Generated fallback Calendly link:', ['link' => $finalLink]);
+                
+                return $finalLink;
+            }
         }
         
         // Fallback to internal scheduling page
@@ -965,13 +1023,19 @@ EOD;
     /**
      * Generate AI-powered scheduling message
      */
-    private function generateSchedulingMessage($call)
+    private function generateSchedulingMessage($call, $calendarLink = null)
     {
         try {
             $chatGPT = new ChatGPT();
             
             $originalMessageText = $call->original_message ?? 'No original message available';
-            $calendarLink = $call->calendar_link ?? 'https://app.linkdominator.com/schedule-call/' . $call->id;
+            $calendarLink = $calendarLink ?? $call->calendar_link ?? 'https://app.linkdominator.com/schedule-call/' . $call->id;
+            
+            Log::info('Generating scheduling message:', [
+                'passed_calendar_link' => $calendarLink,
+                'call_calendar_link' => $call->calendar_link,
+                'final_calendar_link' => $calendarLink
+            ]);
             
             $prompt = "Generate a simple follow-up message to schedule a call. This is a LinkedIn conversation follow-up, so keep it casual and direct. 
 
@@ -989,7 +1053,7 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             return $result['content'];
             
         } catch (\Throwable $th) {
-            return "Hi {$call->recipient}, here's the link to schedule a call at your convenience: {$call->calendar_link}. Let me know if you have any questions!";
+            return "Hi {$call->recipient}, here's the link to schedule a call at your convenience: {$calendarLink}. Let me know if you have any questions!";
         }
     }
 

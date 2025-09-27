@@ -18,6 +18,9 @@ Route::post('calls/analyze-message', [CallManagerController::class, 'analyzeMess
 Route::post('calls/conversation/store', [CallManagerController::class, 'storeConversationMessage']);
 Route::get('calls/{id}/status', [CallManagerController::class, 'getCallStatus']);
 
+// Calendly webhook (no authentication required)
+Route::post('calendly/webhook', [App\Http\Controllers\CalendlyWebhookController::class, 'handle']);
+
 // Chrome extension routes (require lk-id header validation)
 Route::middleware(['api'])->group(function() {
     Route::get('campaigns', [CampaignController::class, 'campaign']); // tested

@@ -1,4 +1,30 @@
 <div class="mt-3">
+    <!-- Calendly Connection Status -->
+    <div class="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-900">Calendly Integration</h3>
+                    <p class="text-xs text-gray-500">Connect your Calendly account to track scheduled calls</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="calendly-status" class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                    Checking...
+                </span>
+                <a href="{{ route('calendly.connect') }}" 
+                   class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    Connect Calendly
+                </a>
+            </div>
+        </div>
+    </div>
+    
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">
             <div class="grid grid-cols-12 p-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-semibold px-3 text-sm">
@@ -187,4 +213,40 @@ $('.edit-pending-message-modal').click(function(){
         $('.scheduled-send-at').val('Not scheduled')
     }
 })
+
+// Check Calendly connection status
+$(document).ready(function() {
+    $.get('{{ route("calendly.status") }}')
+        .done(function(data) {
+            const statusElement = $('#calendly-status');
+            const connectButton = $('a[href="{{ route("calendly.connect") }}"]');
+            
+            if (data.connected) {
+                statusElement.removeClass('bg-gray-100 text-gray-600')
+                          .addClass('bg-green-100 text-green-600')
+                          .text('Connected');
+                connectButton.text('Disconnect')
+                           .removeClass('bg-green-600 hover:bg-green-700')
+                           .addClass('bg-red-600 hover:bg-red-700')
+                           .attr('href', '#')
+                           .on('click', function(e) {
+                               e.preventDefault();
+                               if (confirm('Are you sure you want to disconnect your Calendly account?')) {
+                                   $.post('{{ route("calendly.disconnect") }}', {
+                                       _token: '{{ csrf_token() }}'
+                                   }).done(function() {
+                                       location.reload();
+                                   });
+                               }
+                           });
+            } else {
+                statusElement.removeClass('bg-gray-100 text-gray-600')
+                          .addClass('bg-yellow-100 text-yellow-600')
+                          .text('Not Connected');
+            }
+        })
+        .fail(function() {
+            $('#calendly-status').text('Error').addClass('bg-red-100 text-red-600');
+        });
+});
 </script>

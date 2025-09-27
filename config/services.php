@@ -56,6 +56,10 @@ return [
 
     'calendly' => [
         'link' => env('CALENDLY_LINK', 'https://calendly.com/your-username'),
-        'enabled' => env('CALENDLY_ENABLED', false)
+        'enabled' => env('CALENDLY_ENABLED', false),
+        'client_id' => env('CALENDLY_CLIENT_ID'),
+        'client_secret' => env('CALENDLY_CLIENT_SECRET'),
+        'redirect' => env('CALENDLY_REDIRECT_URL'),
+        'webhook_url' => env('CALENDLY_WEBHOOK_URL', 'https://app.linkdominator.com/api/calendly/webhook')
     ]
 ];
