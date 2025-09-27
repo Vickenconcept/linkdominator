@@ -37,12 +37,15 @@ class CallStatus extends Model
         'reminder_2_hours_sent',
         'reminder_10_40_min_sent',
         'last_interaction_at',
-        'interaction_count'
+        'interaction_count',
+        'pending_message',
+        'scheduled_send_at'
     ];
 
     protected $casts = [
         'scheduled_time' => 'datetime',
         'last_interaction_at' => 'datetime',
+        'scheduled_send_at' => 'datetime',
         'ai_analysis' => 'array',
         'reminder_16_24_sent' => 'boolean',
         'reminder_2_hours_sent' => 'boolean',
@@ -89,5 +92,22 @@ class CallStatus extends Model
     public function scopeByLeadCategory($query, $category)
     {
         return $query->where('lead_category', $category);
+    }
+
+    /**
+     * Scope for messages ready to send
+     */
+    public function scopeReadyToSend($query)
+    {
+        return $query->where('call_status', 'pending')
+                    ->where('scheduled_send_at', '<=', now());
+    }
+
+    /**
+     * Check if message is ready to send
+     */
+    public function isReadyToSend()
+    {
+        return $this->scheduled_send_at && $this->scheduled_send_at <= now();
     }
 }

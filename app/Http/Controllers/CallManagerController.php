@@ -135,6 +135,8 @@ class CallManagerController extends Controller
         $originalMessage = $request->original_message ?? null;
         $paraphraseUserMessage = filter_var($request->input('paraphrase_user_message', false), FILTER_VALIDATE_BOOLEAN);
         
+        // AI mode and review time are now handled by the node model, not database
+        
         Log::info('🔍 Call message generation debug', [
             'original_message_provided' => $originalMessage,
             'recipient' => $request->recipient,
@@ -200,9 +202,18 @@ class CallManagerController extends Controller
             'recipient' => $request->recipient,
             'profile' => $request->profile,
             'sequence' => $request->sequence,
-            'call_status' => $request->callStatus ?? 'suggested',
+            'call_status' => $request->callStatus ?? 'pending_review',
             'user_id' => optional($user)->id,
         ];
+
+        // Calculate scheduled send time for review mode (from node model)
+        $scheduledSendAt = null;
+        $aiMode = $request->input('ai_mode', 'auto');
+        $reviewTime = $request->input('review_time', null);
+        
+        if ($aiMode === 'review' && $reviewTime) {
+            $scheduledSendAt = now()->addMinutes($reviewTime);
+        }
 
         // Conditionally include optional fields if columns exist
         $optionalFields = [
@@ -219,6 +230,8 @@ class CallManagerController extends Controller
             'conversation_history' => json_encode([]), // Initialize empty conversation history
             'last_interaction_at' => now(),
             'interaction_count' => 1,
+            'call_status' => 'pending_review',
+            'scheduled_send_at' => $scheduledSendAt,
         ];
 
         foreach ($optionalFields as $column => $value) {
@@ -1019,6 +1032,229 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
     }
 
     /**
+     * Get messages ready to send based on AI mode settings
+     */
+    public function getMessagesReadyToSend(Request $request)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        // Get messages that are ready to send
+        $readyMessages = CallStatus::where('user_id', $user->id)
+            ->readyToSend()
+            ->get();
+
+        return response()->json([
+            'messages' => $readyMessages,
+            'count' => $readyMessages->count()
+        ]);
+    }
+
+    /**
+     * Update message status after sending
+     */
+    public function updateMessageStatus(Request $request, $id)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$call) {
+            return response()->json([
+                'error' => 'Call not found'
+            ], 404);
+        }
+
+        $status = $request->input('status', 'sent');
+        $aiResponse = $request->input('ai_response');
+        $analysis = $request->input('analysis');
+        $scheduledSendAt = $request->input('scheduled_send_at');
+        $pendingMessage = $request->input('pending_message');
+        $sentMessage = $request->input('sent_message'); // The actual message that was sent
+        
+        $updateData = ['call_status' => $status];
+        
+        // If storing for review, save the AI response and scheduled time
+        if ($status === 'pending_review' && $aiResponse) {
+            $updateData['pending_message'] = $aiResponse;
+            if ($analysis) {
+                $updateData['ai_analysis'] = $analysis;
+            }
+            if ($scheduledSendAt) {
+                $updateData['scheduled_send_at'] = $scheduledSendAt;
+            }
+        }
+        
+        // If message was sent, clear pending message and scheduled time (but don't change call_status)
+        if ($status === 'response_sent') {
+            $updateData['pending_message'] = null;
+            $updateData['scheduled_send_at'] = null;
+            // Don't update call_status - keep it as is
+            unset($updateData['call_status']);
+            
+            // Add the sent message to conversation history
+            if ($sentMessage) {
+                $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
+                $conversationHistory[] = [
+                    'type' => 'ai',
+                    'message' => $sentMessage,
+                    'timestamp' => now()->toISOString()
+                ];
+                $updateData['conversation_history'] = json_encode($conversationHistory);
+                $updateData['last_interaction_at'] = now();
+                $updateData['interaction_count'] = $call->interaction_count + 1;
+            }
+        }
+        
+        // If explicitly setting pending_message to null, clear it
+        if ($pendingMessage === null) {
+            $updateData['pending_message'] = null;
+        }
+        
+        // If explicitly setting scheduled_send_at to null, clear it
+        if ($scheduledSendAt === null) {
+            $updateData['scheduled_send_at'] = null;
+        }
+        
+        $call->update($updateData);
+
+        return response()->json([
+            'message' => 'Message status updated successfully',
+            'status' => $status
+        ]);
+    }
+
+    /**
+     * Update pending message for review mode
+     */
+    public function updatePendingMessage(Request $request, $id)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$call) {
+            return response()->json([
+                'error' => 'Call not found'
+            ], 404);
+        }
+
+        $pendingMessage = $request->input('pending_message');
+        $scheduledSendAt = $request->input('scheduled_send_at');
+        $analysis = $request->input('analysis');
+        
+        $updateData = [
+            'call_status' => 'pending_review',
+            'pending_message' => $pendingMessage
+        ];
+        
+        if ($scheduledSendAt) {
+            $updateData['scheduled_send_at'] = $scheduledSendAt;
+        }
+        
+        if ($analysis) {
+            $updateData['ai_analysis'] = $analysis;
+        }
+        
+        $call->update($updateData);
+
+        return response()->json([
+            'message' => 'Pending message updated successfully',
+            'scheduled_send_at' => $scheduledSendAt
+        ]);
+    }
+
+    /**
+     * Get call status including AI mode settings
+     */
+    public function getCallStatus(Request $request, $id)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$call) {
+            return response()->json([
+                'error' => 'Call not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'call_id' => $call->id,
+            'recipient' => $call->recipient,
+            'call_status' => $call->call_status ?? 'pending_review',
+            'scheduled_send_at' => $call->scheduled_send_at,
+            'original_message' => $call->original_message,
+            'ai_analysis' => $call->ai_analysis
+        ]);
+    }
+
+    /**
      * Get AI-generated message for a call
      */
     public function getCallMessage(Request $request, $id)
@@ -1048,7 +1284,11 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             'message' => $originalMessage,
             'call_id' => $call->id,
             'recipient' => $call->recipient,
-            'original_message' => $originalMessage
+            'original_message' => $originalMessage,
+            'call_status' => [
+                'call_status' => $call->call_status ?? 'pending_review',
+                'scheduled_send_at' => $call->scheduled_send_at
+            ]
         ];
         
         Log::info('🔍 getCallMessage response', [

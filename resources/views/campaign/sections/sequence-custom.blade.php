@@ -307,6 +307,29 @@
                                 </label>
                                 <p class="text-xs text-gray-500 mt-1">If checked, AI will improve and paraphrase your message. If unchecked, your exact message will be sent.</p>
                             </div>
+                            
+                            <!-- AI Mode Selection -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">AI Mode</label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <input type="radio" id="ai-mode-auto" name="ai_mode" value="auto" class="text-indigo-600 focus:ring-indigo-500" checked>
+                                        <span>AI Mode (Auto Send)</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <input type="radio" id="ai-mode-review" name="ai_mode" value="review" class="text-indigo-600 focus:ring-indigo-500">
+                                        <span>Review Mode (Hold for Review)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Review Time Input (shown when review mode is selected) -->
+                            <div id="review-time-container" class="mb-3" style="display: none;">
+                                <label for="review-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Review Time (minutes)</label>
+                                <input type="number" id="review-time" name="review_time" min="1" max="1440" value="30" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" placeholder="Enter review time in minutes">
+                                <p class="text-xs text-gray-500 mt-1">Messages will be held for review and sent after this time period.</p>
+                            </div>
+                            
                             <textarea id="call-message" name="call_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" placeholder="Enter your call message here..."></textarea>
                         </div>
                     </div>
@@ -456,7 +479,9 @@ let endorseSkillFields = document.querySelector('#endorse-fields'),
 
 let callMessageSpace = document.querySelector('.call-message-space'),
     callMessageTextField = document.querySelector('#call-message'),
-    callFields = document.querySelector('#book-call-fields');
+    callFields = document.querySelector('#book-call-fields'),
+    reviewTimeContainer = document.querySelector('#review-time-container'),
+    reviewTimeInput = document.querySelector('#review-time');
 
 let modalTitle = document.querySelector('.modal-title')
 
@@ -575,6 +600,23 @@ const init = () => {
 
                 callMessageTextField.value = nodeDataModel[nodeIndex].message
                 document.querySelector('#use-ai-paraphrase').checked = nodeDataModel[nodeIndex].paraphrase_user_message || false
+                
+                // Set AI mode settings
+                const aiMode = nodeDataModel[nodeIndex].ai_mode || 'auto';
+                document.querySelector(`input[name="ai_mode"][value="${aiMode}"]`).checked = true;
+                
+                if (aiMode === 'review') {
+                    reviewTimeContainer.style.display = 'block';
+                    const savedReviewTime = nodeDataModel[nodeIndex].review_time || 30;
+                    reviewTimeInput.value = savedReviewTime;
+                    console.log('🔍 Loading review mode settings:', {
+                        savedReviewTime: savedReviewTime,
+                        inputValue: reviewTimeInput.value
+                    });
+                } else {
+                    reviewTimeContainer.style.display = 'none';
+                }
+                
                 callMessageSpace.style.display = 'block'
                 callFields.style.display = 'block'
                 modalTitle.innerHTML = 'Book a Call'
@@ -614,6 +656,26 @@ const init = () => {
         if(nodeDataModel[nodeIndex].type == 'action' && nodeDataModel[nodeIndex].value == 'call'){
             nodeDataModel[nodeIndex].message = callMessageTextField.value
             nodeDataModel[nodeIndex].paraphrase_user_message = document.querySelector('#use-ai-paraphrase').checked
+            
+            // Save AI mode settings
+            const selectedAiMode = document.querySelector('input[name="ai_mode"]:checked').value;
+            const reviewTimeValue = reviewTimeInput.value;
+            const parsedReviewTime = selectedAiMode === 'review' ? parseInt(reviewTimeValue, 10) : null;
+            console.log('🔍 Saving AI mode settings:', {
+                selectedAiMode: selectedAiMode,
+                reviewTimeInputValue: reviewTimeValue,
+                parsedReviewTime: parsedReviewTime,
+                isValidNumber: !isNaN(parsedReviewTime) && parsedReviewTime > 0
+            });
+            
+            nodeDataModel[nodeIndex].ai_mode = selectedAiMode;
+            nodeDataModel[nodeIndex].review_time = (parsedReviewTime && parsedReviewTime > 0) ? parsedReviewTime : null;
+            
+            console.log('💾 Saved to nodeDataModel:', {
+                ai_mode: nodeDataModel[nodeIndex].ai_mode,
+                review_time: nodeDataModel[nodeIndex].review_time
+            });
+            
             callMessageSpace.style.display = 'none'
             callFields.style.display = 'none'
         }else if(nodeDataModel[nodeIndex].type == 'action' && nodeDataModel[nodeIndex].value == 'send-invites'){
@@ -649,6 +711,19 @@ const init = () => {
             elem.disabled = inviteMessage.disabled
         }
     })
+
+    /**
+     * Listen to AI mode selection and show/hide review time input
+     **/
+    document.querySelectorAll('input[name="ai_mode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'review') {
+                reviewTimeContainer.style.display = 'block';
+            } else {
+                reviewTimeContainer.style.display = 'none';
+            }
+        });
+    });
 
     /**
      * Create send invite nodes and link
