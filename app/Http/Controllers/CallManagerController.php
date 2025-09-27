@@ -1693,6 +1693,35 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
     }
 
     /**
+     * Update pending message from web interface
+     */
+    public function updatePendingMessageWeb(Request $request)
+    {
+        $data = $request->validate([
+            'call_id' => ['required'],
+            'pending_message' => ['required']
+        ]);
+
+        $call = CallStatus::where('id', $data['call_id'])
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$call) {
+            notify()->error('Call not found');
+            return redirect()->route('calls');
+        }
+
+        $updateData = [
+            'pending_message' => $data['pending_message']
+        ];
+
+        $call->update($updateData);
+
+        notify()->success('Pending message updated successfully');
+        return redirect()->route('calls');
+    }
+
+    /**
      * Show call details page
      */
     public function showCallDetails($id)

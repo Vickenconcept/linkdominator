@@ -27,6 +27,19 @@
                                     <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clip-rule="evenodd" />
                                 </svg>
                             </a>
+                            @if($item->pending_message && $item->call_status == 'pending_review' && $item->scheduled_send_at)
+                            <button
+                            data-id="{{$item->id}}"
+                            data-pending-message="{{$item->pending_message}}"
+                            data-scheduled-send-at="{{$item->scheduled_send_at}}"
+                            class="edit-pending-message-modal text-green-600 hover:text-green-800"
+                            title="Edit Pending Message">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                                    <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32l8.4-8.4z" />
+                                    <path d="M5.25 5.25a3 3 0 00-3 3v10.5a3 3 0 003 3h10.5a3 3 0 003-3V13.5a.75.75 0 00-1.5 0v5.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V8.25a1.5 1.5 0 011.5-1.5h5.25a.75.75 0 000-1.5H5.25z" />
+                                </svg>
+                            </button>
+                            @endif
                             <button
                             data-id="{{$item->id}}"
                             data-status="{{$item->call_status}}"
@@ -51,6 +64,10 @@
 
 <button type="button" id="update-status-btn" style="display: none;" class="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-hidden focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-basic-modal" data-hs-overlay="#hs-basic-modal">
   Open modal
+</button>
+
+<button type="button" id="edit-pending-message-btn" style="display: none;" class="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-green-600 text-white hover:bg-green-700 focus:outline-hidden focus:bg-green-700 disabled:opacity-50 disabled:pointer-events-none" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-pending-message-modal" data-hs-overlay="#hs-pending-message-modal">
+  Open pending message modal
 </button>
 
 <div id="hs-basic-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-basic-modal-label">
@@ -98,10 +115,76 @@
     </div>
 </div>
 
+<!-- Pending Message Modal -->
+<div id="hs-pending-message-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-pending-message-modal-label">
+    <div class="sm:max-w-2xl sm:w-full m-3 sm:mx-auto">
+        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
+            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
+                <h3 id="hs-pending-message-modal-label" class="font-bold text-gray-800 dark:text-white">
+                Edit Pending Message
+                </h3>
+                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-pending-message-modal">
+                <span class="sr-only">Close</span>
+                <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"></path>
+                    <path d="m6 6 12 12"></path>
+                </svg>
+                </button>
+            </div>
+            <form method="post" action="{{route('calls.update-pending-message')}}">
+                @csrf
+                @method('put')
+                <div class="p-4 overflow-y-auto">
+                    <div class="mb-4">
+                        <input type="hidden" name="call_id" class="pending-call-id" />
+                        <label for="pending-message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Pending Message</label>
+                        <textarea id="pending-message" name="pending_message" rows="6" class="pending-message bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Enter your pending message here..."></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="scheduled-send-at" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Scheduled Send Time</label>
+                        <input type="text" id="scheduled-send-at" class="scheduled-send-at bg-gray-100 border border-gray-300 text-gray-600 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-300" readonly />
+                    </div>
+                </div>
+                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
+                    <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-pending-message-modal">
+                    Close
+                    </button>
+                    <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-green-600 text-white hover:bg-green-700 focus:outline-hidden focus:bg-green-700 disabled:opacity-50 disabled:pointer-events-none">
+                    Update Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 $('.update-status-modal').click(function(){
     $('#update-status-btn').click()
     $('.call-status').val($(this).data('status'))
     $('.call-status-id').val($(this).data('id'))
+})
+
+$('.edit-pending-message-modal').click(function(){
+    $('#edit-pending-message-btn').click()
+    $('.pending-call-id').val($(this).data('id'))
+    $('.pending-message').val($(this).data('pending-message'))
+    
+    // Format datetime for display (read-only)
+    const scheduledSendAt = $(this).data('scheduled-send-at')
+    if (scheduledSendAt) {
+        const date = new Date(scheduledSendAt)
+        const formattedDate = date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        })
+        $('.scheduled-send-at').val(formattedDate)
+    } else {
+        $('.scheduled-send-at').val('Not scheduled')
+    }
 })
 </script>
