@@ -136,7 +136,7 @@ class ChatGPT
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'You are an expert LinkedIn conversation analyst specializing in lead qualification and call scheduling. You understand human communication patterns, context, and subtle cues. Analyze messages intelligently by understanding the underlying intent, sentiment, and context rather than relying on keyword matching. Provide structured, actionable insights for conversation management.'],
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn conversation analyst specializing in lead qualification and call scheduling. You understand human communication patterns, context, and subtle cues. Your primary goal is to help schedule meetings with prospects. Analyze messages intelligently by understanding the underlying intent, sentiment, and context rather than relying on keyword matching. Always look for opportunities to suggest or schedule meetings. Provide natural, human-like responses without placeholders or brackets. Focus on moving conversations toward scheduling calls or meetings.'],
                         ['role' => 'user', 'content' => $prompt],
                     ],
                     'max_tokens' => $this->max_token,
@@ -262,7 +262,9 @@ class ChatGPT
             $conversationSummary = $this->buildConversationSummary($conversationThread);
             
             $prompt = <<<EOD
-You are an expert LinkedIn conversation analyst with deep understanding of human communication patterns, context, and conversation flow. Analyze this ENTIRE conversation thread to provide comprehensive insights.
+You are an expert LinkedIn conversation analyst with deep understanding of human communication patterns, context, and conversation flow. Your PRIMARY GOAL is to help schedule meetings with prospects. Analyze this ENTIRE conversation thread to provide comprehensive insights.
+
+IMPORTANT: Pay special attention to the conversation flow and how the lead's responses have evolved. Look for changes in their interest level, sentiment, and intent throughout the conversation.
 
 CONVERSATION THREAD ANALYSIS:
 {$conversationSummary}
@@ -270,6 +272,15 @@ CONVERSATION THREAD ANALYSIS:
 ORIGINAL CALL MESSAGE: {$originalMessage}
 LATEST REPLY: {$lastReply}
 LEAD NAME: {$leadName}
+
+CONVERSATION FLOW ANALYSIS:
+- How has the lead's interest level changed from the first message to the latest?
+- What was their initial response and how has it evolved?
+- Are they showing more or less interest now compared to earlier messages?
+- What specific words or phrases indicate their current state of mind?
+- CRITICAL: Check if a calendar link has already been sent in this conversation
+- CRITICAL: If a calendar link was already sent, do NOT send another one
+- CRITICAL: If they said "thank you" after receiving a calendar link, they may have booked or are acknowledging receipt
 
 ANALYSIS INSTRUCTIONS:
 Analyze the FULL conversation context, not just the last message. Consider:
@@ -279,30 +290,46 @@ Analyze the FULL conversation context, not just the last message. Consider:
    - What patterns do you see in the lead's responses?
    - Are there repeated themes or concerns?
    - How has the lead's engagement level changed over time?
+   - CRITICAL: If they initially said "not interested" but then said "tell me more", this shows a significant change in interest level
 
 2. **Lead Behavior Analysis**:
    - What does the conversation reveal about the lead's communication style?
    - Are they being consistent in their responses or showing mixed signals?
    - What are their underlying concerns or interests?
    - How do they respond to different types of messages?
+   - CRITICAL: Look for signs of changing interest - from decline to curiosity
 
 3. **Context Understanding**:
    - What is the lead really thinking based on ALL their responses?
    - Are there subtle cues that only become clear when viewing the full conversation?
    - What information have they shared that might be relevant?
    - How has their sentiment evolved throughout the conversation?
+   - CRITICAL: A lead who says "not interested" then "tell me more" is showing renewed interest
 
 4. **Intent & Sentiment Evolution**:
    - How has their intent changed from message to message?
    - What is their current true sentiment considering the full context?
    - Are they showing genuine interest or just being polite?
    - What does their response pattern suggest about their decision-making process?
+   - CRITICAL: If they went from "not interested" to "tell me more", their intent has clearly shifted to interested
 
-5. **Strategic Insights**:
-   - What approach would work best based on their communication pattern?
-   - What information do they need to make a decision?
-   - How can we address their underlying concerns?
-   - What would be the most appropriate next step?
+5. **Strategic Insights for Meeting Scheduling**:
+   - What approach would work best to get them to agree to a meeting?
+   - What information do they need to make a decision about scheduling?
+   - How can we address their underlying concerns to move toward a meeting?
+   - What would be the most appropriate next step to schedule a call?
+   - CRITICAL: If they said "tell me more", they want information before deciding - provide value and then suggest a meeting
+
+6. **Meeting Scheduling Focus**:
+   - Always look for opportunities to suggest or schedule meetings
+   - If they show any interest, immediately suggest a meeting
+   - If they have concerns, address them and then suggest a meeting
+   - If they're hesitant, offer a brief meeting to discuss their concerns
+   - If they're busy, suggest a quick 15-minute call
+   - If they're interested, suggest a longer meeting to discuss details
+   - CRITICAL: If they went from "not interested" to "tell me more", they're now interested - capitalize on this change
+   - CRITICAL: If a calendar link was already sent, do NOT send another one - instead acknowledge their response and wait for them to book
+   - CRITICAL: If they said "thank you" after receiving a calendar link, acknowledge their thanks and let them know you're looking forward to the call
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
@@ -313,9 +340,9 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
   "current_intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request|hesitant|mixed_signals",
   "sentiment_evolution": "How sentiment has changed throughout the conversation",
   "context_insights": "Key insights that only become clear from full conversation context",
-  "recommended_approach": "What approach would work best for this specific lead",
-  "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability|address_concerns",
-  "suggested_response": "Personalized response that considers the full conversation context",
+  "recommended_approach": "What approach would work best to get them to agree to a meeting",
+  "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability|address_concerns|acknowledge_thanks|wait_for_booking",
+  "suggested_response": "Natural, human-like response that directly addresses their latest message. If a calendar link was already sent, acknowledge their response and wait for them to book. If no calendar link was sent and they're interested, suggest a meeting. Reference their specific words and show you understand the conversation flow. No placeholders, brackets, or generic text. Be specific and personal.",
   "lead_score": 1-10,
   "is_positive": true|false,
   "confidence_level": "high|medium|low",
@@ -324,7 +351,7 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind ALL the messages, not just the latest one.
+Focus on understanding the human behind ALL the messages and always look for opportunities to schedule meetings.
 EOD;
 
             $aiAnalysis = $this->generateContent($prompt);
@@ -423,10 +450,15 @@ EOD;
             return "No conversation history available.";
         }
 
+        Log::info('🔍 Building conversation summary', [
+            'thread_count' => count($conversationThread),
+            'thread_data' => $conversationThread
+        ]);
+
         $summary = "CONVERSATION THREAD:\n\n";
         
         foreach ($conversationThread as $index => $message) {
-            $messageType = $message['type'] ?? 'unknown';
+            $messageType = $message['type'] ?? $message['sender'] ?? 'unknown';
             $messageText = $message['message'] ?? '';
             $timestamp = $message['timestamp'] ?? '';
             $messageTypeLabel = ucfirst($messageType);
@@ -434,6 +466,11 @@ EOD;
             $summary .= "Message " . ($index + 1) . " ({$messageTypeLabel}):\n";
             $summary .= "Time: {$timestamp}\n";
             $summary .= "Content: {$messageText}\n";
+            
+            // Check if this message contains a calendar link
+            if (strpos($messageText, 'schedule-call') !== false || strpos($messageText, 'calendar') !== false) {
+                $summary .= "CALENDAR LINK SENT: YES\n";
+            }
             
             // Add any AI analysis if present
             if (isset($message['ai_analysis']) && is_array($message['ai_analysis'])) {
@@ -443,6 +480,11 @@ EOD;
             
             $summary .= "\n---\n\n";
         }
+        
+        Log::info('📝 Conversation summary built', [
+            'summary_length' => strlen($summary),
+            'summary_preview' => substr($summary, 0, 500)
+        ]);
         
         return $summary;
     }

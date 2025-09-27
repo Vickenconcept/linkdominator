@@ -488,7 +488,7 @@ class CallManagerController extends Controller
                 
                 // Use heredoc syntax for maximum reliability
                 $analysisPrompt = <<<EOD
-You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
+You are an expert LinkedIn conversation analyst. Your PRIMARY GOAL is to help schedule meetings with prospects. Analyze this message reply for call scheduling intent and lead qualification.
 
 ORIGINAL CALL MESSAGE: {$originalMessageText}
 REPLY MESSAGE: {$data['message']}
@@ -521,18 +521,26 @@ Analyze the reply message by understanding the context, tone, and underlying int
    - What might they be thinking or feeling based on their response?
    - Does their reply show they remember/understand the original message?
 
-5. **Actionable Insights**: What should be the next step?
+5. **Meeting Scheduling Focus**: Always look for opportunities to suggest or schedule meetings
+   - If they show any interest, immediately suggest a meeting
+   - If they have concerns, address them and then suggest a meeting
+   - If they're hesitant, offer a brief meeting to discuss their concerns
+   - If they're busy, suggest a quick 15-minute call
+   - If they're interested, suggest a longer meeting to discuss details
+   - If they're asking questions, answer them and then suggest a meeting to discuss further
+
+6. **Actionable Insights**: What should be the next step to move toward scheduling?
    - If interested: How can we move forward with scheduling?
-   - If hesitant: What information might help them decide?
-   - If declining: Is there a way to maintain the relationship?
-   - If asking questions: What do they need to know?
+   - If hesitant: What information might help them decide about a meeting?
+   - If declining: Is there a way to maintain the relationship and suggest a future meeting?
+   - If asking questions: What do they need to know before agreeing to a meeting?
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
   "intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request",
   "sentiment": "positive|neutral|negative",
   "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability",
-  "suggested_response": "Appropriate follow-up message based on analysis",
+  "suggested_response": "Natural, human-like response that focuses on scheduling a meeting. No placeholders, brackets, or generic text. Be specific and personal to the lead.",
   "lead_score": 1-10,
   "is_positive": true|false,
   "reasoning": "Brief explanation of your analysis"
@@ -540,7 +548,7 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind the message, not just matching words.
+Focus on understanding the human behind the message and always look for opportunities to schedule meetings.
 EOD;
 
                 $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
@@ -667,7 +675,7 @@ EOD;
             // Use heredoc syntax for maximum reliability
             $originalMessageText = $call->original_message ?? 'No original message available';
             $analysisPrompt = <<<EOD
-You are an expert LinkedIn conversation analyst. Analyze this message reply for call scheduling intent and lead qualification.
+You are an expert LinkedIn conversation analyst. Your PRIMARY GOAL is to help schedule meetings with prospects. Analyze this message reply for call scheduling intent and lead qualification.
 
 ORIGINAL CALL MESSAGE: {$originalMessageText}
 REPLY MESSAGE: {$data['message']}
@@ -692,18 +700,26 @@ Analyze the reply message by understanding the context, tone, and underlying int
    - Are there any subtle cues about their availability or interest level?
    - What might they be thinking or feeling based on their response?
 
-4. **Actionable Insights**: What should be the next step?
+4. **Meeting Scheduling Focus**: Always look for opportunities to suggest or schedule meetings
+   - If they show any interest, immediately suggest a meeting
+   - If they have concerns, address them and then suggest a meeting
+   - If they're hesitant, offer a brief meeting to discuss their concerns
+   - If they're busy, suggest a quick 15-minute call
+   - If they're interested, suggest a longer meeting to discuss details
+   - If they're asking questions, answer them and then suggest a meeting to discuss further
+
+5. **Actionable Insights**: What should be the next step to move toward scheduling?
    - If interested: How can we move forward with scheduling?
-   - If hesitant: What information might help them decide?
-   - If declining: Is there a way to maintain the relationship?
-   - If asking questions: What do they need to know?
+   - If hesitant: What information might help them decide about a meeting?
+   - If declining: Is there a way to maintain the relationship and suggest a future meeting?
+   - If asking questions: What do they need to know before agreeing to a meeting?
 
 REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 {
   "intent": "available|interested|not_interested|needs_more_info|reschedule_request|busy|greeting|scheduling_request",
   "sentiment": "positive|neutral|negative",
   "next_action": "schedule_call|send_calendar|send_info|follow_up_later|end_conversation|ask_availability",
-  "suggested_response": "Appropriate follow-up message based on analysis",
+  "suggested_response": "Natural, human-like response that focuses on scheduling a meeting. No placeholders, brackets, or generic text. Be specific and personal to the lead.",
   "lead_score": 1-10,
   "is_positive": true|false,
   "reasoning": "Brief explanation of your analysis"
@@ -711,7 +727,7 @@ REQUIRED OUTPUT (JSON format only - NO OTHER TEXT):
 
 CRITICAL: Return ONLY valid JSON. No explanations, no markdown, no additional text. The response must be parseable JSON.
 
-Focus on understanding the human behind the message, not just matching words.
+Focus on understanding the human behind the message and always look for opportunities to schedule meetings.
 EOD;
 
             $aiAnalysis = $chatGPT->generateContent($analysisPrompt);
@@ -1674,6 +1690,35 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             Log::error('Failed to generate simple scheduling message: ' . $e->getMessage());
             return "Hi! Here's the link to schedule a call at your convenience: [CALENDAR_LINK]. Let me know if you have any questions!";
         }
+    }
+
+    /**
+     * Update pending message from web interface
+     */
+    public function updatePendingMessageWeb(Request $request)
+    {
+        $data = $request->validate([
+            'call_id' => ['required'],
+            'pending_message' => ['required']
+        ]);
+
+        $call = CallStatus::where('id', $data['call_id'])
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$call) {
+            notify()->error('Call not found');
+            return redirect()->route('calls');
+        }
+
+        $updateData = [
+            'pending_message' => $data['pending_message']
+        ];
+
+        $call->update($updateData);
+
+        notify()->success('Pending message updated successfully');
+        return redirect()->route('calls');
     }
 
     /**
