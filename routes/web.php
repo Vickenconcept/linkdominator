@@ -9,6 +9,7 @@ use App\Http\Controllers\Authenticate\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\CallManagerController;
+use App\Http\Controllers\CalendlyController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\AiwriterController;
 use App\Http\Controllers\SchedulePostController;
@@ -129,6 +130,13 @@ Route::middleware(['auth'])->group(function(){
     Route::controller(IntegrationController::class)->group(function (){
         Route::get('/integration/linkedin/login', 'login')->name('integration.login');
         Route::get('/integration/linkedin/callback', 'callback')->name('integration.callback');
+    });
+
+    Route::controller(CalendlyController::class)->group(function (){
+        Route::get('/oauth/calendly', 'redirect')->name('calendly.connect');
+        Route::get('/oauth/calendly/callback', 'callback')->name('calendly.callback');
+        Route::post('/calendly/disconnect', 'disconnect')->name('calendly.disconnect');
+        Route::get('/calendly/status', 'status')->name('calendly.status');
     });
 
     Route::controller(TeamController::class)->group(function (){

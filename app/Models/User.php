@@ -29,7 +29,11 @@ class User extends Authenticatable
         'created_by',
         'time_zone_id',
         'user_type',
-        'access_token'
+        'access_token',
+        'calendly_access_token',
+        'calendly_refresh_token',
+        'calendly_token_expires',
+        'calendly_organization_uri'
     ];
 
     /**
