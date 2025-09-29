@@ -2,29 +2,47 @@
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">
             <div class="grid grid-cols-12 p-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-semibold px-3 text-sm">
-                <div class="col-span-2">Campaign</div>
-                <div class="col-span-2">Request</div>
-                <div class="col-span-2">Recipients</div>
-                <div class="col-span-2">Contacted</div>
-                <div class="col-span-2">Replies</div>
-                <div class="col-span-2">Not reached</div>
-                <div class="col-span-1"></div>
+                <div class="col-span-3">Recipient</div>
+                <div class="col-span-2">Scheduled Time</div>
+                <div class="col-span-2">Company</div>
+                <div class="col-span-2">16-24h</div>
+                <div class="col-span-2">2h</div>
+                <div class="col-span-1">10-40min</div>
+                <div class="col-span-1">Actions</div>
             </div>
             <div>
-                @foreach($callReminder as $item)
+                @foreach($scheduledCalls as $call)
                 <div class="grid grid-cols-12 p-3 px-3 mb-2 bg-white hover:bg-indigo-100 rounded-lg shadow-sm font-normal cursor-pointer text-gray-600 text-sm">
-                    <div class="col-span-2">{{$item->name}}</div>
-                    <div class="col-span-2">{{$item->requests}}</div>
-                    <div class="col-span-2">{{$item->recipients}}</div>
-                    <div class="col-span-2">{{$item->contacted}}</div>
-                    <div class="col-span-2">{{$item->replies}}</div>
-                    <div class="col-span-1">{{$item->not_reached}}</div>
+                    <div class="col-span-3">{{$call->recipient}}</div>
+                    <div class="col-span-2">{{$call->scheduled_time ? \Carbon\Carbon::parse($call->scheduled_time)->format('M j, Y g:i A') : 'N/A'}}</div>
+                    <div class="col-span-2">{{$call->company ?? 'N/A'}}</div>
+                    <div class="col-span-2">
+                        @if($call->reminder_16_24_sent)
+                            <span class="text-green-600">✓ Sent</span>
+                        @else
+                            <span class="text-gray-400">Pending</span>
+                        @endif
+                    </div>
+                    <div class="col-span-2">
+                        @if($call->reminder_2_hours_sent)
+                            <span class="text-green-600">✓ Sent</span>
+                        @else
+                            <span class="text-gray-400">Pending</span>
+                        @endif
+                    </div>
+                    <div class="col-span-1">
+                        @if($call->reminder_10_40_min_sent)
+                            <span class="text-green-600">✓ Sent</span>
+                        @else
+                            <span class="text-gray-400">Pending</span>
+                        @endif
+                    </div>
                     <div class="col-span-1">
                         <div class="flex gap-3">
                             <button type="button"
-                            data-id="{{$item->id}}"
-                            data-cname="{{$item->name}}"
-                            class="view-reminder-modal text-indigo-600">
+                            data-id="{{$call->id}}"
+                            data-cname="{{$call->recipient}}"
+                            class="view-reminder-modal text-indigo-600 hover:text-indigo-800">
                                 View
                             </button>
                         </div>
@@ -32,8 +50,8 @@
                 </div>
                 @endforeach
             </div>
-            @if(count($callReminder)>0)
-            {{ $callReminder->links() }}
+            @if(count($scheduledCalls)>0)
+            {{ $scheduledCalls->links() }}
             @endif
         </div>
     </div>
@@ -42,12 +60,12 @@
 <button type="button" id="view-reminder-btn" style="display: none;" class="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-hidden focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-basic-modal" data-hs-overlay="#hs-basic-modal">
   Open modal
 </button>
-<div id="hs-basic-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-basic-modal-label">
+<div id="hs-basic-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none bg-gray-900/50" role="dialog" tabindex="-1" aria-labelledby="hs-basic-modal-label">
     <div class="sm:max-w-2xl sm:w-full m-3 sm:mx-auto">
         <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
             <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
                 <h3 id="hs-basic-modal-label" class="font-bold text-gray-800 dark:text-white modal-header-text">
-                Reminders for
+                Reminder Settings for
                 </h3>
                 <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-basic-modal">
                 <span class="sr-only">Close</span>
@@ -127,7 +145,7 @@
                                 </div>
                             </div>
                             <div class="mt-2">
-                                <textarea id="_16-24-message" name="16_24_hours_before_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
+                                <textarea id="_16-24-message" name="16_24_hours_before_message" rows="3" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
                             </div>
                         </div>
                         <hr>
@@ -195,7 +213,7 @@
                                 </div>
                             </div>
                             <div class="mt-2">
-                                <textarea id="_couple-message" name="couple_hours_before_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
+                                <textarea id="_couple-message" name="couple_hours_before_message" rows="3" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
                             </div>
                         </div>
                         <hr>
@@ -263,7 +281,7 @@
                                 </div>
                             </div>
                             <div class="mt-2">
-                                <textarea id="_10-40-message" name="10_40_minutes_before_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
+                                <textarea id="_10-40-message" name="10_40_minutes_before_message" rows="3" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
                             </div>
                         </div>
                     </div>
@@ -282,34 +300,70 @@
 </div>
 
 <script>
-$('.view-reminder-modal').click(function(){
-    $('#view-reminder-btn').click()
-    $('.modal-header-text').text('Reminder for '+ $(this).data('cname'))
-
-    // Set value to fields
-    $('.call-reminder-id').val($(this).data('id'))
+$(document).ready(function() {
+    console.log('Reminder modal script loaded');
     
-    $.ajax({
-        url: `/call/reminder-messages/${$(this).data('id')}`,
-        method: 'get',
-        success: function(res){
-            $('#_16-24-message').val(res.data['16_24_hours_before_message'])
-            if(res.data['16_24_hours_before_status'] == 1)
-                $('#_16-24-status').prop('checked',true).val(1)
-            else $('#_16-24-status').val(0)
+    $('.view-reminder-modal').click(function(){
+        console.log('View reminder modal clicked for ID:', $(this).data('id'));
+        
+        // Trigger the hidden button to open modal
+        $('#view-reminder-btn').click();
+        
+        // Update modal header
+        $('.modal-header-text').text('Reminder Settings for '+ $(this).data('cname'));
 
-            $('#_couple-message').val(res.data['couple_hours_before_message'])
-            if(res.data['couple_hours_before_status'] == 1)
-                $('#_couple-status').prop('checked',true).val(1)
-            else $('#_couple-status').val(0)
+        // Set value to fields
+        $('.call-reminder-id').val($(this).data('id'));
+        
+        // Fetch reminder data
+        $.ajax({
+            url: `/call/reminder-messages/${$(this).data('id')}`,
+            method: 'get',
+            success: function(res){
+                console.log('Reminder data loaded:', res);
+                
+                // 16-24 hours
+                $('#_16-24-message').val(res.data['16_24_hours_before_message']);
+                if(res.data['16_24_hours_before_status'] == true) {
+                    $('#_16-24-status').prop('checked', true).val(1);
+                } else {
+                    $('#_16-24-status').prop('checked', false).val(0);
+                }
 
-            $('#_10-40-message').val(res.data['10_40_minutes_before_message'])
-            if(res.data['10_40_minutes_before_status'] == 1)
-                $('#_10-40-status').prop('checked',true).val(1)
-            else $('#_10-40-status').val(0)
+                // Couple hours
+                $('#_couple-message').val(res.data['couple_hours_before_message']);
+                if(res.data['couple_hours_before_status'] == true) {
+                    $('#_couple-status').prop('checked', true).val(1);
+                } else {
+                    $('#_couple-status').prop('checked', false).val(0);
+                }
+
+                // 10-40 minutes
+                $('#_10-40-message').val(res.data['10_40_minutes_before_message']);
+                if(res.data['10_40_minutes_before_status'] == true) {
+                    $('#_10-40-status').prop('checked', true).val(1);
+                } else {
+                    $('#_10-40-status').prop('checked', false).val(0);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading reminder data:', error);
+            }
+        });
+    });
+
+    // Handle Preline overlay close events
+    document.addEventListener('on.hs.overlay.hidden', function (event) {
+        if (event.target.id === 'hs-basic-modal') {
+            console.log('Preline modal closed, cleaning up overlay');
+            // Force remove any lingering overlay elements
+            setTimeout(() => {
+                $('.hs-overlay').removeClass('hs-overlay-open');
+                $('body').removeClass('overflow-hidden');
+            }, 100);
         }
-    })
-})
+    });
+});
 
 $('#_16-24-status').change(function(){
     if($(this).prop('checked')){
@@ -333,19 +387,29 @@ $('#_10-40-status').change(function(){
     }
 })
 
-const addVariableToMessage = (mv, source) => {
-    let cursorPos, textBefore, textAfter, message;
-
-    if(source == '16-24'){
-        message = document.querySelector("#_16-24-message")
-    }else if(source == 'couple'){
-        message = document.querySelector("#_couple-message")
-    }else if(source == '10-40'){
-        message = document.querySelector("#_10-40-message")
+// Function to add variables to message textareas
+function addVariableToMessage(variable, type) {
+    let textareaId = '';
+    switch(type) {
+        case '16-24':
+            textareaId = '#_16-24-message';
+            break;
+        case 'couple':
+            textareaId = '#_couple-message';
+            break;
+        case '10-40':
+            textareaId = '#_10-40-message';
+            break;
     }
-    cursorPos = message.selectionStart
-    textBefore = message.value.substring(0,  cursorPos)
-    textAfter  = message.value.substring(cursorPos, message.value.length)
-    message.value = textBefore + mv + textAfter
+    
+    if (textareaId) {
+        const textarea = $(textareaId);
+        const currentValue = textarea.val();
+        const cursorPos = textarea.prop('selectionStart');
+        const newValue = currentValue.substring(0, cursorPos) + variable + currentValue.substring(cursorPos);
+        textarea.val(newValue);
+        textarea.focus();
+    }
 }
+
 </script>

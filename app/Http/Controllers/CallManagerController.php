@@ -60,12 +60,14 @@ class CallManagerController extends Controller
      */
     public function callReminder()
     {
-        $callReminder = CallReminder::select(DB::raw('call_reminder.*, campaigns.name'))
-            ->join('campaigns','call_reminder.campaign','=','campaigns.id')
-            ->where('call_reminder.user_id', Auth::id())
+        // Show scheduled calls that can have reminders
+        $scheduledCalls = CallStatus::where('user_id', Auth::id())
+            ->where('call_status', 'scheduled')
+            ->whereNotNull('scheduled_time')
+            ->orderBy('scheduled_time', 'asc')
             ->paginate(15);
 
-        return view('callmanager.call-reminder', compact('callReminder'));
+        return view('callmanager.call-reminder', compact('scheduledCalls'));
     }
 
     /**
@@ -73,11 +75,58 @@ class CallManagerController extends Controller
      */
     public function show(string $id)
     {
-        $reminderMessages = CallReminderMessage::where('call_reminder_id', $id)->first();
+        // Get call reminder status for a specific call
+        $call = CallStatus::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$call) {
+            return response()->json(['error' => 'Call not found'], 404);
+        }
+
+        // Get reminder message record
+        $reminderMessage = CallReminderMessage::where('call_reminder_id', $call->id)->first();
+
+        $reminderData = [
+            'call_id' => $call->id,
+            'recipient' => $call->recipient,
+            'scheduled_time' => $call->scheduled_time,
+            'reminder_16_24_sent' => $call->reminder_16_24_sent,
+            'reminder_2_hours_sent' => $call->reminder_2_hours_sent,
+            'reminder_10_40_min_sent' => $call->reminder_10_40_min_sent,
+            '16_24_hours_before_status' => $reminderMessage ? $reminderMessage->{'16_24_hours_before_status'} : false,
+            '16_24_hours_before_message' => $reminderMessage ? $reminderMessage->{'16_24_hours_before_message'} : $this->getDefaultReminderMessage('16_24', $call),
+            'couple_hours_before_status' => $reminderMessage ? $reminderMessage->couple_hours_before_status : false,
+            'couple_hours_before_message' => $reminderMessage ? $reminderMessage->couple_hours_before_message : $this->getDefaultReminderMessage('2_hours', $call),
+            '10_40_minutes_before_status' => $reminderMessage ? $reminderMessage->{'10_40_minutes_before_status'} : false,
+            '10_40_minutes_before_message' => $reminderMessage ? $reminderMessage->{'10_40_minutes_before_message'} : $this->getDefaultReminderMessage('10_40_min', $call)
+        ];
 
         return response()->json([
-            'data' => $reminderMessages
+            'data' => $reminderData
         ]);
+    }
+
+    /**
+     * Get default reminder message for a call
+     */
+    private function getDefaultReminderMessage($reminderType, $call)
+    {
+        $scheduledTime = \Carbon\Carbon::parse($call->scheduled_time);
+        
+        switch ($reminderType) {
+            case '16_24':
+                return "Hi {$call->recipient}, this is a friendly reminder that we have a call scheduled for {$scheduledTime->format('M j, Y \a\t g:i A')}. Looking forward to our conversation!";
+                
+            case '2_hours':
+                return "Hi {$call->recipient}, just a quick reminder that our call is coming up in about 2 hours at {$scheduledTime->format('g:i A')}. See you soon!";
+                
+            case '10_40_min':
+                return "Hi {$call->recipient}, our call is starting in about 30 minutes at {$scheduledTime->format('g:i A')}. I'll be ready to connect!";
+                
+            default:
+                return "Hi {$call->recipient}, this is a reminder about our upcoming call at {$scheduledTime->format('M j, Y \a\t g:i A')}.";
+        }
     }
 
     /**
@@ -102,15 +151,42 @@ class CallManagerController extends Controller
 
     public function updateCallReminder(Request $request)
     {
-        CallReminderMessage::where('call_reminder_id', $request->id)
-            ->update([
-                '16_24_hours_before_status' => (int)$request['16_24_hours_before_status'],
-                '16_24_hours_before_message' => $request['16_24_hours_before_message'],
-                'couple_hours_before_status' => (int)$request['couple_hours_before_status'],
-                'couple_hours_before_message' => $request['couple_hours_before_message'],
-                '10_40_minutes_before_status' => (int)$request['10_40_minutes_before_status'],
-                '10_40_minutes_before_message' => $request['10_40_minutes_before_message']
+        // Update reminder settings for a specific call
+        $call = CallStatus::where('id', $request->id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$call) {
+            notify()->error('Call not found');
+            return redirect()->route('calls.reminders');
+        }
+
+        // Update or create reminder message record
+        $reminderMessage = CallReminderMessage::where('call_reminder_id', $call->id)->first();
+        
+        if (!$reminderMessage) {
+            // Create new reminder message record
+            $reminderMessage = CallReminderMessage::create([
+                'call_reminder_id' => $call->id,
+                '16_24_hours_before_status' => (bool)$request->input('16_24_hours_before_status', false),
+                '16_24_hours_before_message' => $request->input('16_24_hours_before_message'),
+                'couple_hours_before_status' => (bool)$request->input('couple_hours_before_status', false),
+                'couple_hours_before_message' => $request->input('couple_hours_before_message'),
+                '10_40_minutes_before_status' => (bool)$request->input('10_40_minutes_before_status', false),
+                '10_40_minutes_before_message' => $request->input('10_40_minutes_before_message')
             ]);
+        } else {
+            // Update existing reminder message record
+            $reminderMessage->update([
+                '16_24_hours_before_status' => (bool)$request->input('16_24_hours_before_status', false),
+                '16_24_hours_before_message' => $request->input('16_24_hours_before_message'),
+                'couple_hours_before_status' => (bool)$request->input('couple_hours_before_status', false),
+                'couple_hours_before_message' => $request->input('couple_hours_before_message'),
+                '10_40_minutes_before_status' => (bool)$request->input('10_40_minutes_before_status', false),
+                '10_40_minutes_before_message' => $request->input('10_40_minutes_before_message')
+            ]);
+        }
+
 
         notify()->success('Call reminder updated successfully');
         return redirect()->route('calls.reminders');
@@ -968,6 +1044,12 @@ EOD;
             if ($user && $user->calendly_access_token) {
                 Log::info('Attempting to fetch user Calendly info from API');
                 try {
+                    // Check if token is expired and refresh if needed
+                    if ($user->calendly_token_expires && now()->isAfter($user->calendly_token_expires)) {
+                        Log::info('Calendly token expired, attempting refresh');
+                        $this->refreshCalendlyToken($user);
+                    }
+                    
                     // Get user's Calendly info to get their scheduling URL
                     $response = Http::withToken($user->calendly_access_token)
                         ->get('https://api.calendly.com/users/me');
@@ -1451,6 +1533,103 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
     }
 
     /**
+     * Get pending reminders for extension to process
+     */
+    public function getPendingReminders(Request $request)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        // Get pending reminders for this user's LinkedIn ID
+        $pendingReminders = \DB::table('reminder_queue')
+            ->where('linkedin_id', $user->linkedin_id)
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'reminders' => $pendingReminders
+        ]);
+    }
+
+    /**
+     * Update reminder status after extension processes it
+     */
+    public function updateReminderStatus(Request $request)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "message" => $th->getMessage(),
+                "status" => 400
+            ], 400);
+        }
+
+        $user = User::where('linkedin_id', $request->header('lk-id'))->first();
+        
+        if (!$user) {
+            return response()->json([
+                'error' => 'User not found'
+            ], 401);
+        }
+
+        $reminderId = $request->input('reminder_id');
+        $status = $request->input('status'); // 'processing', 'sent', 'failed'
+        $errorMessage = $request->input('error_message');
+
+        if (!in_array($status, ['processing', 'sent', 'failed'])) {
+            return response()->json([
+                'error' => 'Invalid status'
+            ], 400);
+        }
+
+        $updateData = [
+            'status' => $status,
+            'updated_at' => now()
+        ];
+
+        if ($status === 'sent') {
+            $updateData['processed_at'] = now();
+        }
+
+        if ($errorMessage) {
+            $updateData['error_message'] = $errorMessage;
+        }
+
+        $updated = \DB::table('reminder_queue')
+            ->where('id', $reminderId)
+            ->where('linkedin_id', $user->linkedin_id)
+            ->update($updateData);
+
+        if ($updated) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Reminder status updated successfully'
+            ]);
+        } else {
+            return response()->json([
+                'error' => 'Reminder not found or update failed'
+            ], 404);
+        }
+    }
+
+    /**
      * Check for call responses and return analysis
      */
     public function checkCallResponse(Request $request, $callId)
@@ -1662,6 +1841,19 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
 
             $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
 
+            // Prepend the original message as the first message in the conversation
+            if ($call->original_message) {
+                $originalMessageEntry = [
+                    'type' => 'ai',
+                    'message' => $call->original_message,
+                    'timestamp' => $call->created_at ? $call->created_at->toISOString() : now()->toISOString(),
+                    'message_type' => 'original_message'
+                ];
+                
+                // Insert at the beginning of the array
+                array_unshift($conversationHistory, $originalMessageEntry);
+            }
+
             return response()->json([
                 'success' => true,
                 'call_id' => $call->id,
@@ -1817,6 +2009,19 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             // Parse conversation history
             $conversationHistory = json_decode($call->conversation_history ?? '[]', true) ?: [];
             
+            // Prepend the original message as the first message in the conversation
+            if ($call->original_message) {
+                $originalMessageEntry = [
+                    'type' => 'ai',
+                    'message' => $call->original_message,
+                    'timestamp' => $call->created_at ? $call->created_at->toISOString() : now()->toISOString(),
+                    'message_type' => 'original_message'
+                ];
+                
+                // Insert at the beginning of the array
+                array_unshift($conversationHistory, $originalMessageEntry);
+            }
+            
             // Parse AI analysis
             $aiAnalysis = null;
             if ($call->ai_analysis) {
@@ -1827,6 +2032,52 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             
         } catch (\Exception $e) {
             return redirect()->route('calls')->with('error', 'Call not found');
+        }
+    }
+
+    /**
+     * Refresh Calendly access token using refresh token
+     */
+    private function refreshCalendlyToken($user)
+    {
+        try {
+            if (!$user->calendly_refresh_token) {
+                Log::warning('No refresh token available for user', ['user_id' => $user->id]);
+                return false;
+            }
+
+            $response = Http::asForm()->post('https://auth.calendly.com/oauth/token', [
+                'grant_type'    => 'refresh_token',
+                'client_id'     => config('services.calendly.client_id'),
+                'client_secret' => config('services.calendly.client_secret'),
+                'refresh_token' => $user->calendly_refresh_token,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                $user->update([
+                    'calendly_access_token'  => $data['access_token'],
+                    'calendly_refresh_token' => $data['refresh_token'] ?? $user->calendly_refresh_token,
+                    'calendly_token_expires' => now()->addSeconds($data['expires_in']),
+                ]);
+
+                Log::info('Calendly token refreshed successfully', ['user_id' => $user->id]);
+                return true;
+            } else {
+                Log::warning('Failed to refresh Calendly token', [
+                    'user_id' => $user->id,
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return false;
+            }
+        } catch (\Throwable $th) {
+            Log::error('Error refreshing Calendly token', [
+                'user_id' => $user->id,
+                'error' => $th->getMessage()
+            ]);
+            return false;
         }
     }
 

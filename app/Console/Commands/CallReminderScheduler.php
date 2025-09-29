@@ -50,9 +50,24 @@ class CallReminderScheduler extends Command
     {
         $this->info("📅 Processing {$reminderType} reminders...");
         
-        $calls = CallStatus::needsReminder($reminderType)
+        // Query calls that need reminders based on scheduled_time from Calendly
+        $calls = CallStatus::whereNotNull('scheduled_time')
+            ->where('call_status', 'scheduled') // Only scheduled calls
             ->where('scheduled_time', '>=', now()->addHours($minHours))
             ->where('scheduled_time', '<=', now()->addHours($maxHours))
+            ->where(function($query) use ($reminderType) {
+                switch($reminderType) {
+                    case '16_24':
+                        $query->where('reminder_16_24_sent', false);
+                        break;
+                    case '2_hours':
+                        $query->where('reminder_2_hours_sent', false);
+                        break;
+                    case '10_40_min':
+                        $query->where('reminder_10_40_min_sent', false);
+                        break;
+                }
+            })
             ->get();
 
         $this->info("Found {$calls->count()} calls needing {$reminderType} reminders");
@@ -78,7 +93,7 @@ class CallReminderScheduler extends Command
      */
     private function sendReminder($call, $reminderType)
     {
-        // Get reminder message from campaign or use default
+        // Get reminder message from call or use default
         $reminderMessage = $this->getReminderMessage($call, $reminderType);
         
         if (!$reminderMessage) {
@@ -89,9 +104,8 @@ class CallReminderScheduler extends Command
         // Generate AI-enhanced reminder if needed
         $enhancedMessage = $this->enhanceReminderWithAI($reminderMessage, $call);
         
-        // TODO: Send message via extension or LinkedIn API
-        // For now, we'll just log it and mark as sent
-        $this->logReminderSent($call, $reminderType, $enhancedMessage);
+        // Send message via LinkedIn API through the extension
+        $this->sendLinkedInReminder($call, $enhancedMessage);
         
         // Mark reminder as sent
         $call->update([
@@ -104,18 +118,30 @@ class CallReminderScheduler extends Command
      */
     private function getReminderMessage($call, $reminderType)
     {
-        // Try to get from campaign reminder messages
-        if ($call->campaign_id) {
-            $reminder = CallReminderMessage::where('call_reminder_id', $call->campaign_id)->first();
-            if ($reminder) {
-                $messageField = "{$reminderType}_message";
-                if ($reminder->$messageField) {
-                    return $reminder->$messageField;
-                }
+        // Check for custom reminder message in database
+        $reminderMessage = \App\Models\CallReminderMessage::where('call_reminder_id', $call->id)->first();
+        
+        if ($reminderMessage) {
+            switch($reminderType) {
+                case '16_24':
+                    if ($reminderMessage->{'16_24_hours_before_status'} && $reminderMessage->{'16_24_hours_before_message'}) {
+                        return $reminderMessage->{'16_24_hours_before_message'};
+                    }
+                    break;
+                case '2_hours':
+                    if ($reminderMessage->couple_hours_before_status && $reminderMessage->couple_hours_before_message) {
+                        return $reminderMessage->couple_hours_before_message;
+                    }
+                    break;
+                case '10_40_min':
+                    if ($reminderMessage->{'10_40_minutes_before_status'} && $reminderMessage->{'10_40_minutes_before_message'}) {
+                        return $reminderMessage->{'10_40_minutes_before_message'};
+                    }
+                    break;
             }
         }
-
-        // Fallback to default messages
+        
+        // Fallback to default message
         return $this->getDefaultReminderMessage($reminderType, $call);
     }
 
@@ -172,23 +198,99 @@ Make it more personal, professional, and engaging while keeping the same core me
     }
 
     /**
-     * Log reminder as sent (placeholder for actual sending)
+     * Send LinkedIn reminder message via extension
      */
-    private function logReminderSent($call, $reminderType, $message)
+    private function sendLinkedInReminder($call, $message)
     {
-        Log::info("Call reminder sent", [
-            'call_id' => $call->id,
-            'recipient' => $call->recipient,
-            'reminder_type' => $reminderType,
-            'scheduled_time' => $call->scheduled_time,
-            'message' => $message
-        ]);
-        
-        // TODO: Implement actual message sending via extension or LinkedIn API
-        // This could involve:
-        // 1. Sending to extension to deliver via LinkedIn
-        // 2. Direct LinkedIn API call
-        // 3. Email notification
-        // 4. SMS notification
+        try {
+            // Get user's LinkedIn ID for the extension
+            $user = \App\Models\User::find($call->user_id);
+            if (!$user || !$user->linkedin_id) {
+                throw new \Exception("User or LinkedIn ID not found for call {$call->id}");
+            }
+
+            // Prepare the message data for the extension
+            $messageData = [
+                'call_id' => $call->id,
+                'recipient' => $call->recipient,
+                'message' => $message,
+                'conversation_urn_id' => $call->conversation_urn_id,
+                'linkedin_id' => $user->linkedin_id,
+                'reminder_type' => 'call_reminder'
+            ];
+
+            // Log the reminder being sent
+            Log::info("📤 Sending LinkedIn reminder", [
+                'call_id' => $call->id,
+                'recipient' => $call->recipient,
+                'scheduled_time' => $call->scheduled_time,
+                'message' => $message,
+                'linkedin_id' => $user->linkedin_id
+            ]);
+
+            // Send message via LinkedIn API using the existing infrastructure
+            $this->sendLinkedInMessage($messageData);
+            
+            $this->info("📤 LinkedIn reminder sent to {$call->recipient}");
+            
+        } catch (\Throwable $th) {
+            Log::error("Failed to send LinkedIn reminder", [
+                'call_id' => $call->id,
+                'error' => $th->getMessage()
+            ]);
+            throw $th;
+        }
+    }
+
+    /**
+     * Send LinkedIn message via extension webhook
+     */
+    private function sendLinkedInMessage($messageData)
+    {
+        try {
+            // Create a webhook payload for the extension to process
+            $webhookPayload = [
+                'type' => 'reminder_message',
+                'call_id' => $messageData['call_id'],
+                'recipient' => $messageData['recipient'],
+                'message' => $messageData['message'],
+                'conversation_urn_id' => $messageData['conversation_urn_id'],
+                'linkedin_id' => $messageData['linkedin_id'],
+                'timestamp' => now()->toISOString()
+            ];
+
+            // Log the reminder being queued for the extension
+            Log::info("📤 LinkedIn reminder queued for extension", [
+                'call_id' => $messageData['call_id'],
+                'recipient' => $messageData['recipient'],
+                'message' => $messageData['message'],
+                'linkedin_id' => $messageData['linkedin_id']
+            ]);
+
+            // TODO: Implement actual webhook/queue system for the extension
+            // For now, we'll store the reminder in a queue table or use Laravel's queue system
+            // The extension can poll this endpoint or we can use webhooks to notify it
+            
+            // Store reminder in database for extension to pick up
+            \DB::table('reminder_queue')->insert([
+                'call_id' => $messageData['call_id'],
+                'recipient' => $messageData['recipient'],
+                'message' => $messageData['message'],
+                'conversation_urn_id' => $messageData['conversation_urn_id'],
+                'linkedin_id' => $messageData['linkedin_id'],
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            $this->info("📤 LinkedIn reminder queued for extension processing");
+            
+        } catch (\Throwable $th) {
+            Log::error("Failed to queue LinkedIn reminder", [
+                'call_id' => $messageData['call_id'],
+                'error' => $th->getMessage()
+            ]);
+            throw $th;
+        }
     }
 }

@@ -45,6 +45,8 @@ Route::middleware(['api'])->group(function() {
     Route::get('calls/{id}/response', [CallManagerController::class, 'checkCallResponse']);
     Route::post('calls/{id}/calendar-link', [CallManagerController::class, 'generateCalendarLinkForCall']);
     Route::post('calls/test-reminders', [CallManagerController::class, 'testReminderSystem']);
+    Route::get('reminders/pending', [CallManagerController::class, 'getPendingReminders']);
+    Route::post('reminders/update-status', [CallManagerController::class, 'updateReminderStatus']);
     Route::post('calls/trigger-ai-messages', [CallManagerController::class, 'triggerAIMessages']);
     Route::get('calls/{id}/conversation', [CallManagerController::class, 'getConversationHistory']);
     Route::get('calls/search-by-connection/{connectionId}', [CallManagerController::class, 'searchByConnection']);
