@@ -1074,7 +1074,8 @@ EOD;
                             // Add call_id as custom parameter to help with webhook matching
                             $callId = urlencode($call->id);
                             
-                            $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}";
+                            // Use UTM parameters to pass call ID (these are included in webhook payload)
+                            $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}&utm_campaign=call_booking&utm_source=linkdominator&utm_medium=api&utm_content={$callId}";
                             
                             Log::info('Generated Calendly link from API:', ['link' => $finalLink]);
                             
@@ -1105,7 +1106,8 @@ EOD;
                 $email = urlencode($call->recipient);
                 $callId = urlencode($call->id);
                 
-                $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}";
+                // Use UTM parameters to pass call ID (these are included in webhook payload)
+                $finalLink = "{$calendlyLink}?name={$recipientName}&email={$email}&a1={$company}&a2={$callId}&utm_campaign=call_booking&utm_source=linkdominator&utm_medium=api&utm_content={$callId}";
                 
                 Log::info('Generated fallback Calendly link:', ['link' => $finalLink]);
                 
@@ -1139,16 +1141,23 @@ EOD;
 
 Requirements:
 - Just ask them to select a convenient time using the calendar link
-- Use the exact calendar link: {$calendarLink}
+- Use the EXACT calendar link provided: {$calendarLink}
+- Do NOT modify or shorten the calendar link
 - No placeholders like [Your Name], [Your Company], etc.
 - No signatures or formal closings
 - Keep it under 30 words
 - Be friendly and conversational
 
-Example style: 'Hi [Name], here's the link to schedule a call at your convenience: [link]. Let me know if you have any questions!'";
+IMPORTANT: Use this exact link: {$calendarLink}";
 
             $result = $chatGPT->generateContent($prompt);
-            return $result['content'];
+            $message = $result['content'] ?? '';
+            
+            // Ensure the correct calendar link is used in the message
+            // Replace any calendar link in the message with the correct one
+            $message = preg_replace('/https:\/\/calendly\.com\/[^\s]+/', $calendarLink, $message);
+            
+            return $message;
             
         } catch (\Throwable $th) {
             return "Hi {$call->recipient}, here's the link to schedule a call at your convenience: {$calendarLink}. Let me know if you have any questions!";
@@ -1915,10 +1924,11 @@ Example style: 'Hi [Name], here's the link to schedule a call at your convenienc
             // Generate AI scheduling message with the generated calendar link
             $schedulingMessage = $this->generateSchedulingMessage($call, $calendarLink);
             
-            // Update call status
+            // Update call status and store call ID for webhook matching
             $call->update([
                 'call_status' => 'scheduling_initiated',
-                'calendar_link' => $calendarLink
+                'calendar_link' => $calendarLink,
+                'calendly_event_id' => "pending_{$call->id}" // Store call ID for webhook matching
             ]);
 
             return response()->json([

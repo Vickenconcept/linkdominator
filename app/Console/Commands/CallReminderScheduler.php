@@ -50,11 +50,20 @@ class CallReminderScheduler extends Command
     {
         $this->info("📅 Processing {$reminderType} reminders...");
         
+        // Debug: Show current time and time ranges
+        $now = now();
+        $minTime = $now->copy()->addHours($minHours);
+        $maxTime = $now->copy()->addHours($maxHours);
+        
+        $this->info("🕐 Current time: {$now->format('Y-m-d H:i:s')}");
+        $this->info("🕐 Looking for calls between: {$minTime->format('Y-m-d H:i:s')} and {$maxTime->format('Y-m-d H:i:s')}");
+        
         // Query calls that need reminders based on scheduled_time from Calendly
+        // We want calls that are coming up within the time window
         $calls = CallStatus::whereNotNull('scheduled_time')
             ->where('call_status', 'scheduled') // Only scheduled calls
-            ->where('scheduled_time', '>=', now()->addHours($minHours))
-            ->where('scheduled_time', '<=', now()->addHours($maxHours))
+            ->where('scheduled_time', '>=', $minTime) // At least minHours from now
+            ->where('scheduled_time', '<=', $maxTime) // But not more than maxHours from now
             ->where(function($query) use ($reminderType) {
                 switch($reminderType) {
                     case '16_24':
@@ -71,6 +80,28 @@ class CallReminderScheduler extends Command
             ->get();
 
         $this->info("Found {$calls->count()} calls needing {$reminderType} reminders");
+        
+        // Debug: Show all scheduled calls for debugging
+        $allScheduledCalls = CallStatus::whereNotNull('scheduled_time')
+            ->where('call_status', 'scheduled')
+            ->get();
+            
+        $this->info("📋 All scheduled calls:");
+        foreach ($allScheduledCalls as $call) {
+            $hoursUntilCall = $now->diffInHours($call->scheduled_time, false);
+            $this->info("  - Call {$call->id}: {$call->recipient} at {$call->scheduled_time->format('Y-m-d H:i:s')} ({$hoursUntilCall} hours from now)");
+            $this->info("    Reminder status: 16_24={$call->reminder_16_24_sent}, 2_hours={$call->reminder_2_hours_sent}, 10_40_min={$call->reminder_10_40_min_sent}");
+            
+            // Show when next reminders will be sent
+            if ($hoursUntilCall > 0) {
+                if (!$call->reminder_2_hours_sent && $hoursUntilCall <= 2.5) {
+                    $this->info("    ⏰ 2-hour reminder will be sent when call is 1.5-2.5 hours away");
+                }
+                if (!$call->reminder_10_40_min_sent && $hoursUntilCall <= 0.67) {
+                    $this->info("    ⏰ 10-40 min reminder will be sent when call is 10-40 minutes away");
+                }
+            }
+        }
 
         foreach ($calls as $call) {
             try {
