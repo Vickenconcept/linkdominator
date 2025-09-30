@@ -274,6 +274,9 @@ class CallManagerController extends Controller
             ]);
         }
 
+        // Check if this is an acceptance update (don't reset existing data)
+        $isAcceptanceUpdate = $request->input('is_acceptance_update', false);
+
         // Base attributes that should exist
         $attributes = [
             'recipient' => $request->recipient,
@@ -344,40 +347,80 @@ class CallManagerController extends Controller
             // Overwrite like creating anew, but on the same row
             $updateData = $attributes;
 
-            // Always reset conversation-related fields for a fresh start
-            if (Schema::hasColumn('call_status', 'conversation_history')) {
-                $updateData['conversation_history'] = json_encode([]);
-            }
-            if (Schema::hasColumn('call_status', 'ai_analysis')) {
-                $updateData['ai_analysis'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'calendar_link')) {
-                $updateData['calendar_link'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'scheduled_time')) {
-                $updateData['scheduled_time'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'meeting_link')) {
-                $updateData['meeting_link'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'lead_category')) {
-                $updateData['lead_category'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'lead_score')) {
-                $updateData['lead_score'] = null;
-            }
-            if (Schema::hasColumn('call_status', 'last_interaction_at')) {
-                $updateData['last_interaction_at'] = now();
-            }
-            if (Schema::hasColumn('call_status', 'interaction_count')) {
-                $updateData['interaction_count'] = 1;
-            }
+            // If this is an acceptance update, PRESERVE existing conversation data
+            if ($isAcceptanceUpdate) {
+                Log::info('🔒 Acceptance update detected - preserving existing conversation data', [
+                    'call_id' => $existing->id,
+                    'connection_id' => $existing->connection_id
+                ]);
+                
+                // Don't reset these fields if it's just an acceptance check
+                $fieldsToPreserve = [
+                    'conversation_history',
+                    'ai_analysis',
+                    'calendar_link',
+                    'scheduled_time',
+                    'meeting_link',
+                    'lead_category',
+                    'lead_score',
+                    'original_message',
+                    'pending_message'
+                ];
+                
+                foreach ($fieldsToPreserve as $field) {
+                    if (isset($updateData[$field])) {
+                        unset($updateData[$field]);
+                    }
+                }
+                
+                // Keep existing interaction count and just update the timestamp
+                if (Schema::hasColumn('call_status', 'last_interaction_at')) {
+                    $updateData['last_interaction_at'] = now();
+                }
+                if (Schema::hasColumn('call_status', 'interaction_count')) {
+                    unset($updateData['interaction_count']); // Don't reset counter
+                }
+            } else {
+                // This is a NEW campaign/call - reset conversation fields for a fresh start
+                Log::info('🆕 New campaign detected - resetting conversation data', [
+                    'call_id' => $existing->id,
+                    'connection_id' => $existing->connection_id
+                ]);
+                
+                if (Schema::hasColumn('call_status', 'conversation_history')) {
+                    $updateData['conversation_history'] = json_encode([]);
+                }
+                if (Schema::hasColumn('call_status', 'ai_analysis')) {
+                    $updateData['ai_analysis'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'calendar_link')) {
+                    $updateData['calendar_link'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'scheduled_time')) {
+                    $updateData['scheduled_time'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'meeting_link')) {
+                    $updateData['meeting_link'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'lead_category')) {
+                    $updateData['lead_category'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'lead_score')) {
+                    $updateData['lead_score'] = null;
+                }
+                if (Schema::hasColumn('call_status', 'last_interaction_at')) {
+                    $updateData['last_interaction_at'] = now();
+                }
+                if (Schema::hasColumn('call_status', 'interaction_count')) {
+                    $updateData['interaction_count'] = 1;
+                }
 
-            // Ensure we keep identifiers up to date if provided
-            // original_message: use newly generated/provided when present
-            if (empty($updateData['original_message'])) {
-                // If no new original_message was generated, keep existing one
-                unset($updateData['original_message']);
+                // Ensure we keep identifiers up to date if provided
+                // original_message: use newly generated/provided when present
+                if (empty($updateData['original_message'])) {
+                    // If no new original_message was generated, keep existing one
+                    unset($updateData['original_message']);
+                }
             }
 
             $existing->update($updateData);
@@ -385,7 +428,8 @@ class CallManagerController extends Controller
             Log::info('🔁 Updated existing CallStatus by connection/conversation for user', [
                 'call_id' => $existing->id,
                 'connection_id' => $existing->connection_id,
-                'conversation_urn_id' => $existing->conversation_urn_id
+                'conversation_urn_id' => $existing->conversation_urn_id,
+                'is_acceptance_update' => $isAcceptanceUpdate
             ]);
         } else {
             $callStatus = CallStatus::create($attributes);
