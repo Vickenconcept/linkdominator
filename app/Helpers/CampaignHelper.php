@@ -92,6 +92,8 @@ trait CampaignHelper
                 'email' => $item->email,
                 'location' => $item->location,
                 'connectionId' => $item->profileid,
+                'conId' => $item->conId ?? $item->profileid, // Add conId field for endorsement
+                'publicIdentifier' => $item->publicIdentifier ?? null, // Add publicIdentifier for endorsement
                 'source' => $item->source,
                 'listId' => $item->list_hash,
                 'memberUrn' => $item->member_urn,
@@ -203,11 +205,11 @@ trait CampaignHelper
     protected function getLeads($list_id, $src)
     {
         if($src == 'aud'){
-            $query = "id, audience_id as list_hash, concat(con_first_name,' ',con_last_name) as name, con_email as email, con_job_title as headline, con_location as location, con_id as profileid, con_member_urn as member_urn, con_tracking_id as trackingId, con_distance as networkDistance, 'aud' as source, created_at";
+            $query = "id, audience_id as list_hash, concat(con_first_name,' ',con_last_name) as name, con_email as email, con_job_title as headline, con_location as location, con_id as profileid, con_id as conId, con_public_identifier as publicIdentifier, con_member_urn as member_urn, con_tracking_id as trackingId, con_distance as networkDistance, 'aud' as source, created_at";
             
             $leads = AudienceList::select(DB::raw($query))->where('audience_id', $list_id)->get();
         }else {
-            $query = "id, sn_list_id as list_hash, concat(first_name,' ',last_name) as name, email, headline, geolocation as location, lid as profileid, object_urn as member_urn, null as trackingId, degree as networkDistance, 'sn' as source, created_at";
+            $query = "id, sn_list_id as list_hash, concat(first_name,' ',last_name) as name, email, headline, geolocation as location, lid as profileid, lid as conId, public_id as publicIdentifier, object_urn as member_urn, null as trackingId, degree as networkDistance, 'sn' as source, created_at";
 
             $leads = SnLead::select(DB::raw($query))->where('sn_list_id', $list_id)->get();
         }
@@ -223,6 +225,8 @@ trait CampaignHelper
                 audience_lists.con_email as email, audience_lists.con_job_title as headline, 
                 audience_lists.con_location as location, 
                 audience_lists.con_id as profileid, 
+                audience_lists.con_id as conId,
+                audience_lists.con_public_identifier as publicIdentifier,
                 audience_lists.con_member_urn as member_urn, 
                 audience_lists.con_tracking_id as trackingId, 
                 audience_lists.con_distance as networkDistance, 
@@ -244,6 +248,8 @@ trait CampaignHelper
                 sn_leads.email, sn_leads.headline, 
                 sn_leads.geolocation as location, 
                 sn_leads.lid as profileid, 
+                sn_leads.lid as conId,
+                sn_leads.public_id as publicIdentifier,
                 sn_leads.object_urn as member_urn, 
                 null as trackingId, 
                 sn_leads.degree as networkDistance, 
