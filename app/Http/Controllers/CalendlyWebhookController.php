@@ -90,7 +90,7 @@ class CalendlyWebhookController extends Controller
             }
 
             // Find the call record by Calendly event ID or by invitee email
-            $call = $this->findCallRecord($eventId, $email);
+            $call = $this->findCallRecord($eventId, $email, $eventData);
             
             Log::info('📅 Call record lookup result:', [
                 'call_found' => $call ? 'yes' : 'no',
@@ -109,9 +109,9 @@ class CalendlyWebhookController extends Controller
 
             // Update the call record with booking details
             $updateData = [
+                'calendly_event_id' => $eventId, // Store actual Calendly event ID
+                'calendly_invitee_id' => $inviteeId, // Store actual Calendly invitee ID
                 'scheduled_time' => Carbon::parse($scheduledTime),
-                'calendly_event_id' => $eventId,
-                'calendly_invitee_id' => $inviteeId,
                 'calendly_meeting_url' => $meetingUrl,
                 'call_status' => 'scheduled'
             ];
@@ -229,7 +229,7 @@ class CalendlyWebhookController extends Controller
     /**
      * Find call record by Calendly event ID or invitee email
      */
-    private function findCallRecord($eventId, $email = null)
+    private function findCallRecord($eventId, $email = null, $eventData = [])
     {
         Log::info('📅 Searching for call record:', [
             'eventId' => $eventId,
@@ -244,9 +244,27 @@ class CalendlyWebhookController extends Controller
             return $call;
         }
         
+        // Try to find by pending call ID pattern in calendly_event_id field
+        $calls = CallStatus::where('calendly_event_id', 'like', 'pending_%')
+            ->where('call_status', 'scheduling_initiated')
+            ->get();
+            
+        foreach ($calls as $potentialCall) {
+            // Extract call ID from calendly_event_id (format: "pending_123")
+            if (preg_match('/pending_(\d+)/', $potentialCall->calendly_event_id, $matches)) {
+                $storedCallId = $matches[1];
+                Log::info('📅 Found call by pending call ID pattern:', [
+                    'call_id' => $storedCallId,
+                    'calendly_event_id' => $potentialCall->calendly_event_id
+                ]);
+                return $potentialCall;
+            }
+        }
+        
+        
         // Try to find by call_id from the Calendly link
         // Extract call_id from the event URI or use a different approach
-        $callId = $this->extractCallIdFromEvent($eventId);
+        $callId = $this->extractCallIdFromEvent($eventId, $eventData, $email);
         if ($callId) {
             $call = CallStatus::where('id', $callId)->first();
             if ($call) {
@@ -292,20 +310,60 @@ class CalendlyWebhookController extends Controller
     /**
      * Extract call_id from Calendly event
      */
-    private function extractCallIdFromEvent($eventId)
+    private function extractCallIdFromEvent($eventId, $eventData = [], $email = null)
     {
         // The eventId is a URI like: https://api.calendly.com/scheduled_events/542d528a-2f52-4604-907a-079a97e13211
         // We need to find the call_id that was used in the original Calendly link
-        // Since we can't get it from the webhook, we'll search for recent call records
-        // that have scheduling_initiated status and no calendly_event_id yet
+        // The call_id is passed as a2 parameter in the Calendly link
         
+        // Try to extract from tracking parameters if available
+        $tracking = $eventData['tracking'] ?? [];
+        Log::info('📅 Checking tracking parameters:', ['tracking' => $tracking]);
+        
+        // Check UTM content for call ID (we pass call ID as utm_content)
+        $utmContent = $tracking['utm_content'] ?? null;
+        if ($utmContent && is_numeric($utmContent)) {
+            Log::info('📅 Found call_id in utm_content:', ['call_id' => $utmContent]);
+            return $utmContent;
+        }
+        
+        // Check salesforce_uuid as fallback
+        $salesforceUuid = $tracking['salesforce_uuid'] ?? null;
+        if ($salesforceUuid && is_numeric($salesforceUuid)) {
+            Log::info('📅 Found call_id in salesforce_uuid:', ['call_id' => $salesforceUuid]);
+            return $salesforceUuid;
+        }
+        
+        // Try to extract from questions and answers
+        $questionsAndAnswers = $eventData['questions_and_answers'] ?? [];
+        Log::info('📅 Checking questions and answers:', ['q_and_a' => $questionsAndAnswers]);
+        
+        foreach ($questionsAndAnswers as $qa) {
+            if (isset($qa['answer']) && is_numeric($qa['answer'])) {
+                Log::info('📅 Found call_id in Q&A:', ['call_id' => $qa['answer'], 'question' => $qa['question'] ?? 'unknown']);
+                return $qa['answer'];
+            }
+        }
+        
+        // Try to extract from URL parameters if available in the webhook
+        // Some Calendly webhooks might include the original URL parameters
+        $scheduledEvent = $eventData['scheduled_event'] ?? [];
+        $eventType = $scheduledEvent['event_type'] ?? '';
+        
+        // Check if we can extract from the event type URL or other fields
+        if (preg_match('/[?&]question_1=(\d+)/', $eventType, $matches)) {
+            Log::info('📅 Found call_id in event_type URL:', ['call_id' => $matches[1]]);
+            return $matches[1];
+        }
+        
+        // Fallback: find most recent call with scheduling_initiated status
         $call = CallStatus::where('call_status', 'scheduling_initiated')
             ->whereNull('calendly_event_id')
             ->orderBy('updated_at', 'desc')
             ->first();
             
         if ($call) {
-            Log::info('📅 Found recent call record for webhook matching:', [
+            Log::info('📅 Found most recent call record for webhook matching:', [
                 'call_id' => $call->id
             ]);
             return $call->id;

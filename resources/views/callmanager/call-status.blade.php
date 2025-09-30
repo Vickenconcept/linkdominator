@@ -28,21 +28,51 @@
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">
             <div class="grid grid-cols-12 p-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-semibold px-3 text-sm">
-                <div class="col-span-3">Recipient</div>
+                <div class="col-span-2">Recipient</div>
                 <div class="col-span-2">Profile</div>
                 <div class="col-span-2">Sequence</div>
                 <div class="col-span-2">Call Status</div>
-                <div class="col-span-2">Date</div>
+                <div class="col-span-2">Scheduled Time</div>
+                <div class="col-span-1">Reminders</div>
                 <div class="col-span-1"></div>
             </div>
             <div>
             @foreach($callStatus as $item)
                 <div class="grid grid-cols-12 p-3 px-3 mb-2 bg-white hover:bg-indigo-100 rounded-lg shadow-sm font-normal cursor-pointer text-gray-600 text-sm">
-                    <div class="col-span-3">{{$item->recipient}}</div>
+                    <div class="col-span-2">{{$item->recipient}}</div>
                     <div class="col-span-2">{{$item->profile}}</div>
                     <div class="col-span-2">{{$item->sequence}}</div>
                     <div class="col-span-2 capitalize">{{str_replace('_',' ',$item->call_status)}}</div>
-                    <div class="col-span-2">{{date_format(date_create($item->created_at), "d M, Y")}}</div>
+                    <div class="col-span-2">
+                        @if($item->scheduled_time)
+                            {{ \Carbon\Carbon::parse($item->scheduled_time)->format('M j, Y g:i A') }}
+                        @else
+                            <span class="text-gray-400">Not scheduled</span>
+                        @endif
+                    </div>
+                    <div class="col-span-1">
+                        @if($item->call_status === 'scheduled' && $item->scheduled_time)
+                            <div class="flex flex-col gap-1 text-xs">
+                                @if($item->reminder_16_24_sent)
+                                    <span class="text-green-600">✓ 24h</span>
+                                @else
+                                    <span class="text-gray-400">⏳ 24h</span>
+                                @endif
+                                @if($item->reminder_2_hours_sent)
+                                    <span class="text-green-600">✓ 2h</span>
+                                @else
+                                    <span class="text-gray-400">⏳ 2h</span>
+                                @endif
+                                @if($item->reminder_10_40_min_sent)
+                                    <span class="text-green-600">✓ 30m</span>
+                                @else
+                                    <span class="text-gray-400">⏳ 30m</span>
+                                @endif
+                            </div>
+                        @else
+                            <span class="text-gray-400">N/A</span>
+                        @endif
+                    </div>
                     <div class="col-span-1">
                         <div class="flex gap-3">
                             <a href="{{ route('calls.show', $item->id) }}" 
