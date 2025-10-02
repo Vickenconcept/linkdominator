@@ -50,6 +50,14 @@ class LinkedInPost extends Model
     }
 
     /**
+     * Scope for ready to publish posts
+     */
+    public function scopeReadyToPublish($query)
+    {
+        return $query->where('status', 'ready_to_publish');
+    }
+
+    /**
      * Scope for published posts
      */
     public function scopePublished($query)

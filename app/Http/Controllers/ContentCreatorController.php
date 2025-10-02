@@ -111,7 +111,7 @@ class ContentCreatorController extends Controller
         $scheduledAt = null;
 
         if ($request->publish_option === 'now') {
-            $status = 'scheduled';
+            $status = 'ready_to_publish';
             $scheduledAt = now();
         } elseif ($request->publish_option === 'schedule' && $request->scheduled_at) {
             $status = 'scheduled';
@@ -134,6 +134,9 @@ class ContentCreatorController extends Controller
         if ($status === 'scheduled') {
             // Dispatch job for scheduling
             \App\Jobs\PublishLinkedInPost::dispatch($post)->delay($scheduledAt);
+        } elseif ($status === 'ready_to_publish') {
+            // Dispatch job immediately for "Publish Now"
+            \App\Jobs\PublishLinkedInPost::dispatch($post);
         }
 
         notify()->success('Post saved successfully!');
@@ -276,12 +279,20 @@ class ContentCreatorController extends Controller
         }
 
         $post->update([
-            'status' => 'scheduled',
+            'status' => 'ready_to_publish',
             'scheduled_at' => now()
         ]);
 
         // Dispatch job immediately
         \App\Jobs\PublishLinkedInPost::dispatch($post);
+
+        // Log that a post was published immediately for extension to pick up
+        \Log::info('🚀 Post published immediately', [
+            'post_id' => $post->id,
+            'user_id' => auth()->id(),
+            'linkedin_id' => auth()->user()->linkedin_id,
+            'content_preview' => substr($post->content, 0, 100) . '...'
+        ]);
 
         return response()->json([
             'success' => true,
@@ -350,8 +361,11 @@ class ContentCreatorController extends Controller
         }
 
         $posts = LinkedInPost::where('user_id', $user->id)
-            ->where('status', 'scheduled')
-            ->where('scheduled_at', '<=', now())
+            ->where(function($query) {
+                $query->where('status', 'scheduled')
+                      ->where('scheduled_at', '<=', now());
+            })
+            ->orWhere('status', 'ready_to_publish')
             ->orderBy('scheduled_at', 'asc')
             ->get();
 
