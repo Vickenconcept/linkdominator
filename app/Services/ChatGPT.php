@@ -35,7 +35,7 @@ class ChatGPT
         $this->params = $params;
         $this->token = config('services.chatgpt.key');
         $this->temperature = 0.3; // Lower temperature for more consistent analysis
-        $this->max_token = 1000; // Increased for more detailed analysis
+        $this->max_token = 2000; // Increased for longer LinkedIn posts
     }
 
     public function generate()
@@ -487,5 +487,206 @@ EOD;
         ]);
         
         return $summary;
+    }
+
+    /**
+     * Generate LinkedIn post content
+     */
+    public function generateLinkedInPost()
+    {
+        $topic = $this->params['topic'] ?? '';
+        $style = $this->params['style'] ?? 'professional';
+        $length = $this->params['length'] ?? 'medium';
+        $templateId = $this->params['template_id'] ?? null;
+
+        // Get template if provided
+        if ($templateId) {
+            $template = \App\Models\PostTemplate::find($templateId);
+            if ($template) {
+                $content = $template->replaceVariables(['topic' => $topic]);
+                return [
+                    'content' => $content,
+                    'hashtags' => $this->extractHashtags($content),
+                    'word_count' => str_word_count($content)
+                ];
+            }
+        }
+
+        // Build prompt based on style and length
+        $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
+
+        // Check moderation
+        $this->checkModeration($prompt);
+
+        // Generate content with higher token limit for LinkedIn posts
+        $result = $this->generateLinkedInContent($prompt);
+        
+        // Extract hashtags
+        $hashtags = $this->extractHashtags($result['content']);
+        
+        return [
+            'content' => $result['content'],
+            'hashtags' => $hashtags,
+            'word_count' => $result['words']
+        ];
+    }
+
+    /**
+     * Rewrite existing post content
+     */
+    public function rewritePost()
+    {
+        $content = $this->params['content'] ?? '';
+        $tone = $this->params['tone'] ?? 'professional';
+        $mode = $this->params['mode'] ?? null; // 'shorten' | 'expand' | null
+
+        $instructions = "Rewrite this LinkedIn post content in a {$tone} tone while maintaining the core message and making it more engaging.";
+        if ($mode === 'shorten') {
+            $instructions .= " Make it significantly shorter (about 40-60% of the original length), concise, and punchy.";
+        } elseif ($mode === 'expand') {
+            $instructions .= " Expand it with more detail (about 140-170% of the original length), add examples or specifics where helpful.";
+        }
+
+        $prompt = $instructions . "\n\nOriginal Content:\n" . $content . "\n\nReturn only the improved post text, ready for LinkedIn.";
+
+        // Check moderation
+        $this->checkModeration($prompt);
+
+        // Generate content
+        $result = $this->generateContent($prompt);
+        
+        return [
+            'content' => $result['content'],
+            'word_count' => $result['words']
+        ];
+    }
+
+    /**
+     * Build LinkedIn post prompt based on parameters
+     */
+    private function buildLinkedInPostPrompt($topic, $style, $length)
+    {
+        $lengthInstructions = [
+            'short' => 'Keep it under 100 words - make it punchy and direct',
+            'medium' => 'Write 150-250 words - provide value with some detail',
+            'long' => 'Write 300-500 words - comprehensive and detailed'
+        ];
+
+        $styleInstructions = [
+            'professional' => 'Use a professional, business-focused tone',
+            'casual' => 'Use a casual, friendly, conversational tone',
+            'motivational' => 'Use an inspiring, motivational tone that energizes readers',
+            'educational' => 'Use an informative, teaching tone that provides clear value',
+            'storytelling' => 'Use a narrative, story-driven approach with personal elements'
+        ];
+
+        $prompt = "Write a LinkedIn post about: {$topic}\n\n";
+        $prompt .= "Style: {$styleInstructions[$style]}\n";
+        $prompt .= "Length: {$lengthInstructions[$length]}\n\n";
+        $prompt .= "Requirements:\n";
+        $prompt .= "- Start with a compelling hook\n";
+        $prompt .= "- Include relevant hashtags (3-5 hashtags)\n";
+        $prompt .= "- End with a clear call-to-action\n";
+        $prompt .= "- Make it engaging and shareable\n";
+        $prompt .= "- Use line breaks for readability\n";
+        $prompt .= "- Include emojis sparingly but effectively\n\n";
+        $prompt .= "Write the post now:";
+
+        return $prompt;
+    }
+
+    /**
+     * Extract hashtags from content
+     */
+    private function extractHashtags($content)
+    {
+        preg_match_all('/#\w+/', $content, $matches);
+        return implode(' ', array_unique($matches[0]));
+    }
+
+    /**
+     * Generate post from template
+     */
+    public function generateFromTemplate($templateId, $variables = [])
+    {
+        $template = \App\Models\PostTemplate::find($templateId);
+        
+        if (!$template) {
+            throw new \Exception('Template not found');
+        }
+
+        $content = $template->replaceVariables($variables);
+        
+        return [
+            'content' => $content,
+            'hashtags' => $this->extractHashtags($content),
+            'word_count' => str_word_count($content)
+        ];
+    }
+
+    /**
+     * Generate LinkedIn content with higher token limit
+     */
+    public function generateLinkedInContent($prompt)
+    {
+        Log::info('🤖 ChatGPT generateLinkedInContent called', [
+            'prompt' => $prompt,
+            'model' => 'gpt-4o-mini',
+            'max_tokens' => 3000, // Higher limit for LinkedIn posts
+            'temperature' => $this->temperature
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Content-Type' => 'application/json'
+            ])
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn content creator. Create engaging, professional posts that drive engagement and provide value to the audience.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'max_tokens' => 3000, // Higher limit for LinkedIn posts
+                    'temperature' => $this->temperature,
+                    'n' => 1,
+                ])
+                ->throw()
+                ->json();
+                
+            Log::info('✅ ChatGPT LinkedIn API response successful', [
+                'response' => $response
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('❌ ChatGPT LinkedIn API call failed', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            throw $th;
+        }
+
+        $words = 0;
+
+        if($response['choices']) {
+            $content = '';
+            foreach ($response['choices'] as $key => $value) {
+                // Chat Completions API returns content in message.content instead of text
+                $text = $value['message']['content'] ?? '';
+                $content .= trim($text) . "\r\n\r\n";
+                $words += count(explode(" ", trim($text)));
+            }
+        }else {
+            $text = $response['choices'][0]['message']['content'] ?? '';
+            $content = trim($text);
+            $words = count(explode(" ", $content));
+        }
+
+        // Clean up the content to ensure it's valid
+        $content = $this->cleanJsonResponse($content);
+
+        return [
+            'content' => $content,
+            'words' => $words
+        ];
     }
 }

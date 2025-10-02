@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('call_status', function (Blueprint $table) {
-            $table->text('pending_message')->nullable()->after('call_status');
-            $table->timestamp('scheduled_send_at')->nullable()->after('pending_message');
+        Schema::table('linkedin_posts', function (Blueprint $table) {
+            $table->string('video_url')->nullable()->after('image_url');
         });
     }
 
@@ -22,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('call_status', function (Blueprint $table) {
-            $table->dropColumn(['pending_message', 'scheduled_send_at']);
+        Schema::table('linkedin_posts', function (Blueprint $table) {
+            $table->dropColumn('video_url');
         });
     }
 };

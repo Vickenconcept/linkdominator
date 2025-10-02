@@ -20,6 +20,7 @@ use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\UserManagerController;
 use App\Http\Controllers\JvzooIpnController;
 use App\Http\Controllers\CommentFeedController;
+use App\Http\Controllers\ContentCreatorController;
 
 Route::get('/', function () {
     return redirect()->route('auth.login');
@@ -110,6 +111,20 @@ Route::middleware(['auth'])->group(function(){
         Route::put('/ai-content/update/{id}', 'update')->name('aiwriter.update');
         Route::delete('/ai-content/delete/{id}', 'destroy')->name('aiwriter.delete');
         Route::post('/ai-content/generate', 'generate')->name('aiwriter.generate');
+    });
+
+    // Content Creator Routes (New Standalone Feature)
+    Route::controller(ContentCreatorController::class)->group(function (){
+        Route::get('/content-creator', 'index')->name('content-creator.index');
+        Route::get('/content-creator/create', 'create')->name('content-creator.create');
+        Route::post('/content-creator/store', 'store')->name('content-creator.store');
+        Route::post('/content-creator/generate', 'generate')->name('content-creator.generate');
+        Route::post('/content-creator/rewrite', 'rewrite')->name('content-creator.rewrite');
+        Route::get('/content-creator/templates', 'getTemplates')->name('content-creator.templates');
+        Route::post('/content-creator/schedule/{id}', 'schedule')->name('content-creator.schedule');
+        Route::post('/content-creator/publish/{id}', 'publish')->name('content-creator.publish');
+        Route::delete('/content-creator/delete/{id}', 'destroy')->name('content-creator.delete');
+        Route::get('/content-creator/analytics/{id}', 'analytics')->name('content-creator.analytics');
     });
 
     Route::controller(SchedulePostController::class)->group(function (){

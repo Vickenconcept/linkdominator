@@ -7,6 +7,7 @@ use App\Http\Controllers\CallManagerController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\AiwriterController;
 use App\Http\Controllers\ChromeApiController;
+use App\Http\Controllers\ContentCreatorController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -53,6 +54,10 @@ Route::middleware(['api'])->group(function() {
     Route::get('calls/ready-to-send', [CallManagerController::class, 'getMessagesReadyToSend']);
     Route::post('calls/{id}/update-status', [CallManagerController::class, 'updateMessageStatus']);
     Route::post('calls/{id}/pending-message', [CallManagerController::class, 'updatePendingMessage']);
+    
+    // Content Creator API routes for Chrome extension
+    Route::get('content-creator/scheduled-posts', [ContentCreatorController::class, 'getScheduledPosts']);
+    Route::post('content-creator/posts/{id}/update-status', [ContentCreatorController::class, 'updatePostStatus']);
 });
 
 Route::controller(LeadController::class)->group(function (){
