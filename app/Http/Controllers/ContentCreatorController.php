@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LinkedInPost;
 use App\Models\PostTemplate;
 use App\Services\ChatGPT;
+use App\Services\LinkedInContentService;
 use App\Helpers\CampaignHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,25 +86,22 @@ class ContentCreatorController extends Controller
         $videoUrl = null;
         $carouselImages = null;
 
+        // Initialize Cloudinary service
+        $cloudinaryService = new LinkedInContentService();
+
         // Handle single image upload (for image post type)
         if ($request->post_type === 'image' && $request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('linkedin-posts/images', 'public');
-            $imageUrl = asset('storage/' . $imagePath);
+            $imageUrl = $cloudinaryService->uploadImage($request->file('image'));
         }
 
         // Handle multiple images upload (for carousel post type)
         if ($request->post_type === 'carousel' && $request->hasFile('images')) {
-            $carouselImages = [];
-            foreach ($request->file('images') as $image) {
-                $imagePath = $image->store('linkedin-posts/images', 'public');
-                $carouselImages[] = asset('storage/' . $imagePath);
-            }
+            $carouselImages = $cloudinaryService->uploadCarouselImages($request->file('images'));
         }
 
         // Handle video upload (only for video post type)
         if ($request->post_type === 'video' && $request->hasFile('video')) {
-            $videoPath = $request->file('video')->store('linkedin-posts/videos', 'public');
-            $videoUrl = asset('storage/' . $videoPath);
+            $videoUrl = $cloudinaryService->uploadVideo($request->file('video'));
         }
 
         // Determine status based on publish option

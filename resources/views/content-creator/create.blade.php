@@ -96,8 +96,14 @@
                 </div>
                 
                 <button type="submit" 
-                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition-colors">
-                    <i class="fas fa-magic mr-2"></i>Generate with AI
+                        id="generateBtn"
+                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="generateText">
+                        <i class="fas fa-magic mr-2"></i>Generate with AI
+                    </span>
+                    <span id="generateLoading" class="hidden">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Generating...
+                    </span>
                 </button>
             </form>
         </div>
@@ -364,8 +370,14 @@
                             Cancel
                         </a>
                         <button type="submit" 
-                                class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
-                            <i class="fas fa-save mr-2"></i>Save Post
+                                id="savePostBtn"
+                                class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span id="savePostText">
+                                <i class="fas fa-save mr-2"></i>Save Post
+                            </span>
+                            <span id="savePostLoading" class="hidden">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Saving...
+                            </span>
                         </button>
                     </div>
                 </form>
@@ -734,6 +746,48 @@ document.getElementById('videoUpload').addEventListener('change', function(e) {
         document.getElementById('previewVideo').load();
         document.getElementById('videoPreview').classList.remove('hidden');
     }
+});
+
+// AI Generate form submission handler with loading state
+document.getElementById('aiGenerateForm').addEventListener('submit', function(e) {
+    const generateBtn = document.getElementById('generateBtn');
+    const generateText = document.getElementById('generateText');
+    const generateLoading = document.getElementById('generateLoading');
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    generateText.classList.add('hidden');
+    generateLoading.classList.remove('hidden');
+    
+    // Reset loading state after 30 seconds if something goes wrong
+    setTimeout(() => {
+        if (generateBtn.disabled) {
+            generateBtn.disabled = false;
+            generateText.classList.remove('hidden');
+            generateLoading.classList.add('hidden');
+        }
+    }, 30000);
+});
+
+// Main form submission handler with loading state
+document.getElementById('postForm').addEventListener('submit', function(e) {
+    const saveBtn = document.getElementById('savePostBtn');
+    const saveText = document.getElementById('savePostText');
+    const saveLoading = document.getElementById('savePostLoading');
+    
+    // Show loading state
+    saveBtn.disabled = true;
+    saveText.classList.add('hidden');
+    saveLoading.classList.remove('hidden');
+    
+    // Reset loading state after 30 seconds if something goes wrong
+    setTimeout(() => {
+        if (saveBtn.disabled) {
+            saveBtn.disabled = false;
+            saveText.classList.remove('hidden');
+            saveLoading.classList.add('hidden');
+        }
+    }, 30000);
 });
 </script>
 @endsection
