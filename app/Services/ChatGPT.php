@@ -689,4 +689,102 @@ EOD;
             'words' => $words
         ];
     }
+
+    /**
+     * Generate multiple LinkedIn post drafts
+     */
+    public function generateMultipleDrafts()
+    {
+        $topic = $this->params['topic'] ?? '';
+        $style = $this->params['style'] ?? 'professional';
+        $length = $this->params['length'] ?? 'medium';
+        $templateId = $this->params['template_id'] ?? null;
+
+        $drafts = [];
+
+        // Get template if provided (same for all drafts)
+        $baseContent = null;
+        if ($templateId) {
+            $template = \App\Models\PostTemplate::find($templateId);
+            if ($template) {
+                $baseContent = $template->replaceVariables(['topic' => $topic]);
+            }
+        }
+
+        // If using template, return it as the first draft and generate 2 variations
+        if ($baseContent) {
+            $drafts[] = [
+                'content' => $baseContent,
+                'hashtags' => $this->extractHashtags($baseContent),
+                'word_count' => str_word_count($baseContent)
+            ];
+            $draftCount = 2;
+        } else {
+            $draftCount = 3;
+        }
+
+        // Generate multiple variations with different temperatures
+        for ($i = 0; $i < $draftCount; $i++) {
+            // Vary temperature slightly for different creative outputs
+            $this->temperature = 0.7 + ($i * 0.15); // 0.7, 0.85, 1.0
+            
+            $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
+            
+            // Add variation instruction
+            if ($i > 0) {
+                $prompt .= "\n\nMake this version unique with a different approach or angle.";
+            }
+
+            $result = $this->generateLinkedInContent($prompt);
+            
+            $drafts[] = [
+                'content' => $result['content'],
+                'hashtags' => $this->extractHashtags($result['content']),
+                'word_count' => $result['words']
+            ];
+        }
+
+        return $drafts;
+    }
+
+    /**
+     * Improve existing post with specific action
+     */
+    public function improvePost($action, $content)
+    {
+        $prompts = [
+            'add_hook' => "Add a compelling, attention-grabbing hook (first 1-2 sentences) to the beginning of this LinkedIn post. Make it irresistible to keep reading:\n\n{$content}\n\nReturn the FULL post with the new hook at the beginning.",
+            
+            'add_cta' => "Add a strong, specific call-to-action at the end of this LinkedIn post. Make it engaging and tell readers exactly what to do next:\n\n{$content}\n\nReturn the FULL post with the CTA at the end.",
+            
+            'expand' => "Expand this LinkedIn post by adding relevant examples, case studies, statistics, or specific details. Make it 40-60% longer while keeping it engaging and valuable:\n\n{$content}\n\nReturn the expanded post.",
+            
+            'make_viral' => "Rewrite this LinkedIn post to make it more viral and shareable. Use proven engagement tactics like:\n- Bold, contrarian statements\n- Curiosity gaps\n- Surprising insights\n- Emotional triggers\n- Pattern interrupts\n\nOriginal post:\n{$content}\n\nReturn the viral-optimized version.",
+            
+            'add_data' => "Enhance this LinkedIn post by adding relevant statistics, data points, research findings, or numbers that support the message:\n\n{$content}\n\nReturn the FULL post with data added.",
+            
+            'bullet_points' => "Convert the main points of this LinkedIn post into a clear, scannable format using bullet points or numbered lists:\n\n{$content}\n\nReturn the reformatted post.",
+            
+            'add_story' => "Add a brief personal story, anecdote, or real-life example to make this LinkedIn post more relatable and engaging:\n\n{$content}\n\nReturn the FULL post with the story woven in.",
+            
+            'controversial' => "Rewrite this LinkedIn post to include a thought-provoking, slightly controversial, or debate-worthy angle that sparks discussion. Make people want to comment with their opinions:\n\n{$content}\n\nReturn the controversy-enhanced version.",
+            
+            'add_emoji' => "Enhance this LinkedIn post by adding relevant emojis strategically to improve readability and engagement:\n\n{$content}\n\nReturn the FULL post with emojis added.",
+            
+            'make_concise' => "Make this LinkedIn post more concise and punchy while keeping the core message. Remove fluff and make every word count:\n\n{$content}\n\nReturn the concise version."
+        ];
+
+        $prompt = $prompts[$action] ?? $prompts['add_hook'];
+        
+        // Check moderation
+        $this->checkModeration($prompt);
+        
+        // Generate improved content
+        $result = $this->generateContent($prompt);
+        
+        return [
+            'content' => $result['content'],
+            'word_count' => $result['words']
+        ];
+    }
 }

@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             UserSeeder::class,
             MinistatSeeder::class,
+            PostTemplateSeeder::class,
         ]);
     }
 }

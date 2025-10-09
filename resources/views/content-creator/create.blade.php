@@ -95,6 +95,17 @@
                     </div>
                 </div>
                 
+                <!-- 🔥 NEW: Multiple Drafts Option -->
+                <div class="mb-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="multipleDrafts" 
+                               class="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500">
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            Generate 3 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
+                        </span>
+                    </label>
+                </div>
+                
                 <button type="submit" 
                         id="generateBtn"
                         class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -106,21 +117,71 @@
                     </span>
                 </button>
             </form>
+            
+            <!-- 🔥 NEW: Multiple Drafts Selection -->
+            <div id="draftsContainer" class="mt-4 hidden">
+                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    <i class="fas fa-copy mr-1 text-orange-500"></i>Choose Your Favorite Draft
+                </h4>
+                <div id="draftsList" class="space-y-3 max-h-96 overflow-y-auto">
+                    <!-- Drafts will be inserted here -->
+                </div>
+            </div>
         </div>
 
         <!-- Templates Section -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Templates</h3>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Templates</h3>
+                <span id="templateCount" class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ count($templates) }} templates
+                </span>
+            </div>
             
-            <!-- Template Categories -->
-            <div class="mb-4">
+            <!-- 🔥 ENHANCED: Search & Filters -->
+            <div class="space-y-3 mb-4">
+                <!-- Search -->
+                <div class="relative">
+                    <input type="text" 
+                           id="templateSearch" 
+                           placeholder="Search templates..." 
+                           class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                    <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
+                </div>
+                
+                <!-- Category Filter -->
                 <select id="templateCategory" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
                     <option value="">All Categories</option>
                     @foreach($categories as $key => $name)
                     <option value="{{ $key }}">{{ $name }}</option>
                     @endforeach
                 </select>
+                
+                <!-- Industry Filter -->
+                <select id="templateIndustry" 
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Industries</option>
+                    @foreach($industries as $key => $name)
+                    <option value="{{ $key }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+                
+                <!-- Engagement Score Filter -->
+                <select id="templateEngagement" 
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Engagement</option>
+                    <option value="90">🔥 90%+ (Viral)</option>
+                    <option value="85">⚡ 85%+ (High)</option>
+                    <option value="80">✨ 80%+ (Good)</option>
+                </select>
+                
+                <!-- Clear Filters Button -->
+                <button type="button" 
+                        id="clearFilters"
+                        class="w-full px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors">
+                    <i class="fas fa-redo mr-1"></i>Clear Filters
+                </button>
             </div>
             
             <!-- Templates List -->
@@ -128,23 +189,48 @@
                 @foreach($templates as $template)
                 <div class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer template-item"
                      data-template-id="{{ $template->id }}"
-                     data-category="{{ $template->category }}">
-                    <div class="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                        {{ $template->title }}
+                     data-category="{{ $template->category }}"
+                     data-industry="{{ $template->industry }}"
+                     data-engagement="{{ $template->engagement_score }}"
+                     data-title="{{ strtolower($template->title) }}"
+                     data-description="{{ strtolower($template->description ?? '') }}">
+                    <div class="flex items-start justify-between mb-1">
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                            {{ $template->title }}
+                        </div>
+                        <!-- Engagement Badge -->
+                        <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded
+                            @if($template->engagement_score >= 90) bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200
+                            @elseif($template->engagement_score >= 85) bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200
+                            @else bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 @endif">
+                            {{ $template->engagement_score }}%
+                        </span>
                     </div>
                     <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        {{ Str::limit($template->content, 80) }}
+                        {{ Str::limit($template->description ?? $template->content, 60) }}
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
-                            {{ ucfirst($template->category) }}
-                        </span>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ $template->engagement_score }}% engagement
-                        </span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 rounded">
+                                {{ ucfirst($template->category) }}
+                            </span>
+                            <span class="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
+                                {{ ucfirst($template->industry) }}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 @endforeach
+            </div>
+            
+            <!-- No Results Message -->
+            <div id="noTemplatesMessage" class="hidden text-center py-8">
+                <i class="fas fa-search text-4xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No templates found</p>
+                <button type="button" onclick="clearAllFilters()" 
+                        class="mt-2 text-xs text-orange-600 hover:text-orange-700">
+                    Clear filters
+                </button>
             </div>
         </div>
     </div>
@@ -224,17 +310,71 @@
                             <div class="text-sm text-gray-500 dark:text-gray-400">
                                 <span id="wordCount">0</span> words
                             </div>
-                            <div class="flex space-x-2">
-                                <button type="button" id="rewriteBtn" 
-                                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                                    <i class="fas fa-edit mr-1"></i>Rewrite
-                                </button>
-                                <button type="button" id="shortenBtn" 
-                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors">
-                                    <i class="fas fa-compress mr-1"></i>Shorten
+                        </div>
+                        
+                        <!-- 🔥 NEW: Improve Post Action Buttons (Taplio-style) -->
+                        <div id="improveActions" class="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <i class="fas fa-magic text-orange-500 mr-1"></i>Improve Your Post
+                                </span>
+                                <button type="button" onclick="toggleImproveActions()" 
+                                        class="text-xs text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="improvePost('add_hook')" 
+                                        class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-fish mr-1"></i>Add Hook
+                                </button>
+                                <button type="button" onclick="improvePost('add_cta')" 
+                                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-bullhorn mr-1"></i>Add CTA
+                                </button>
+                                <button type="button" onclick="improvePost('expand')" 
+                                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-expand-arrows-alt mr-1"></i>Expand
+                                </button>
+                                <button type="button" onclick="improvePost('make_viral')" 
+                                        class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-fire mr-1"></i>Make Viral
+                                </button>
+                                <button type="button" onclick="improvePost('add_data')" 
+                                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-chart-line mr-1"></i>Add Data
+                                </button>
+                                <button type="button" onclick="improvePost('bullet_points')" 
+                                        class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-list-ul mr-1"></i>Bullets
+                                </button>
+                                <button type="button" onclick="improvePost('add_story')" 
+                                        class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-book-open mr-1"></i>Add Story
+                                </button>
+                                <button type="button" onclick="improvePost('controversial')" 
+                                        class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>Controversial
+                                </button>
+                                <button type="button" onclick="improvePost('add_emoji')" 
+                                        class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-smile mr-1"></i>Add Emoji
+                                </button>
+                                <button type="button" onclick="improvePost('make_concise')" 
+                                        class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                    <i class="fas fa-compress mr-1"></i>Make Concise
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                💡 Click any action to enhance your content with AI
+                            </p>
                         </div>
+                        
+                        <!-- Show improve actions button -->
+                        <button type="button" id="showImproveBtn" onclick="toggleImproveActions()" 
+                                class="mt-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm rounded-md transition-all flex items-center">
+                            <i class="fas fa-magic mr-2"></i>Improve This Post
+                        </button>
                     </div>
 
                     <!-- Image Upload (for image posts) -->
@@ -477,7 +617,84 @@ document.querySelectorAll('input[name="publish_option"]').forEach(radio => {
     });
 });
 
-// AI Generation
+// 🔥 NEW: Toggle Improve Actions Panel
+function toggleImproveActions() {
+    const improveActions = document.getElementById('improveActions');
+    const showBtn = document.getElementById('showImproveBtn');
+    
+    if (improveActions.classList.contains('hidden')) {
+        improveActions.classList.remove('hidden');
+        showBtn.classList.add('hidden');
+    } else {
+        improveActions.classList.add('hidden');
+        showBtn.classList.remove('hidden');
+    }
+}
+
+// 🔥 NEW: Improve Post Function
+function improvePost(action) {
+    const content = document.getElementById('postContent').value.trim();
+    
+    if (!content) {
+        alert('Please enter some content first.');
+        return;
+    }
+    
+    showLoading();
+    
+    // Disable all improve buttons
+    const improveButtons = document.querySelectorAll('#improveActions button[onclick^="improvePost"]');
+    improveButtons.forEach(btn => btn.disabled = true);
+    
+    fetch('/content-creator/improve', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            content: content,
+            action: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        improveButtons.forEach(btn => btn.disabled = false);
+        
+        if (data.success) {
+            document.getElementById('postContent').value = data.content;
+            document.getElementById('wordCount').textContent = data.word_count;
+            
+            // Show success notification
+            showNotification('✨ Content improved successfully!', 'success');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        improveButtons.forEach(btn => btn.disabled = false);
+        console.error('Error:', error);
+        alert('An error occurred while improving content.');
+    });
+}
+
+// 🔥 NEW: Show Notification Function
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    } animate-slide-in`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// 🔥 UPDATED: AI Generation with Multiple Drafts Support
 document.getElementById('aiGenerateForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -486,6 +703,8 @@ document.getElementById('aiGenerateForm').addEventListener('submit', function(e)
         alert('Please enter a topic or idea.');
         return;
     }
+    
+    const multipleDrafts = document.getElementById('multipleDrafts').checked;
     
     showLoading();
     
@@ -498,16 +717,28 @@ document.getElementById('aiGenerateForm').addEventListener('submit', function(e)
         body: JSON.stringify({
             topic: topic,
             style: document.getElementById('aiStyle').value,
-            length: document.getElementById('aiLength').value
+            length: document.getElementById('aiLength').value,
+            multiple_drafts: multipleDrafts
         })
     })
     .then(response => response.json())
     .then(data => {
         hideLoading();
+        
         if (data.success) {
-            document.getElementById('postContent').value = data.content;
-            document.getElementById('hashtags').value = data.hashtags;
-            document.getElementById('wordCount').textContent = data.word_count;
+            if (data.drafts && data.drafts.length > 0) {
+                // Show multiple drafts
+                displayMultipleDrafts(data.drafts);
+            } else {
+                // Single draft (backward compatibility)
+                document.getElementById('postContent').value = data.content;
+                document.getElementById('hashtags').value = data.hashtags;
+                document.getElementById('wordCount').textContent = data.word_count;
+                
+                // Show improve actions automatically
+                document.getElementById('improveActions').classList.remove('hidden');
+                document.getElementById('showImproveBtn').classList.add('hidden');
+            }
         } else {
             alert('Error: ' + data.message);
         }
@@ -519,120 +750,203 @@ document.getElementById('aiGenerateForm').addEventListener('submit', function(e)
     });
 });
 
-// Template selection
-document.querySelectorAll('.template-item').forEach(item => {
-    item.addEventListener('click', function() {
-        const templateId = this.dataset.templateId;
-        showLoading();
+// 🔥 NEW: Display Multiple Drafts
+function displayMultipleDrafts(drafts) {
+    const draftsList = document.getElementById('draftsList');
+    const draftsContainer = document.getElementById('draftsContainer');
+    
+    // Clear previous drafts
+    draftsList.innerHTML = '';
+    
+    // Create draft cards
+    drafts.forEach((draft, index) => {
+        const draftCard = document.createElement('div');
+        draftCard.className = 'p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 transition-all';
+        draftCard.onclick = () => selectDraft(draft);
         
-        fetch(`/content-creator/templates?template_id=${templateId}`)
-        .then(response => response.json())
-        .then(data => {
-            hideLoading();
-            if (data.templates && data.templates.length > 0) {
-                const template = data.templates[0];
-                document.getElementById('postContent').value = template.content;
-                document.getElementById('hashtags').value = extractHashtags(template.content);
-                document.getElementById('wordCount').textContent = str_word_count(template.content);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            console.error('Error:', error);
-            alert('An error occurred while loading the template.');
+        draftCard.innerHTML = `
+            <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center">
+                    <span class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 rounded-full text-xs font-bold mr-2">
+                        ${index + 1}
+                    </span>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">
+                        Draft ${index + 1}
+                    </span>
+                </div>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    ${draft.word_count} words
+                </span>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-2">
+                ${draft.content.substring(0, 150)}${draft.content.length > 150 ? '...' : ''}
+            </p>
+            <div class="flex items-center justify-between">
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                    ${draft.hashtags || 'No hashtags'}
+                </div>
+                <button class="text-xs text-orange-600 hover:text-orange-700 font-medium">
+                    Use this draft →
+                </button>
+            </div>
+        `;
+        
+        draftsList.appendChild(draftCard);
+    });
+    
+    // Show drafts container
+    draftsContainer.classList.remove('hidden');
+    
+    // Scroll to drafts
+    draftsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// 🔥 NEW: Select Draft
+function selectDraft(draft) {
+    document.getElementById('postContent').value = draft.content;
+    document.getElementById('hashtags').value = draft.hashtags || '';
+    document.getElementById('wordCount').textContent = draft.word_count;
+    
+    // Hide drafts container
+    document.getElementById('draftsContainer').classList.add('hidden');
+    
+    // Show improve actions automatically
+    document.getElementById('improveActions').classList.remove('hidden');
+    document.getElementById('showImproveBtn').classList.add('hidden');
+    
+    // Scroll to content editor
+    document.getElementById('postContent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Show success notification
+    showNotification('✅ Draft selected! Now improve it with AI actions below.', 'success');
+}
+
+// 🔥 FIXED: Template selection - now works instantly
+function attachTemplateClickHandlers() {
+    document.querySelectorAll('.template-item').forEach(item => {
+        // Remove old listener if any
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        newItem.addEventListener('click', function() {
+            const templateId = this.dataset.templateId;
+            
+            console.log('🎯 Template clicked:', templateId);
+            
+            // Show loading
+            showLoading();
+            
+            // Fetch template content
+            fetch(`/content-creator/templates?template_id=${templateId}`)
+                .then(response => {
+                    console.log('📡 Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('📦 Template data received:', data);
+                    hideLoading();
+                    
+                    if (data.success !== false && data.templates && data.templates.length > 0) {
+                        const template = data.templates[0];
+                        
+                        console.log('✅ Loading template:', template.title);
+                        
+                        // Load template content
+                        document.getElementById('postContent').value = template.content;
+                        document.getElementById('hashtags').value = extractHashtags(template.content);
+                        document.getElementById('wordCount').textContent = str_word_count(template.content);
+                        
+                        // Auto-show improve actions
+                        document.getElementById('improveActions').classList.remove('hidden');
+                        document.getElementById('showImproveBtn').classList.add('hidden');
+                        
+                        // Scroll to content
+                        document.getElementById('postContent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // Show success notification
+                        showNotification('✅ Template loaded! Now customize it with variables or improve actions.', 'success');
+                        
+                        console.log('🎉 Template loaded successfully');
+                    } else {
+                        throw new Error(data.message || 'Template not found in response');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('❌ Template loading error:', error);
+                    alert('Error loading template: ' + error.message + '\n\nPlease check the console for details.');
+                });
         });
     });
-});
+}
 
-// Template filtering
-document.getElementById('templateCategory').addEventListener('change', function() {
-    const category = this.value;
+// Initialize template handlers on page load
+attachTemplateClickHandlers();
+
+// 🔥 ENHANCED: Template Filtering System
+function filterTemplates() {
+    const searchTerm = document.getElementById('templateSearch').value.toLowerCase();
+    const category = document.getElementById('templateCategory').value;
+    const industry = document.getElementById('templateIndustry').value;
+    const engagement = document.getElementById('templateEngagement').value;
+    
+    let visibleCount = 0;
+    
     document.querySelectorAll('.template-item').forEach(item => {
-        if (!category || item.dataset.category === category) {
+        const matchesSearch = !searchTerm || 
+            item.dataset.title.includes(searchTerm) || 
+            item.dataset.description.includes(searchTerm);
+        
+        const matchesCategory = !category || item.dataset.category === category;
+        const matchesIndustry = !industry || item.dataset.industry === industry;
+        const matchesEngagement = !engagement || parseInt(item.dataset.engagement) >= parseInt(engagement);
+        
+        if (matchesSearch && matchesCategory && matchesIndustry && matchesEngagement) {
             item.style.display = 'block';
+            visibleCount++;
         } else {
             item.style.display = 'none';
         }
     });
-});
-
-// Rewrite functionality
-document.getElementById('rewriteBtn').addEventListener('click', function() {
-    const content = document.getElementById('postContent').value.trim();
-    if (!content) {
-        alert('Please enter some content to rewrite.');
-        return;
+    
+    // Update count
+    document.getElementById('templateCount').textContent = `${visibleCount} template${visibleCount !== 1 ? 's' : ''}`;
+    
+    // Show/hide no results message
+    const noResultsMsg = document.getElementById('noTemplatesMessage');
+    const templatesList = document.getElementById('templatesList');
+    if (visibleCount === 0) {
+        noResultsMsg.classList.remove('hidden');
+        templatesList.classList.add('hidden');
+    } else {
+        noResultsMsg.classList.add('hidden');
+        templatesList.classList.remove('hidden');
     }
     
-    showLoading();
-    
-    fetch('/content-creator/rewrite', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            content: content,
-            tone: 'professional',
-            mode: null
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            document.getElementById('postContent').value = data.content;
-            document.getElementById('wordCount').textContent = data.word_count;
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        console.error('Error:', error);
-        alert('An error occurred while rewriting content.');
-    });
-});
+    // 🔥 FIX: Reattach click handlers after filtering
+    attachTemplateClickHandlers();
+}
 
-// Shorten functionality
-document.getElementById('shortenBtn').addEventListener('click', function() {
-    const content = document.getElementById('postContent').value.trim();
-    if (!content) {
-        alert('Please enter some content to shorten.');
-        return;
-    }
+// Clear all filters
+function clearAllFilters() {
+    document.getElementById('templateSearch').value = '';
+    document.getElementById('templateCategory').value = '';
+    document.getElementById('templateIndustry').value = '';
+    document.getElementById('templateEngagement').value = '';
+    filterTemplates();
+}
 
-    showLoading();
+// Attach filter event listeners
+document.getElementById('templateSearch').addEventListener('input', filterTemplates);
+document.getElementById('templateCategory').addEventListener('change', filterTemplates);
+document.getElementById('templateIndustry').addEventListener('change', filterTemplates);
+document.getElementById('templateEngagement').addEventListener('change', filterTemplates);
+document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
 
-    fetch('/content-creator/rewrite', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            content: content,
-            tone: 'professional',
-            mode: 'shorten'
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            document.getElementById('postContent').value = data.content;
-            document.getElementById('wordCount').textContent = data.word_count;
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        console.error('Error:', error);
-        alert('An error occurred while shortening content.');
-    });
-});
+// Rewrite and Shorten are now part of improve actions (add_hook, make_concise, etc.)
 
 // Utility functions
 function showLoading() {

@@ -142,7 +142,7 @@ class ContentCreatorController extends Controller
     }
 
     /**
-     * Generate content using AI
+     * Generate content using AI (now returns multiple drafts)
      */
     public function generate(Request $request)
     {
@@ -150,7 +150,8 @@ class ContentCreatorController extends Controller
             'topic' => 'required|string|max:500',
             'style' => 'required|in:professional,casual,motivational,educational,storytelling',
             'length' => 'required|in:short,medium,long',
-            'template_id' => 'nullable|exists:post_templates,id'
+            'template_id' => 'nullable|exists:post_templates,id',
+            'multiple_drafts' => 'nullable|boolean'
         ]);
 
         try {
@@ -162,13 +163,53 @@ class ContentCreatorController extends Controller
             ];
 
             $chatGPT = new ChatGPT($data);
-            $result = $chatGPT->generateLinkedInPost();
+            
+            // Check if multiple drafts are requested
+            if ($request->multiple_drafts) {
+                $drafts = $chatGPT->generateMultipleDrafts();
+                
+                return response()->json([
+                    'success' => true,
+                    'drafts' => $drafts
+                ]);
+            } else {
+                // Single draft (backward compatibility)
+                $result = $chatGPT->generateLinkedInPost();
+
+                return response()->json([
+                    'success' => true,
+                    'content' => $result['content'],
+                    'hashtags' => $result['hashtags'] ?? '',
+                    'word_count' => $result['word_count'] ?? 0
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Improve existing post content with specific action
+     */
+    public function improvePost(Request $request)
+    {
+        $request->validate([
+            'content' => 'required|string',
+            'action' => 'required|in:add_hook,add_cta,expand,make_viral,add_data,bullet_points,add_story,controversial,add_emoji,make_concise'
+        ]);
+
+        try {
+            $chatGPT = new ChatGPT();
+            $result = $chatGPT->improvePost($request->action, $request->content);
 
             return response()->json([
                 'success' => true,
                 'content' => $result['content'],
-                'hashtags' => $result['hashtags'] ?? '',
-                'word_count' => $result['word_count'] ?? 0
+                'word_count' => $result['word_count']
             ]);
 
         } catch (\Exception $e) {
@@ -215,10 +256,30 @@ class ContentCreatorController extends Controller
     }
 
     /**
-     * Get templates by category
+     * Get templates by category, industry, or specific template by ID
      */
     public function getTemplates(Request $request)
     {
+        // 🔥 FIX: Handle template_id parameter for single template fetch
+        $templateId = $request->query('template_id');
+        
+        if ($templateId) {
+            $template = PostTemplate::active()->find($templateId);
+            
+            if (!$template) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Template not found'
+                ], 404);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'templates' => [$template]
+            ]);
+        }
+        
+        // Handle category and industry filters
         $category = $request->query('category');
         $industry = $request->query('industry');
         

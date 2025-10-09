@@ -119,6 +119,7 @@ Route::middleware(['auth'])->group(function(){
         Route::get('/content-creator/create', 'create')->name('content-creator.create');
         Route::post('/content-creator/store', 'store')->name('content-creator.store');
         Route::post('/content-creator/generate', 'generate')->name('content-creator.generate');
+        Route::post('/content-creator/improve', 'improvePost')->name('content-creator.improve');
         Route::post('/content-creator/rewrite', 'rewrite')->name('content-creator.rewrite');
         Route::get('/content-creator/templates', 'getTemplates')->name('content-creator.templates');
         Route::post('/content-creator/schedule/{id}', 'schedule')->name('content-creator.schedule');
