@@ -20,7 +20,7 @@ class CorsMiddleware
         // Handle preflight requests
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
-                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Origin', 'https://www.linkedin.com')
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
                 ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, lk-id, X-Requested-With, csrf-token, Accept')
                 ->header('Access-Control-Max-Age', '86400'); // 24 hours
@@ -39,7 +39,7 @@ class CorsMiddleware
 
         // Add CORS headers to all responses (including errors)
         return $response
-            ->header('Access-Control-Allow-Origin', '*')
+            ->header('Access-Control-Allow-Origin', 'https://www.linkedin.com')
             ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
             ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, lk-id, X-Requested-With, csrf-token, Accept')
             ->header('Access-Control-Allow-Credentials', 'false');

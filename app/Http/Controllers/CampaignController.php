@@ -99,11 +99,12 @@ class CampaignController extends Controller
                 foreach ($leadgen as $leadgen) {
                     // Debug: Log what we're checking
                     // status_last_id values: 1 = initial, 2 = sent, 3 = accepted, 4 = error
-                    // Count as "invite sent" if status_last_id is 2 (sent)
+                    // Count as "invite sent" if status_last_id is 2 (sent) OR 3 (accepted)
                     $isInviteSent = false;
+                    $isAccepted = false;
                     
-                    // Method 1: Check if status_last_id is 2 (sent)
-                    if ($leadgen->status_last_id == 2) {
+                    // Check if invite was sent (status_last_id = 2 or 3)
+                    if ($leadgen->status_last_id == 2 || $leadgen->status_last_id == 3) {
                         $isInviteSent = true;
                     }
                     
@@ -113,12 +114,17 @@ class CampaignController extends Controller
                         logger("🔍 Using fallback method - current_node_key indicates processing");
                     }
                     
+                    // Count accepted invites - use both accept_status = 1 AND status_last_id = 3 for accuracy
+                    if ($leadgen->accept_status == 1 || $leadgen->status_last_id == 3) {
+                        $isAccepted = true;
+                    }
+                    
                     // Count invites that have been sent (only if explicitly marked as sent)
                     if ($isInviteSent) {
                         $totalInvitesSent += 1;
                     }
                     // Count accepted invites
-                    if ($leadgen->accept_status == 1) {
+                    if ($isAccepted) {
                         $totalAccepted += 1;
                     }
                     
@@ -130,7 +136,9 @@ class CampaignController extends Controller
                         'accept_status' => $leadgen->accept_status,
                         'current_node_key' => $leadgen->current_node_key,
                         'is_invite_sent' => $isInviteSent,
-                        'total_invites_sent_so_far' => $totalInvitesSent
+                        'is_accepted' => $isAccepted,
+                        'total_invites_sent_so_far' => $totalInvitesSent,
+                        'total_accepted_so_far' => $totalAccepted
                     ]);
                 }
                 
