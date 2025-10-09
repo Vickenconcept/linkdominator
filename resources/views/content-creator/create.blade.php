@@ -540,6 +540,50 @@
 // CSRF token from Blade to avoid relying on a meta tag
 const csrfToken = '{{ csrf_token() }}';
 
+// 🔥 NEW: Load inspiration content from sessionStorage
+window.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromInspiration = urlParams.get('from') === 'inspiration';
+    
+    if (fromInspiration) {
+        const inspirationContent = sessionStorage.getItem('inspiration_content');
+        const inspirationAuthor = sessionStorage.getItem('inspiration_author');
+        const wasRemixed = sessionStorage.getItem('inspiration_remixed');
+        
+        if (inspirationContent) {
+            // Load content into editor
+            document.getElementById('postContent').value = inspirationContent;
+            document.getElementById('wordCount').textContent = str_word_count(inspirationContent);
+            
+            // Extract and load hashtags
+            const hashtags = extractHashtags(inspirationContent);
+            document.getElementById('hashtags').value = hashtags;
+            
+            // Show improve actions automatically
+            document.getElementById('improveActions').classList.remove('hidden');
+            document.getElementById('showImproveBtn').classList.add('hidden');
+            
+            // Show notification
+            if (wasRemixed) {
+                showNotification('✨ AI-remixed content loaded! Ready to customize and post.', 'success');
+            } else {
+                showNotification(`💡 Inspiration from ${inspirationAuthor || 'viral post'} loaded! Customize it to make it yours.`, 'success');
+            }
+            
+            // Clear sessionStorage
+            sessionStorage.removeItem('inspiration_content');
+            sessionStorage.removeItem('inspiration_author');
+            sessionStorage.removeItem('inspiration_engagement');
+            sessionStorage.removeItem('inspiration_remixed');
+            
+            // Scroll to content
+            setTimeout(() => {
+                document.getElementById('postContent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 500);
+        }
+    }
+});
+
 // Word count update
 document.getElementById('postContent').addEventListener('input', function() {
     const wordCount = this.value.trim().split(/\s+/).filter(word => word.length > 0).length;

@@ -128,6 +128,17 @@ Route::middleware(['auth'])->group(function(){
         Route::get('/content-creator/analytics/{id}', 'analytics')->name('content-creator.analytics');
     });
 
+    // Inspiration Library Routes (Viral Posts Discovery)
+    Route::controller(App\Http\Controllers\InspirationController::class)->group(function (){
+        Route::get('/inspiration', 'index')->name('inspiration.index');
+        Route::post('/inspiration/store', 'storeFromWeb')->name('inspiration.store');
+        Route::delete('/inspiration/delete/{id}', 'destroy')->name('inspiration.delete');
+        Route::post('/inspiration/favorite/{id}', 'toggleFavorite')->name('inspiration.favorite');
+        Route::get('/inspiration/use/{id}', 'useAsInspiration')->name('inspiration.use');
+        Route::post('/inspiration/remix/{id}', 'remix')->name('inspiration.remix');
+        Route::get('/inspiration/categories', 'getCategories')->name('inspiration.categories');
+    });
+
     Route::controller(SchedulePostController::class)->group(function (){
         Route::get('/posts', 'index')->name('post.index');
         Route::get('/post/new', 'create')->name('post.create');

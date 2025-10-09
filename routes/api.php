@@ -58,6 +58,9 @@ Route::middleware(['api'])->group(function() {
     // Content Creator API routes for Chrome extension
     Route::get('content-creator/scheduled-posts', [ContentCreatorController::class, 'getScheduledPosts']);
     Route::post('content-creator/posts/{id}/update-status', [ContentCreatorController::class, 'updatePostStatus']);
+    
+    // Inspiration Library API routes for Chrome extension
+    Route::post('inspiration/save-viral-post', [App\Http\Controllers\InspirationController::class, 'store']);
 });
 
 Route::controller(LeadController::class)->group(function (){
