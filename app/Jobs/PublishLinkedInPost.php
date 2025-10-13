@@ -31,9 +31,15 @@ class PublishLinkedInPost implements ShouldQueue
      */
     public function handle(): void
     {
+        // Get the user who created this post
+        $postCreator = \App\Models\User::find($this->post->user_id);
+        
         Log::info('🚀 ========== PublishLinkedInPost JOB STARTED ==========', [
             'post_id' => $this->post->id,
-            'user_id' => $this->post->user_id,
+            'post_user_id' => $this->post->user_id,
+            'post_creator_name' => $postCreator ? $postCreator->name : 'Unknown',
+            'post_creator_email' => $postCreator ? $postCreator->email : 'Unknown',
+            'post_creator_linkedin_id' => $postCreator ? ($postCreator->linkedin_id ?? 'not_set') : 'Unknown',
             'scheduled_at' => $this->post->scheduled_at,
             'post_type' => $this->post->post_type,
             'current_status' => $this->post->status,
@@ -59,17 +65,51 @@ class PublishLinkedInPost implements ShouldQueue
             }
 
             Log::info('✅ Step 1 passed: Post status is valid');
-
-            Log::info('Step 2: Fetching LinkedIn integration', [
+            
+            // Get details of the app user who created this post
+            $appUser = \App\Models\User::find($this->post->user_id);
+            Log::info('👤 Post Creator (App User) Details', [
                 'user_id' => $this->post->user_id,
+                'user_name' => $appUser ? $appUser->name : 'Unknown',
+                'user_email' => $appUser ? $appUser->email : 'Unknown',
+                'user_linkedin_id' => $appUser ? ($appUser->linkedin_id ?? 'not_set') : 'Unknown'
+            ]);
+
+            Log::info('Step 2: Fetching LinkedIn integration for THIS user', [
+                'post_user_id' => $this->post->user_id,
                 'searching_for' => 'oauth_provider=linkedin, connected_status=1'
             ]);
 
-            // Get user's LinkedIn integration
+            // FIRST: Log ALL LinkedIn integrations in the system to see what's available
+            $allIntegrations = \App\Models\Integration::where('oauth_provider', 'linkedin')
+                ->where('connected_status', 1)
+                ->get(['id', 'user_id', 'first_name', 'last_name', 'email', 'oauth_uid']);
+            
+            Log::info('📊 ALL LinkedIn integrations in system', [
+                'total_count' => $allIntegrations->count(),
+                'integrations' => $allIntegrations->map(function($i) {
+                    return [
+                        'integration_id' => $i->id,
+                        'belongs_to_user_id' => $i->user_id,
+                        'linkedin_name' => $i->first_name . ' ' . $i->last_name,
+                        'linkedin_email' => $i->email,
+                        'oauth_uid' => $i->oauth_uid
+                    ];
+                })->toArray()
+            ]);
+
+            // NOW: Get user's LinkedIn integration
             $integration = \App\Models\Integration::where('user_id', $this->post->user_id)
                 ->where('oauth_provider', 'linkedin')
                 ->where('connected_status', 1)
                 ->first();
+            
+            Log::info('🎯 Selected integration for THIS post', [
+                'post_user_id' => $this->post->user_id,
+                'selected_integration_id' => $integration ? $integration->id : 'NONE',
+                'selected_integration_user_id' => $integration ? $integration->user_id : 'NONE',
+                'query_used' => "Integration::where('user_id', {$this->post->user_id})->where('oauth_provider', 'linkedin')->where('connected_status', 1)->first()"
+            ]);
 
             if (!$integration) {
                 Log::error('❌ Step 2 FAILED: No LinkedIn integration found for user', [
@@ -85,8 +125,23 @@ class PublishLinkedInPost implements ShouldQueue
             Log::info('✅ Step 2 passed: Integration found', [
                 'integration_id' => $integration->id,
                 'oauth_provider' => $integration->oauth_provider,
-                'connected_status' => $integration->connected_status
+                'connected_status' => $integration->connected_status,
+                'integration_user_id' => $integration->user_id,
+                'integration_owner_name' => $integration->first_name . ' ' . $integration->last_name,
+                'integration_email' => $integration->email,
+                'oauth_uid' => $integration->oauth_uid
             ]);
+            
+            // VERIFY integration belongs to the post creator
+            if ($integration->user_id !== $this->post->user_id) {
+                Log::error('🚨 CRITICAL ERROR: Integration user mismatch!', [
+                    'post_user_id' => $this->post->user_id,
+                    'integration_user_id' => $integration->user_id,
+                    'this_means' => 'Post created by one user but publishing to different user\'s LinkedIn!'
+                ]);
+                $this->post->markAsFailed();
+                return;
+            }
 
             Log::info('Step 3: Validating access token', [
                 'integration_id' => $integration->id,

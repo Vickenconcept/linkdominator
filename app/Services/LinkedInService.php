@@ -180,7 +180,7 @@ class LinkedInService
         $headers = [
             'Authorization' => 'Bearer ' . $access_token,
             'Content-Type' => 'application/json',
-            'LinkedIn-Version' => '202401',
+            'LinkedIn-Version' => '202410',
             'X-Restli-Protocol-Version' => '2.0.0'
         ];
 
@@ -200,7 +200,10 @@ class LinkedInService
             'author' => $author,
             'api_url' => $api_url,
             'post_body_keys' => array_keys($post_body),
-            'content_preview' => substr($linkedInPost->content, 0, 100)
+            'post_body_full' => $post_body,
+            'content_preview' => substr($linkedInPost->content, 0, 100),
+            'integration_owner' => $integration->first_name . ' ' . $integration->last_name,
+            'integration_email' => $integration->email
         ]);
 
         try {
@@ -212,7 +215,31 @@ class LinkedInService
                 'body' => $httpResponse->body()
             ]);
 
-            $response = $httpResponse->throw()->json();
+            // Check for errors
+            $httpResponse->throw();
+
+            // LinkedIn returns post ID in headers, not body
+            $responseHeaders = $httpResponse->headers();
+            $postId = null;
+            
+            // Extract post ID from x-restli-id header
+            if (isset($responseHeaders['x-restli-id'][0])) {
+                $postId = $responseHeaders['x-restli-id'][0];
+                Log::info('✅ Post ID extracted from x-restli-id header', ['post_id' => $postId]);
+            }
+            
+            // Try to parse JSON body (might be empty for successful posts)
+            $responseBody = null;
+            if (!empty($httpResponse->body())) {
+                $responseBody = $httpResponse->json();
+            }
+
+            // Return both the post ID and any response data
+            $response = [
+                'id' => $postId,
+                'status' => $httpResponse->status(),
+                'data' => $responseBody
+            ];
 
             Log::info('✅ LinkedIn API response parsed', ['response' => $response]);
 
@@ -284,7 +311,7 @@ class LinkedInService
         $initResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . $access_token,
             'Content-Type' => 'application/json',
-            'LinkedIn-Version' => '202401'
+            'LinkedIn-Version' => '202410'
         ])->post('https://api.linkedin.com/rest/images?action=initializeUpload', [
             "initializeUploadRequest" => [
                 "owner" => $author
@@ -321,7 +348,7 @@ class LinkedInService
         $initResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . $access_token,
             'Content-Type' => 'application/json',
-            'LinkedIn-Version' => '202401'
+            'LinkedIn-Version' => '202410'
         ])->post('https://api.linkedin.com/rest/videos?action=initializeUpload', [
             "initializeUploadRequest" => [
                 "owner" => $author,
