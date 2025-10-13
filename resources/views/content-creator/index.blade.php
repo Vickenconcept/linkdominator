@@ -120,26 +120,65 @@
             <!-- Post Media -->
             @if($post->image_url)
             <div class="mb-4">
-                <img src="{{ $post->image_url }}" alt="Post image" class="w-full h-32 object-cover rounded-lg">
+                @php
+                    // Model accessor handles JSON decoding automatically
+                    $imageUrls = $post->image_url;
+                    $isMultipleImages = is_array($imageUrls) && count($imageUrls) > 1;
+                @endphp
+                
+                @if($isMultipleImages)
+                    <!-- Multiple images -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        @foreach(array_slice($imageUrls, 0, 6) as $index => $imageUrl)
+                        <div class="relative">
+                            <img src="{{ $imageUrl }}" alt="Image {{ $index + 1 }}" 
+                                 class="w-full h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                {{ $index + 1 }}
+                            </div>
+                        </div>
+                        @endforeach
+                        @if(count($imageUrls) > 6)
+                        <div class="flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg h-20">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                +{{ count($imageUrls) - 6 }} more
+                            </span>
+                        </div>
+                        @endif
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        <i class="fas fa-images mr-1"></i>{{ count($imageUrls) }} image(s)
+                    </div>
+                @else
+                    <!-- Single image (or legacy single URL) -->
+                    @php
+                        $singleUrl = is_array($imageUrls) ? $imageUrls[0] : $imageUrls;
+                    @endphp
+                    <img src="{{ $singleUrl }}" alt="Post image" class="w-full h-32 object-cover rounded-lg">
+                @endif
             </div>
             @endif
             
-            @if($post->carousel_images && count($post->carousel_images) > 0)
+            @if($post->carousel_images)
             <div class="mb-4">
-                <div class="grid grid-cols-4 md:grid-cols-5 gap-2">
-                    @foreach($post->carousel_images as $index => $image)
-                    <div class="relative">
-                        <img src="{{ $image }}" alt="Carousel image {{ $index + 1 }}" 
-                             class="w-full h-10 object-cover rounded-full border border-gray-200">
-                        <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-1 py-0.5 rounded-full">
-                            {{ $index + 1 }}
+                <div class="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                    <div class="flex items-center">
+                        @php
+                            $fileName = basename($post->carousel_images);
+                            $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                            $icon = $extension === 'pdf' ? 'fa-file-pdf text-red-500' : 'fa-file-powerpoint text-orange-500';
+                        @endphp
+                        <i class="fas {{ $icon }} text-3xl mr-3"></i>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                Carousel Document
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ strtoupper($extension) }} • Swipeable Carousel
+                            </div>
                         </div>
+                        <i class="fas fa-swatchbook text-orange-500 text-xl"></i>
                     </div>
-                    @endforeach
-                </div>
-                <div class="text-xs text-gray-500 mt-2">
-                    <i class="fas fa-images mr-1"></i>
-                    {{ count($post->carousel_images) }} images in carousel
                 </div>
             </div>
             @endif

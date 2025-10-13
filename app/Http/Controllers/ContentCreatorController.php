@@ -68,35 +68,39 @@ class ContentCreatorController extends Controller
             'post_type' => 'required|in:text,image,carousel,video',
             'scheduled_at' => 'nullable|date|after:now',
             'hashtags' => 'nullable|string|max:500',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // 10MB max
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // For carousel
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // For multiple images
+            'carousel_file' => 'nullable|mimes:pdf,ppt,pptx|max:51200', // For carousel (PDF/PPT) - 50MB max
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400' // 100MB max for video
         ]);
 
         // Validate that only one media type is selected based on post_type
         if ($request->post_type === 'image' && $request->hasFile('video')) {
-            return back()->withErrors(['video' => 'Cannot upload video for image post type. Please select image instead.']);
+            return back()->withErrors(['video' => 'Cannot upload video for image post type.']);
         }
         
-        if ($request->post_type === 'video' && ($request->hasFile('image') || $request->hasFile('images'))) {
-            return back()->withErrors(['image' => 'Cannot upload images for video post type. Please select video instead.']);
+        if ($request->post_type === 'video' && $request->hasFile('images')) {
+            return back()->withErrors(['images' => 'Cannot upload images for video post type.']);
+        }
+        
+        if ($request->post_type === 'carousel' && !$request->hasFile('carousel_file')) {
+            return back()->withErrors(['carousel_file' => 'Carousel posts require a PDF or PowerPoint file.']);
         }
 
-        $imageUrl = null;
+        $imageUrls = null;
         $videoUrl = null;
-        $carouselImages = null;
+        $carouselFileUrl = null;
 
         // Initialize Cloudinary service
         $cloudinaryService = new LinkedInContentService();
 
-        // Handle single image upload (for image post type)
-        if ($request->post_type === 'image' && $request->hasFile('image')) {
-            $imageUrl = $cloudinaryService->uploadImage($request->file('image'));
+        // Handle multiple images upload (for image post type - 1 or more images)
+        if ($request->post_type === 'image' && $request->hasFile('images')) {
+            $imageUrls = $cloudinaryService->uploadCarouselImages($request->file('images'));
         }
 
-        // Handle multiple images upload (for carousel post type)
-        if ($request->post_type === 'carousel' && $request->hasFile('images')) {
-            $carouselImages = $cloudinaryService->uploadCarouselImages($request->file('images'));
+        // Handle carousel file upload (PDF or PowerPoint)
+        if ($request->post_type === 'carousel' && $request->hasFile('carousel_file')) {
+            $carouselFileUrl = $cloudinaryService->uploadDocument($request->file('carousel_file'));
         }
 
         // Handle video upload (only for video post type)
@@ -121,18 +125,18 @@ class ContentCreatorController extends Controller
             'post_type' => $request->post_type,
             'status' => $status,
             'scheduled_at' => $scheduledAt,
-            'has_image' => !empty($imageUrl),
+            'has_images' => !empty($imageUrls),
             'has_video' => !empty($videoUrl),
-            'has_carousel' => !empty($carouselImages),
+            'has_carousel_file' => !empty($carouselFileUrl),
             'content_length' => strlen($request->content)
         ]);
 
         $post = LinkedInPost::create([
             'user_id' => auth()->id(),
             'content' => $request->content,
-            'image_url' => $imageUrl,
+            'image_url' => $imageUrls, // Model will auto-encode to JSON if array
             'video_url' => $videoUrl,
-            'carousel_images' => $carouselImages,
+            'carousel_images' => $carouselFileUrl, // Store carousel file URL
             'post_type' => $request->post_type,
             'status' => $status,
             'scheduled_at' => $scheduledAt,

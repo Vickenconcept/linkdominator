@@ -264,7 +264,7 @@
                                        class="text-orange-600 focus:ring-orange-500">
                                 <div class="ml-3">
                                     <div class="text-sm font-medium text-gray-900 dark:text-white">Image</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">With image</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">1-10 images</div>
                                 </div>
                             </label>
                             
@@ -274,7 +274,7 @@
                                        class="text-orange-600 focus:ring-orange-500">
                                 <div class="ml-3">
                                     <div class="text-sm font-medium text-gray-900 dark:text-white">Carousel</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Multiple images</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">PDF/PowerPoint</div>
                                 </div>
                             </label>
                             
@@ -377,47 +377,68 @@
                         </button>
                     </div>
 
-                    <!-- Image Upload (for image posts) -->
+                    <!-- Image Upload (for image posts - supports 1-10 images) -->
                     <div id="imageUploadSection" class="mb-6 hidden">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Upload Image
-                        </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('image') border-red-500 @enderror">
-                            <input type="file" id="imageUpload" name="image" accept="image/*" class="hidden">
-                            <button type="button" onclick="document.getElementById('imageUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
-                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
-                                <div class="text-sm">Click to upload image</div>
-                            </button>
-                        </div>
-                        @error('image')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                        <div id="imagePreview" class="mt-4 hidden">
-                            <img id="previewImg" src="" alt="Preview" class="max-w-full h-48 object-cover rounded-lg">
-                        </div>
-                    </div>
-
-                    <!-- Carousel Images Upload (for carousel posts) -->
-                    <div id="carouselUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Upload Images for Carousel (2-10 images)
+                            <i class="fas fa-images mr-1 text-orange-500"></i>Upload Images (1-10 images)
                         </label>
                         <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
-                            <input type="file" id="carouselUpload" name="images[]" accept="image/*" multiple class="hidden">
-                            <button type="button" onclick="document.getElementById('carouselUpload').click()" 
+                            <input type="file" id="imageUpload" name="images[]" multiple accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml" class="hidden">
+                            <button type="button" onclick="document.getElementById('imageUpload').click()" 
                                     class="text-orange-600 hover:text-orange-700">
                                 <i class="fas fa-images text-3xl mb-2"></i>
-                                <div class="text-sm">Click to upload multiple images</div>
-                                <div class="text-xs text-gray-500 mt-1">Select 2-10 images for your carousel</div>
+                                <div class="text-sm font-medium">Click to upload image(s)</div>
+                                <div class="text-xs text-gray-500 mt-1">Select 1 or more images (max 10 images, 10MB each)</div>
                             </button>
                         </div>
                         @error('images.*')
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
+                        <div id="imagePreview" class="mt-4 hidden">
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="imagePreviewGrid">
+                                <!-- Images will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carousel Document Upload (for carousel posts - PDF/PowerPoint ONLY) -->
+                    <div id="carouselUploadSection" class="mb-6 hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <i class="fas fa-file-pdf mr-1 text-orange-500"></i>Upload Carousel Document
+                        </label>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-blue-800 dark:text-blue-200">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>LinkedIn carousels require PDF or PowerPoint files.</strong><br>
+                                Each page/slide will become a swipeable carousel slide on LinkedIn.
+                            </p>
+                        </div>
+                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('carousel_file') border-red-500 @enderror">
+                            <input type="file" id="carouselUpload" name="carousel_file" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="hidden">
+                            <button type="button" onclick="document.getElementById('carouselUpload').click()" 
+                                    class="text-orange-600 hover:text-orange-700">
+                                <i class="fas fa-file-pdf text-3xl mb-2"></i>
+                                <div class="text-sm font-medium">Click to upload PDF or PowerPoint</div>
+                                <div class="text-xs text-gray-500 mt-1">Accepted: .pdf, .ppt, .pptx (max 50MB)</div>
+                            </button>
+                        </div>
+                        @error('carousel_file')
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
                         <div id="carouselPreview" class="mt-4 hidden">
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="carouselImagesGrid">
-                                <!-- Carousel images will be displayed here -->
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-file-pdf text-2xl text-red-500 mr-3"></i>
+                                        <div>
+                                            <div id="carouselFileName" class="text-sm font-medium text-gray-900 dark:text-white"></div>
+                                            <div id="carouselFileSize" class="text-xs text-gray-500 dark:text-gray-400"></div>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="clearCarouselFile()" class="text-red-600 hover:text-red-700">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1011,10 +1032,18 @@ function str_word_count(str) {
 }
 
 // Image upload preview
+// Image upload preview (supports multiple images)
 document.getElementById('imageUpload').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        // Clear other inputs and previews when image is selected
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        // Validate number of images (1-10)
+        if (files.length > 10) {
+            alert('Please select maximum 10 images.');
+            this.value = '';
+            return;
+        }
+        
+        // Clear other inputs and previews when images are selected
         const carouselInput = document.getElementById('carouselUpload');
         const videoInput = document.getElementById('videoUpload');
         const carouselPreview = document.getElementById('carouselPreview');
@@ -1024,32 +1053,56 @@ document.getElementById('imageUpload').addEventListener('change', function(e) {
         carouselPreview.classList.add('hidden');
         videoPreview.classList.add('hidden');
         
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('previewImg').src = e.target.result;
-            document.getElementById('imagePreview').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
+        // Clear and show preview grid
+        const previewGrid = document.getElementById('imagePreviewGrid');
+        previewGrid.innerHTML = '';
+        
+        // Display each image
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'relative group';
+                imgContainer.innerHTML = `
+                    <img src="${e.target.result}" alt="Image ${index + 1}" 
+                         class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-600">
+                    <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                        ${index + 1}
+                    </div>
+                `;
+                previewGrid.appendChild(imgContainer);
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        document.getElementById('imagePreview').classList.remove('hidden');
     }
 });
 
-// Carousel images upload preview
+// Carousel document upload preview (PDF/PowerPoint)
 document.getElementById('carouselUpload').addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-        // Validate number of images (2-10)
-        if (files.length < 2) {
-            alert('Please select at least 2 images for carousel.');
-            this.value = '';
-            return;
-        }
-        if (files.length > 10) {
-            alert('Please select maximum 10 images for carousel.');
+    const file = e.target.files[0];
+    if (file) {
+        // Validate file type
+        const validTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        const validExtensions = ['.pdf', '.ppt', '.pptx'];
+        const fileName = file.name.toLowerCase();
+        const isValidType = validTypes.includes(file.type) || validExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (!isValidType) {
+            alert('Please select a PDF or PowerPoint file (.pdf, .ppt, .pptx)');
             this.value = '';
             return;
         }
         
-        // Clear other inputs and previews when carousel images are selected
+        // Validate file size (50MB max)
+        if (file.size > 52428800) { // 50MB in bytes
+            alert('File size must be less than 50MB.');
+            this.value = '';
+            return;
+        }
+        
+        // Clear other inputs and previews when carousel file is selected
         const imageInput = document.getElementById('imageUpload');
         const videoInput = document.getElementById('videoUpload');
         const imagePreview = document.getElementById('imagePreview');
@@ -1059,31 +1112,20 @@ document.getElementById('carouselUpload').addEventListener('change', function(e)
         imagePreview.classList.add('hidden');
         videoPreview.classList.add('hidden');
         
-        // Clear previous carousel preview
-        const carouselGrid = document.getElementById('carouselImagesGrid');
-        carouselGrid.innerHTML = '';
+        // Show file info
+        const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
         
-        // Display each image
-        files.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgContainer = document.createElement('div');
-                imgContainer.className = 'relative group';
-                imgContainer.innerHTML = `
-                    <img src="${e.target.result}" alt="Carousel Image ${index + 1}" 
-                         class="w-full h-32 object-cover rounded-lg border-2 border-gray-200">
-                    <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
-                        ${index + 1}
-                    </div>
-                `;
-                carouselGrid.appendChild(imgContainer);
-            };
-            reader.readAsDataURL(file);
-        });
-        
+        document.getElementById('carouselFileName').textContent = file.name;
+        document.getElementById('carouselFileSize').textContent = fileSize;
         document.getElementById('carouselPreview').classList.remove('hidden');
     }
 });
+
+// Clear carousel file function
+function clearCarouselFile() {
+    document.getElementById('carouselUpload').value = '';
+    document.getElementById('carouselPreview').classList.add('hidden');
+}
 
 // Video upload preview
 document.getElementById('videoUpload').addEventListener('change', function(e) {

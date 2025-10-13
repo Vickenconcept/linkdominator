@@ -108,6 +108,38 @@ class LinkedInContentService
     }
 
     /**
+     * Upload a document (PDF/PowerPoint) for LinkedIn carousel.
+     *
+     * @param UploadedFile $file
+     * @return string
+     */
+    public function uploadDocument(UploadedFile $file): string
+    {
+        $filename = $this->generateUniqueFilename($file);
+        
+        \Log::info('📄 Uploading carousel document to Cloudinary', [
+            'filename' => $filename,
+            'size' => $file->getSize(),
+            'mime_type' => $file->getMimeType()
+        ]);
+        
+        // Upload to Cloudinary as raw file
+        $cloudinaryResponse = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
+            'resource_type' => 'raw', // PDF/PPT are 'raw' resource type
+            'folder' => 'linkedin-posts/carousels',
+            'public_id' => pathinfo($filename, PATHINFO_FILENAME),
+            'use_filename' => false,
+            'unique_filename' => true
+        ]);
+
+        \Log::info('✅ Document uploaded to Cloudinary', [
+            'url' => $cloudinaryResponse['secure_url']
+        ]);
+
+        return $cloudinaryResponse['secure_url'];
+    }
+
+    /**
      * Generate a unique filename.
      *
      * @param UploadedFile $file

@@ -274,18 +274,37 @@ class LinkedInService
 
         // Add media based on post type
         if ($post->post_type === 'image' && $post->image_url) {
-            Log::info('📸 Uploading image for post');
-            $imageId = $this->uploadImageV2($post->image_url, $author, $access_token);
+            // Model accessor returns array or string automatically
+            $imageUrls = $post->image_url;
             
-            $postBody['content'] = [
-                "media" => [
-                    "title" => substr($post->content, 0, 100),
-                    "id" => $imageId
-                ]
-            ];
+            if (is_array($imageUrls) && count($imageUrls) > 1) {
+                // Multiple images - use multiImage format
+                Log::info('📸 Uploading multiple images', ['count' => count($imageUrls)]);
+                $postBody['content'] = $this->buildMultiImageContent($imageUrls, $author, $access_token);
+            } elseif (is_array($imageUrls) && count($imageUrls) === 1) {
+                // Single image from array - use media format
+                Log::info('📸 Uploading single image from array');
+                $imageId = $this->uploadImageV2($imageUrls[0], $author, $access_token);
+                $postBody['content'] = [
+                    "media" => [
+                        "title" => substr($post->content, 0, 100),
+                        "id" => $imageId
+                    ]
+                ];
+            } else {
+                // Single image URL as string
+                Log::info('📸 Uploading single image');
+                $imageId = $this->uploadImageV2($imageUrls, $author, $access_token);
+                $postBody['content'] = [
+                    "media" => [
+                        "title" => substr($post->content, 0, 100),
+                        "id" => $imageId
+                    ]
+                ];
+            }
         } elseif ($post->post_type === 'carousel' && $post->carousel_images) {
-            Log::info('🎠 Uploading carousel images');
-            $postBody['content'] = $this->buildCarouselContentV2($post, $author, $access_token);
+            Log::info('🎠 Uploading carousel document (PDF/PPT)');
+            $postBody['content'] = $this->buildCarouselDocumentContent($post->carousel_images, $author, $access_token, $post->content);
         } elseif ($post->post_type === 'video' && $post->video_url) {
             Log::info('🎥 Uploading video');
             $videoId = $this->uploadVideoV2($post->video_url, $author, $access_token);
@@ -389,22 +408,22 @@ class LinkedInService
     }
 
     /**
-     * Build carousel content for API v2
+     * Build multi-image content for image posts (1+ images in one post)
      */
-    private function buildCarouselContentV2($post, $author, $access_token)
+    private function buildMultiImageContent($imageUrls, $author, $access_token)
     {
-        Log::info('🎠 Starting carousel upload', [
-            'total_images' => count($post->carousel_images),
-            'image_urls' => $post->carousel_images
+        Log::info('📸 Uploading multiple images for image post', [
+            'total_images' => count($imageUrls),
+            'image_urls' => $imageUrls
         ]);
 
         $images = [];
         
-        foreach ($post->carousel_images as $index => $imageUrl) {
+        foreach ($imageUrls as $index => $imageUrl) {
             $imageNumber = $index + 1;
-            $totalImages = count($post->carousel_images);
+            $totalImages = count($imageUrls);
             
-            Log::info("📸 Uploading carousel image {$imageNumber} of {$totalImages}", [
+            Log::info("📸 Uploading image {$imageNumber} of {$totalImages}", [
                 'image_url' => $imageUrl
             ]);
             
@@ -412,26 +431,93 @@ class LinkedInService
             
             $images[] = [
                 "id" => $imageId,
-                "altText" => "Slide " . $imageNumber
+                "altText" => "Image " . $imageNumber
             ];
             
-            Log::info("✅ Carousel image {$imageNumber} uploaded", [
+            Log::info("✅ Image {$imageNumber} uploaded", [
                 'image_id' => $imageId
             ]);
         }
 
-        $carouselContent = [
+        $content = [
             "multiImage" => [
                 "images" => $images
             ]
         ];
 
-        Log::info('✅ Carousel content built successfully', [
-            'total_images_uploaded' => count($images),
-            'carousel_structure' => $carouselContent
+        Log::info('✅ Multi-image content built', [
+            'total_images_uploaded' => count($images)
         ]);
 
-        return $carouselContent;
+        return $content;
+    }
+
+    /**
+     * Build carousel content from PDF/PowerPoint document
+     * This creates TRUE swipeable LinkedIn carousel
+     */
+    private function buildCarouselDocumentContent($documentUrl, $author, $access_token, $postContent)
+    {
+        // Detect file type from URL
+        $extension = pathinfo($documentUrl, PATHINFO_EXTENSION);
+        $mimeType = 'application/pdf'; // Default to PDF
+        
+        if (in_array(strtolower($extension), ['ppt', 'pptx'])) {
+            $mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        }
+
+        Log::info('🎠 Starting carousel document upload', [
+            'document_url' => $documentUrl,
+            'file_extension' => $extension,
+            'mime_type' => $mimeType
+        ]);
+
+        // Step 1: Initialize document upload
+        $initResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+            'Content-Type' => 'application/json',
+            'LinkedIn-Version' => '202410'
+        ])->post('https://api.linkedin.com/rest/documents?action=initializeUpload', [
+            "initializeUploadRequest" => [
+                "owner" => $author
+            ]
+        ])->throw()->json();
+
+        $uploadUrl = $initResponse['value']['uploadUrl'];
+        $documentUrn = $initResponse['value']['document'];
+
+        Log::info('✅ Document upload initialized', [
+            'documentUrn' => $documentUrn,
+            'uploadUrl' => substr($uploadUrl, 0, 50) . '...'
+        ]);
+
+        // Step 2: Download document from Cloudinary
+        $documentContent = file_get_contents($documentUrl);
+        
+        Log::info('📤 Uploading document binary to LinkedIn', [
+            'documentUrn' => $documentUrn,
+            'size_bytes' => strlen($documentContent),
+            'mime_type' => $mimeType
+        ]);
+
+        // Step 3: Upload document binary to LinkedIn
+        Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+        ])->withBody($documentContent, $mimeType)
+          ->put($uploadUrl)
+          ->throw();
+
+        Log::info('✅ Carousel document uploaded successfully to LinkedIn', [
+            'documentUrn' => $documentUrn
+        ]);
+
+        // Return document content structure
+        return [
+            "document" => [
+                "id" => $documentUrn,
+                "title" => substr($postContent, 0, 100)
+            ]
+        ];
     }
 
     /**
