@@ -106,7 +106,15 @@ class ContentCreatorController extends Controller
             $scheduledAt = now();
         } elseif ($request->publish_option === 'schedule' && $request->scheduled_at) {
             $status = 'scheduled';
-            $scheduledAt = Carbon::parse($request->scheduled_at);
+            // Parse the datetime and assume it's in UTC (since datetime-local doesn't include timezone)
+            // If user has a timezone setting, we should convert it
+            $scheduledAt = Carbon::parse($request->scheduled_at, 'UTC');
+            
+            \Log::info('📅 Scheduling post', [
+                'input_time' => $request->scheduled_at,
+                'parsed_utc' => $scheduledAt->toDateTimeString(),
+                'server_time' => Carbon::now()->toDateTimeString()
+            ]);
         }
 
         \Log::info('📝 Creating new LinkedIn post', [
@@ -361,9 +369,19 @@ class ContentCreatorController extends Controller
             'scheduled_at' => 'required|date|after:now'
         ]);
 
+        // Parse the datetime and assume it's in UTC (since datetime-local doesn't include timezone)
+        $scheduledAt = Carbon::parse($request->scheduled_at, 'UTC');
+        
+        \Log::info('📅 Rescheduling post', [
+            'post_id' => $id,
+            'input_time' => $request->scheduled_at,
+            'parsed_utc' => $scheduledAt->toDateTimeString(),
+            'server_time' => Carbon::now()->toDateTimeString()
+        ]);
+
         $post->update([
             'status' => 'scheduled',
-            'scheduled_at' => Carbon::parse($request->scheduled_at)
+            'scheduled_at' => $scheduledAt
         ]);
 
         // Dispatch job for scheduling
@@ -394,20 +412,20 @@ class ContentCreatorController extends Controller
             'scheduled_at' => now()
         ]);
 
-        // Dispatch job immediately
-        \App\Jobs\PublishLinkedInPost::dispatch($post);
-
-        // Log that a post was published immediately for extension to pick up
-        \Log::info('🚀 Post published immediately', [
+        // Log that a post is being published immediately
+        \Log::info('🚀 Publishing draft post immediately', [
             'post_id' => $post->id,
             'user_id' => auth()->id(),
             'linkedin_id' => auth()->user()->linkedin_id,
             'content_preview' => substr($post->content, 0, 100) . '...'
         ]);
 
+        // Dispatch job SYNCHRONOUSLY (no queue worker needed)
+        \App\Jobs\PublishLinkedInPost::dispatchSync($post);
+
         return response()->json([
             'success' => true,
-            'message' => 'Post is being published!'
+            'message' => 'Post published successfully!'
         ]);
     }
 
