@@ -116,6 +116,17 @@ class ContentCreatorController extends Controller
             $scheduledAt = Carbon::parse($request->scheduled_at);
         }
 
+        \Log::info('📝 Creating new LinkedIn post', [
+            'user_id' => auth()->id(),
+            'post_type' => $request->post_type,
+            'status' => $status,
+            'scheduled_at' => $scheduledAt,
+            'has_image' => !empty($imageUrl),
+            'has_video' => !empty($videoUrl),
+            'has_carousel' => !empty($carouselImages),
+            'content_length' => strlen($request->content)
+        ]);
+
         $post = LinkedInPost::create([
             'user_id' => auth()->id(),
             'content' => $request->content,
@@ -129,12 +140,35 @@ class ContentCreatorController extends Controller
             'word_count' => str_word_count($request->content)
         ]);
 
+        \Log::info('✅ Post created in database', [
+            'post_id' => $post->id,
+            'status' => $post->status,
+            'scheduled_at' => $post->scheduled_at
+        ]);
+
         if ($status === 'scheduled') {
+            \Log::info('📅 Dispatching scheduled job', [
+                'post_id' => $post->id,
+                'delay_until' => $scheduledAt,
+                'queue_driver' => config('queue.default')
+            ]);
             // Dispatch job for scheduling
             \App\Jobs\PublishLinkedInPost::dispatch($post)->delay($scheduledAt);
         } elseif ($status === 'ready_to_publish') {
-            // Dispatch job immediately for "Publish Now"
-            \App\Jobs\PublishLinkedInPost::dispatch($post);
+            \Log::info('🚀 Dispatching IMMEDIATE publish job', [
+                'post_id' => $post->id,
+                'user_id' => auth()->id(),
+                'linkedin_id' => auth()->user()->linkedin_id ?? 'not_set',
+                'queue_driver' => config('queue.default'),
+                'queue_connection' => config('queue.connections.database')
+            ]);
+            
+            // For immediate publishing, use dispatchSync to run immediately
+            // This ensures the job runs right away without needing queue worker
+            \Log::info('⚡ Using dispatchSync for immediate execution');
+            \App\Jobs\PublishLinkedInPost::dispatchSync($post);
+            
+            \Log::info('✅ Job completed for post_id: ' . $post->id);
         }
 
         notify()->success('Post saved successfully!');

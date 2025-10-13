@@ -126,6 +126,267 @@ class LinkedInService
             ->json();
     }
 
+    /**
+     * 🔥 NEW: Publish post using LinkedIn API v2 (Official /rest/posts endpoint)
+     * This allows posting from backend without user being online!
+     */
+    public function publishPostV2($linkedInPost, $integration)
+    {
+        // LinkedIn's new /rest/posts endpoint doesn't use /v2/ prefix
+        $api_url = "https://api.linkedin.com/rest/posts";
+        $access_token = $integration->access_token;
+        $author = "urn:li:person:" . $integration->oauth_uid;
+
+        Log::info('🔧 Starting publishPostV2', [
+            'post_id' => $linkedInPost->id,
+            'api_url' => $api_url,
+            'author' => $author,
+            'has_access_token' => !empty($access_token),
+            'token_length' => strlen($access_token ?? ''),
+            'integration_id' => $integration->id
+        ]);
+
+        // Check if token needs refresh
+        if ($this->isTokenExpired($integration)) {
+            Log::info('🔄 Access token expired, refreshing...', [
+                'integration_id' => $integration->id,
+                'expires_in' => $integration->expires_in,
+                'updated_at' => $integration->updated_at
+            ]);
+            
+            try {
+                $newTokens = $this->refreshAccessToken($integration->refresh_token);
+                
+                $integration->update([
+                    'access_token' => $newTokens['access_token'],
+                    'refresh_token' => $newTokens['refresh_token'] ?? $integration->refresh_token,
+                    'expires_in' => $newTokens['expires_in'],
+                    'updated_at' => now()
+                ]);
+                
+                $access_token = $newTokens['access_token'];
+                Log::info('✅ Token refreshed successfully');
+            } catch (\Exception $e) {
+                Log::error('❌ Token refresh failed', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
+        } else {
+            Log::info('✅ Access token is still valid');
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $access_token,
+            'Content-Type' => 'application/json',
+            'LinkedIn-Version' => '202401',
+            'X-Restli-Protocol-Version' => '2.0.0'
+        ];
+
+        Log::info('🔨 Building post body', [
+            'post_type' => $linkedInPost->post_type,
+            'has_image' => !empty($linkedInPost->image_url),
+            'has_video' => !empty($linkedInPost->video_url),
+            'has_carousel' => !empty($linkedInPost->carousel_images)
+        ]);
+
+        // Build post body based on type
+        $post_body = $this->buildPostBodyV2($linkedInPost, $author, $access_token);
+
+        Log::info('📤 Publishing post via LinkedIn API v2', [
+            'post_id' => $linkedInPost->id,
+            'post_type' => $linkedInPost->post_type,
+            'author' => $author,
+            'api_url' => $api_url,
+            'post_body_keys' => array_keys($post_body),
+            'content_preview' => substr($linkedInPost->content, 0, 100)
+        ]);
+
+        try {
+            $httpResponse = Http::withHeaders($headers)->post($api_url, $post_body);
+            
+            Log::info('📥 LinkedIn API HTTP Response', [
+                'status_code' => $httpResponse->status(),
+                'headers' => $httpResponse->headers(),
+                'body' => $httpResponse->body()
+            ]);
+
+            $response = $httpResponse->throw()->json();
+
+            Log::info('✅ LinkedIn API response parsed', ['response' => $response]);
+
+            return $response;
+        } catch (\Exception $e) {
+            Log::error('❌ LinkedIn API call failed', [
+                'error' => $e->getMessage(),
+                'status_code' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Build post body for LinkedIn API v2
+     */
+    private function buildPostBodyV2($post, $author, $access_token)
+    {
+        $postBody = [
+            "author" => $author,
+            "commentary" => $post->content,
+            "visibility" => "PUBLIC",
+            "distribution" => [
+                "feedDistribution" => "MAIN_FEED",
+                "targetEntities" => [],
+                "thirdPartyDistributionChannels" => []
+            ],
+            "lifecycleState" => "PUBLISHED",
+            "isReshareDisabledByAuthor" => false
+        ];
+
+        // Add media based on post type
+        if ($post->post_type === 'image' && $post->image_url) {
+            Log::info('📸 Uploading image for post');
+            $imageId = $this->uploadImageV2($post->image_url, $author, $access_token);
+            
+            $postBody['content'] = [
+                "media" => [
+                    "title" => substr($post->content, 0, 100),
+                    "id" => $imageId
+                ]
+            ];
+        } elseif ($post->post_type === 'carousel' && $post->carousel_images) {
+            Log::info('🎠 Uploading carousel images');
+            $postBody['content'] = $this->buildCarouselContentV2($post, $author, $access_token);
+        } elseif ($post->post_type === 'video' && $post->video_url) {
+            Log::info('🎥 Uploading video');
+            $videoId = $this->uploadVideoV2($post->video_url, $author, $access_token);
+            
+            $postBody['content'] = [
+                "media" => [
+                    "title" => substr($post->content, 0, 100),
+                    "id" => $videoId
+                ]
+            ];
+        }
+        // For text-only posts, no content block needed
+
+        return $postBody;
+    }
+
+    /**
+     * Upload image using new LinkedIn API v2
+     */
+    private function uploadImageV2($imageUrl, $author, $access_token)
+    {
+        // Step 1: Initialize upload
+        $initResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+            'Content-Type' => 'application/json',
+            'LinkedIn-Version' => '202401'
+        ])->post('https://api.linkedin.com/rest/images?action=initializeUpload', [
+            "initializeUploadRequest" => [
+                "owner" => $author
+            ]
+        ])->throw()->json();
+
+        $uploadUrl = $initResponse['value']['uploadUrl'];
+        $imageId = $initResponse['value']['image'];
+
+        Log::info('📤 Uploading image binary', ['imageId' => $imageId]);
+
+        // Step 2: Upload image binary
+        $imageContent = file_get_contents($imageUrl);
+        
+        Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+        ])->withBody($imageContent, 'application/octet-stream')
+          ->put($uploadUrl)
+          ->throw();
+
+        Log::info('✅ Image uploaded successfully', ['imageId' => $imageId]);
+
+        return $imageId;
+    }
+
+    /**
+     * Upload video using new LinkedIn API v2
+     */
+    private function uploadVideoV2($videoUrl, $author, $access_token)
+    {
+        $videoContent = file_get_contents($videoUrl);
+        
+        // Step 1: Initialize upload
+        $initResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+            'Content-Type' => 'application/json',
+            'LinkedIn-Version' => '202401'
+        ])->post('https://api.linkedin.com/rest/videos?action=initializeUpload', [
+            "initializeUploadRequest" => [
+                "owner" => $author,
+                "fileSizeBytes" => strlen($videoContent),
+                "uploadCaptions" => false,
+                "uploadThumbnail" => false
+            ]
+        ])->throw()->json();
+
+        $uploadUrl = $initResponse['value']['uploadUrl'];
+        $videoId = $initResponse['value']['video'];
+
+        Log::info('📤 Uploading video binary', ['videoId' => $videoId]);
+
+        // Step 2: Upload video binary
+        Http::withHeaders([
+            'Authorization' => 'Bearer ' . $access_token,
+        ])->withBody($videoContent, 'application/octet-stream')
+          ->put($uploadUrl)
+          ->throw();
+
+        Log::info('✅ Video uploaded successfully', ['videoId' => $videoId]);
+
+        return $videoId;
+    }
+
+    /**
+     * Build carousel content for API v2
+     */
+    private function buildCarouselContentV2($post, $author, $access_token)
+    {
+        $images = [];
+        
+        foreach ($post->carousel_images as $index => $imageUrl) {
+            $imageId = $this->uploadImageV2($imageUrl, $author, $access_token);
+            
+            $images[] = [
+                "id" => $imageId,
+                "altText" => "Slide " . ($index + 1)
+            ];
+        }
+
+        return [
+            "multiImage" => [
+                "images" => $images
+            ]
+        ];
+    }
+
+    /**
+     * Check if access token is expired
+     */
+    private function isTokenExpired($integration)
+    {
+        if (!$integration->expires_in || !$integration->updated_at) {
+            return false;
+        }
+
+        $expiresAt = $integration->updated_at->addSeconds($integration->expires_in);
+        return now()->greaterThan($expiresAt->subMinutes(5)); // Refresh 5 minutes before expiry
+    }
+
+    /**
+     * 🔥 OLD METHOD - Keep for backward compatibility
+     */
     public function publishPost($data, $access_token)
     {
         $api_url = $this->api."/ugcPosts";
