@@ -9,6 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('app:post-scheduler')->everyMinute();
+Schedule::command('app:update-post-analytics')->everyMinute();
 Schedule::command('app:fetch-linkedin-feeds')->twiceDailyAt(12, 18, 15);
 Schedule::command('calls:send-reminders')->everyFifteenMinutes();
 

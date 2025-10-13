@@ -218,14 +218,24 @@ class ContentCreatorController extends Controller
             }
 
         } catch (\Exception $e) {
-            // Check if it's a rate limit error
+            // Check if it's a rate limit error (OpenAI specific)
             $message = $e->getMessage();
-            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
+                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
                 return response()->json([
                     'success' => false,
                     'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
                 ], 429);
             }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -255,14 +265,24 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Check if it's a rate limit error
+            // Check if it's a rate limit error (OpenAI specific)
             $message = $e->getMessage();
-            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
+                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
                 return response()->json([
                     'success' => false,
                     'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
                 ], 429);
             }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -299,14 +319,24 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Check if it's a rate limit error
+            // Check if it's a rate limit error (OpenAI specific)
             $message = $e->getMessage();
-            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
+                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
                 return response()->json([
                     'success' => false,
                     'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
                 ], 429);
             }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
             
             return response()->json([
                 'success' => false,

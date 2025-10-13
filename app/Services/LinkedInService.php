@@ -255,6 +255,64 @@ class LinkedInService
     }
 
     /**
+     * Fetch analytics for a LinkedIn post
+     */
+    public function fetchPostAnalytics($linkedinPostId, $accessToken)
+    {
+        Log::info('📊 Fetching post analytics', [
+            'linkedin_post_id' => $linkedinPostId,
+            'has_access_token' => !empty($accessToken)
+        ]);
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $accessToken,
+            'LinkedIn-Version' => '202410',
+            'X-Restli-Protocol-Version' => '2.0.0'
+        ];
+
+        try {
+            // LinkedIn Analytics API endpoint
+            $analyticsUrl = "https://api.linkedin.com/rest/socialActions/{$linkedinPostId}/statistics";
+            
+            $response = Http::withHeaders($headers)->get($analyticsUrl);
+            
+            Log::info('📊 Analytics API Response', [
+                'status_code' => $response->status(),
+                'body' => $response->body()
+            ]);
+
+            if ($response->successful()) {
+                $analytics = $response->json();
+                
+                // Extract metrics from LinkedIn's response format
+                $metrics = [
+                    'likes' => $analytics['likeCount'] ?? 0,
+                    'comments' => $analytics['commentCount'] ?? 0,
+                    'shares' => $analytics['shareCount'] ?? 0,
+                    'views' => $analytics['impressionCount'] ?? 0,
+                    'clicks' => $analytics['clickCount'] ?? 0,
+                    'last_updated' => now()->toISOString()
+                ];
+
+                Log::info('✅ Analytics extracted', ['metrics' => $metrics]);
+                return $metrics;
+            } else {
+                Log::warning('⚠️ Analytics API returned error', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return null;
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to fetch analytics', [
+                'error' => $e->getMessage(),
+                'linkedin_post_id' => $linkedinPostId
+            ]);
+            return null;
+        }
+    }
+
+    /**
      * Build post body for LinkedIn API v2
      */
     private function buildPostBodyV2($post, $author, $access_token)

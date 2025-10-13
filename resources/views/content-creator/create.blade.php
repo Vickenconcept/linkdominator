@@ -416,10 +416,16 @@
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                         <div id="videoPreview" class="mt-4 hidden">
-                            <video id="previewVideo" controls class="max-w-full h-48 rounded-lg">
-                                <source id="videoSource" src="" type="video/mp4">
-                                Your browser does not support the video tag.
-                            </video>
+                            <div class="relative group">
+                                <video id="previewVideo" controls class="max-w-full h-48 rounded-lg">
+                                    <source id="videoSource" src="" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <button type="button" onclick="clearVideo()" 
+                                        class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-2 shadow-lg">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -630,9 +636,9 @@ function toggleImproveActions() {
     }
 }
 
-// 🔥 AI Cooldown System (60 seconds)
+// 🔥 AI Cooldown System (15 seconds)
 function startAICooldown(buttonId) {
-    const cooldownEnd = Date.now() + 60000; // 60 seconds from now
+    const cooldownEnd = Date.now() + 5000; // 10 seconds from now
     localStorage.setItem('aiCooldown_' + buttonId, cooldownEnd);
     updateCooldownUI(buttonId);
 }
@@ -1051,53 +1057,75 @@ function str_word_count(str) {
     return str.trim().split(/\s+/).filter(word => word.length > 0).length;
 }
 
-// Image upload preview
+// Store selected files globally for individual removal
+let selectedFiles = [];
+
 // Image upload preview (supports multiple images)
 document.getElementById('imageUpload').addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-        // Validate number of images (1-10)
-        if (files.length > 10) {
-            alert('Please select maximum 10 images.');
-            this.value = '';
-            return;
-        }
-        
-        // Clear other inputs and previews when images are selected
-        const carouselInput = document.getElementById('carouselUpload');
-        const videoInput = document.getElementById('videoUpload');
-        const carouselPreview = document.getElementById('carouselPreview');
-        const videoPreview = document.getElementById('videoPreview');
-        carouselInput.value = '';
-        videoInput.value = '';
-        carouselPreview.classList.add('hidden');
-        videoPreview.classList.add('hidden');
-        
-        // Clear and show preview grid
-        const previewGrid = document.getElementById('imagePreviewGrid');
-        previewGrid.innerHTML = '';
-        
-        // Display each image
-        files.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgContainer = document.createElement('div');
-                imgContainer.className = 'relative group';
-                imgContainer.innerHTML = `
-                    <img src="${e.target.result}" alt="Image ${index + 1}" 
-                         class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-600">
-                    <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
-                        ${index + 1}
-                    </div>
-                `;
-                previewGrid.appendChild(imgContainer);
-            };
-            reader.readAsDataURL(file);
-        });
-        
-        document.getElementById('imagePreview').classList.remove('hidden');
+    selectedFiles = Array.from(e.target.files);
+    
+    if (selectedFiles.length === 0) return;
+    
+    // Validate number of images (1-10)
+    if (selectedFiles.length > 10) {
+        alert('Please select maximum 10 images.');
+        this.value = '';
+        selectedFiles = [];
+        return;
     }
+    
+    // Clear other inputs and previews when images are selected
+    const videoInput = document.getElementById('videoUpload');
+    const videoPreview = document.getElementById('videoPreview');
+    videoInput.value = '';
+    videoPreview.classList.add('hidden');
+    
+    updateImagePreviews();
 });
+
+// Update image previews
+function updateImagePreviews() {
+    const previewGrid = document.getElementById('imagePreviewGrid');
+    previewGrid.innerHTML = '';
+    
+    if (selectedFiles.length === 0) {
+        document.getElementById('imagePreview').classList.add('hidden');
+        return;
+    }
+    
+    // Display each image with individual remove button
+    selectedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'relative group';
+            imgContainer.innerHTML = `
+                <img src="${e.target.result}" alt="Image ${index + 1}" 
+                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-600">
+                <button type="button" onclick="removeImage(${index})" 
+                        class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            previewGrid.appendChild(imgContainer);
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    document.getElementById('imagePreview').classList.remove('hidden');
+}
+
+// Remove individual image
+function removeImage(index) {
+    selectedFiles.splice(index, 1);
+    
+    // Update file input with remaining files
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach(file => dataTransfer.items.add(file));
+    document.getElementById('imageUpload').files = dataTransfer.files;
+    
+    updateImagePreviews();
+}
 
 // Video upload preview
 document.getElementById('videoUpload').addEventListener('change', function(e) {
@@ -1115,6 +1143,21 @@ document.getElementById('videoUpload').addEventListener('change', function(e) {
         document.getElementById('videoPreview').classList.remove('hidden');
     }
 });
+
+// Clear all images function
+function clearImages() {
+    selectedFiles = [];
+    document.getElementById('imageUpload').value = '';
+    document.getElementById('imagePreview').classList.add('hidden');
+    document.getElementById('imagePreviewGrid').innerHTML = '';
+}
+
+// Clear video function
+function clearVideo() {
+    document.getElementById('videoUpload').value = '';
+    document.getElementById('videoPreview').classList.add('hidden');
+    document.getElementById('videoSource').src = '';
+}
 
 // AI Generate form submission handler with loading state
 document.getElementById('aiGenerateForm').addEventListener('submit', function(e) {
