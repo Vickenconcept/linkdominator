@@ -65,11 +65,10 @@ class ContentCreatorController extends Controller
     {
         $request->validate([
             'content' => 'required|string|max:3000',
-            'post_type' => 'required|in:text,image,carousel,video',
+            'post_type' => 'required|in:text,image,video',
             'scheduled_at' => 'nullable|date|after:now',
             'hashtags' => 'nullable|string|max:500',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // For multiple images
-            'carousel_file' => 'nullable|mimes:pdf,ppt,pptx|max:51200', // For carousel (PDF/PPT) - 50MB max
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400' // 100MB max for video
         ]);
 
@@ -81,14 +80,9 @@ class ContentCreatorController extends Controller
         if ($request->post_type === 'video' && $request->hasFile('images')) {
             return back()->withErrors(['images' => 'Cannot upload images for video post type.']);
         }
-        
-        if ($request->post_type === 'carousel' && !$request->hasFile('carousel_file')) {
-            return back()->withErrors(['carousel_file' => 'Carousel posts require a PDF or PowerPoint file.']);
-        }
 
         $imageUrls = null;
         $videoUrl = null;
-        $carouselFileUrl = null;
 
         // Initialize Cloudinary service
         $cloudinaryService = new LinkedInContentService();
@@ -96,11 +90,6 @@ class ContentCreatorController extends Controller
         // Handle multiple images upload (for image post type - 1 or more images)
         if ($request->post_type === 'image' && $request->hasFile('images')) {
             $imageUrls = $cloudinaryService->uploadCarouselImages($request->file('images'));
-        }
-
-        // Handle carousel file upload (PDF or PowerPoint)
-        if ($request->post_type === 'carousel' && $request->hasFile('carousel_file')) {
-            $carouselFileUrl = $cloudinaryService->uploadDocument($request->file('carousel_file'));
         }
 
         // Handle video upload (only for video post type)
@@ -127,7 +116,6 @@ class ContentCreatorController extends Controller
             'scheduled_at' => $scheduledAt,
             'has_images' => !empty($imageUrls),
             'has_video' => !empty($videoUrl),
-            'has_carousel_file' => !empty($carouselFileUrl),
             'content_length' => strlen($request->content)
         ]);
 
@@ -136,7 +124,6 @@ class ContentCreatorController extends Controller
             'content' => $request->content,
             'image_url' => $imageUrls, // Model will auto-encode to JSON if array
             'video_url' => $videoUrl,
-            'carousel_images' => $carouselFileUrl, // Store carousel file URL
             'post_type' => $request->post_type,
             'status' => $status,
             'scheduled_at' => $scheduledAt,
@@ -223,9 +210,18 @@ class ContentCreatorController extends Controller
             }
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error
+            $message = $e->getMessage();
+            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                ], 429);
+            }
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }
@@ -251,9 +247,18 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error
+            $message = $e->getMessage();
+            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                ], 429);
+            }
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }
@@ -286,9 +291,18 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error
+            $message = $e->getMessage();
+            if (str_contains($message, '429') || str_contains($message, 'Too Many Requests') || str_contains($message, 'rate_limit')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                ], 429);
+            }
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }

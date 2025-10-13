@@ -188,7 +188,7 @@ class LinkedInService
             'post_type' => $linkedInPost->post_type,
             'has_image' => !empty($linkedInPost->image_url),
             'has_video' => !empty($linkedInPost->video_url),
-            'has_carousel' => !empty($linkedInPost->carousel_images)
+            'has_carousel' => false
         ]);
 
         // Build post body based on type
@@ -302,9 +302,6 @@ class LinkedInService
                     ]
                 ];
             }
-        } elseif ($post->post_type === 'carousel' && $post->carousel_images) {
-            Log::info('🎠 Uploading carousel document (PDF/PPT)');
-            $postBody['content'] = $this->buildCarouselDocumentContent($post->carousel_images, $author, $access_token, $post->content);
         } elseif ($post->post_type === 'video' && $post->video_url) {
             Log::info('🎥 Uploading video');
             $videoId = $this->uploadVideoV2($post->video_url, $author, $access_token);

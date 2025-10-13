@@ -247,7 +247,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                             Post Type
                         </label>
-                        <div class="grid grid-cols-4 gap-4 @error('post_type') border border-red-500 rounded-lg p-2 @enderror">
+                        <div class="grid grid-cols-3 gap-4 @error('post_type') border border-red-500 rounded-lg p-2 @enderror">
                             <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <input type="radio" name="post_type" value="text" 
                                        {{ old('post_type', 'text') == 'text' ? 'checked' : '' }}
@@ -269,16 +269,6 @@
                             </label>
                             
                             <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <input type="radio" name="post_type" value="carousel" 
-                                       {{ old('post_type') == 'carousel' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Carousel</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">PDF/PowerPoint</div>
-                                </div>
-                            </label>
-                            
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <input type="radio" name="post_type" value="video" 
                                        {{ old('post_type') == 'video' ? 'checked' : '' }}
                                        class="text-orange-600 focus:ring-orange-500">
@@ -287,6 +277,14 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400">Video content</div>
                                 </div>
                             </label>
+                        </div>
+                        
+                        <!-- Info note about multiple images -->
+                        <div class="mt-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                            <p class="text-xs text-blue-800 dark:text-blue-200">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Tip:</strong> Image posts support multiple images (1-10) - perfect for photo collections and galleries!
+                            </p>
                         </div>
                         @error('post_type')
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -397,48 +395,6 @@
                         <div id="imagePreview" class="mt-4 hidden">
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="imagePreviewGrid">
                                 <!-- Images will be displayed here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Carousel Document Upload (for carousel posts - PDF/PowerPoint ONLY) -->
-                    <div id="carouselUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-file-pdf mr-1 text-orange-500"></i>Upload Carousel Document
-                        </label>
-                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
-                            <p class="text-xs text-blue-800 dark:text-blue-200">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                <strong>LinkedIn carousels require PDF or PowerPoint files.</strong><br>
-                                Each page/slide will become a swipeable carousel slide on LinkedIn.
-                            </p>
-                        </div>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('carousel_file') border-red-500 @enderror">
-                            <input type="file" id="carouselUpload" name="carousel_file" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="hidden">
-                            <button type="button" onclick="document.getElementById('carouselUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
-                                <i class="fas fa-file-pdf text-3xl mb-2"></i>
-                                <div class="text-sm font-medium">Click to upload PDF or PowerPoint</div>
-                                <div class="text-xs text-gray-500 mt-1">Accepted: .pdf, .ppt, .pptx (max 50MB)</div>
-                            </button>
-                        </div>
-                        @error('carousel_file')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                        <div id="carouselPreview" class="mt-4 hidden">
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-file-pdf text-2xl text-red-500 mr-3"></i>
-                                        <div>
-                                            <div id="carouselFileName" class="text-sm font-medium text-gray-900 dark:text-white"></div>
-                                            <div id="carouselFileSize" class="text-xs text-gray-500 dark:text-gray-400"></div>
-                                        </div>
-                                    </div>
-                                    <button type="button" onclick="clearCarouselFile()" class="text-red-600 hover:text-red-700">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -615,56 +571,34 @@ document.getElementById('postContent').addEventListener('input', function() {
 document.querySelectorAll('input[name="post_type"]').forEach(radio => {
     radio.addEventListener('change', function() {
         const imageSection = document.getElementById('imageUploadSection');
-        const carouselSection = document.getElementById('carouselUploadSection');
         const videoSection = document.getElementById('videoUploadSection');
         const imageInput = document.getElementById('imageUpload');
-        const carouselInput = document.getElementById('carouselUpload');
         const videoInput = document.getElementById('videoUpload');
         const imagePreview = document.getElementById('imagePreview');
-        const carouselPreview = document.getElementById('carouselPreview');
         const videoPreview = document.getElementById('videoPreview');
         
         if (this.value === 'image') {
             imageSection.classList.remove('hidden');
-            carouselSection.classList.add('hidden');
             videoSection.classList.add('hidden');
             
             // Clear other inputs and previews
-            carouselInput.value = '';
             videoInput.value = '';
-            carouselPreview.classList.add('hidden');
-            videoPreview.classList.add('hidden');
-        } else if (this.value === 'carousel') {
-            carouselSection.classList.remove('hidden');
-            imageSection.classList.add('hidden');
-            videoSection.classList.add('hidden');
-            
-            // Clear other inputs and previews
-            imageInput.value = '';
-            videoInput.value = '';
-            imagePreview.classList.add('hidden');
             videoPreview.classList.add('hidden');
         } else if (this.value === 'video') {
             videoSection.classList.remove('hidden');
             imageSection.classList.add('hidden');
-            carouselSection.classList.add('hidden');
             
             // Clear other inputs and previews
             imageInput.value = '';
-            carouselInput.value = '';
             imagePreview.classList.add('hidden');
-            carouselPreview.classList.add('hidden');
         } else {
             imageSection.classList.add('hidden');
-            carouselSection.classList.add('hidden');
             videoSection.classList.add('hidden');
             
             // Clear all inputs and previews
             imageInput.value = '';
-            carouselInput.value = '';
             videoInput.value = '';
             imagePreview.classList.add('hidden');
-            carouselPreview.classList.add('hidden');
             videoPreview.classList.add('hidden');
         }
     });
@@ -696,6 +630,55 @@ function toggleImproveActions() {
     }
 }
 
+// 🔥 AI Cooldown System (60 seconds)
+function startAICooldown(buttonId) {
+    const cooldownEnd = Date.now() + 60000; // 60 seconds from now
+    localStorage.setItem('aiCooldown_' + buttonId, cooldownEnd);
+    updateCooldownUI(buttonId);
+}
+
+function updateCooldownUI(buttonId) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    
+    const cooldownEnd = localStorage.getItem('aiCooldown_' + buttonId);
+    if (!cooldownEnd) return;
+    
+    const timeLeft = Math.max(0, cooldownEnd - Date.now());
+    
+    if (timeLeft > 0) {
+        const secondsLeft = Math.ceil(timeLeft / 1000);
+        button.disabled = true;
+        
+        // Store original content
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
+        
+        button.innerHTML = `<i class="fas fa-clock mr-2"></i>Wait ${secondsLeft}s`;
+        
+        setTimeout(() => updateCooldownUI(buttonId), 1000);
+    } else {
+        // Cooldown ended
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.innerHTML = button.dataset.originalText;
+        }
+        localStorage.removeItem('aiCooldown_' + buttonId);
+    }
+}
+
+// Check cooldowns on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateCooldownUI('generateBtn');
+    
+    // Check improve buttons cooldown
+    const improveButtons = document.querySelectorAll('#improveActions button[onclick^="improvePost"]');
+    if (improveButtons.length > 0) {
+        updateCooldownUI('improveButtons');
+    }
+});
+
 // 🔥 NEW: Improve Post Function
 function improvePost(action) {
     const content = document.getElementById('postContent').value.trim();
@@ -725,7 +708,6 @@ function improvePost(action) {
     .then(response => response.json())
     .then(data => {
         hideLoading();
-        improveButtons.forEach(btn => btn.disabled = false);
         
         if (data.success) {
             document.getElementById('postContent').value = data.content;
@@ -733,7 +715,12 @@ function improvePost(action) {
             
             // Show success notification
             showNotification('✨ Content improved successfully!', 'success');
+            
+            // Start 60-second cooldown
+            startAICooldown('improveButtons');
+            updateImproveButtonsCooldown();
         } else {
+            improveButtons.forEach(btn => btn.disabled = false);
             alert('Error: ' + data.message);
         }
     })
@@ -743,6 +730,36 @@ function improvePost(action) {
         console.error('Error:', error);
         alert('An error occurred while improving content.');
     });
+}
+
+// Update all improve buttons with cooldown
+function updateImproveButtonsCooldown() {
+    const cooldownEnd = localStorage.getItem('aiCooldown_improveButtons');
+    if (!cooldownEnd) return;
+    
+    const timeLeft = Math.max(0, cooldownEnd - Date.now());
+    const improveButtons = document.querySelectorAll('#improveActions button[onclick^="improvePost"]');
+    
+    if (timeLeft > 0) {
+        const secondsLeft = Math.ceil(timeLeft / 1000);
+        improveButtons.forEach(btn => {
+            btn.disabled = true;
+            if (!btn.dataset.originalText) {
+                btn.dataset.originalText = btn.innerHTML;
+            }
+            const icon = btn.querySelector('i').className;
+            btn.innerHTML = `<i class="${icon}"></i> ${secondsLeft}s`;
+        });
+        setTimeout(updateImproveButtonsCooldown, 1000);
+    } else {
+        improveButtons.forEach(btn => {
+            btn.disabled = false;
+            if (btn.dataset.originalText) {
+                btn.innerHTML = btn.dataset.originalText;
+            }
+        });
+        localStorage.removeItem('aiCooldown_improveButtons');
+    }
 }
 
 // 🔥 NEW: Show Notification Function
@@ -804,6 +821,9 @@ document.getElementById('aiGenerateForm').addEventListener('submit', function(e)
                 document.getElementById('improveActions').classList.remove('hidden');
                 document.getElementById('showImproveBtn').classList.add('hidden');
             }
+            
+            // Start 60-second cooldown after successful generation
+            startAICooldown('generateBtn');
         } else {
             alert('Error: ' + data.message);
         }
@@ -1079,67 +1099,15 @@ document.getElementById('imageUpload').addEventListener('change', function(e) {
     }
 });
 
-// Carousel document upload preview (PDF/PowerPoint)
-document.getElementById('carouselUpload').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        // Validate file type
-        const validTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-        const validExtensions = ['.pdf', '.ppt', '.pptx'];
-        const fileName = file.name.toLowerCase();
-        const isValidType = validTypes.includes(file.type) || validExtensions.some(ext => fileName.endsWith(ext));
-        
-        if (!isValidType) {
-            alert('Please select a PDF or PowerPoint file (.pdf, .ppt, .pptx)');
-            this.value = '';
-            return;
-        }
-        
-        // Validate file size (50MB max)
-        if (file.size > 52428800) { // 50MB in bytes
-            alert('File size must be less than 50MB.');
-            this.value = '';
-            return;
-        }
-        
-        // Clear other inputs and previews when carousel file is selected
-        const imageInput = document.getElementById('imageUpload');
-        const videoInput = document.getElementById('videoUpload');
-        const imagePreview = document.getElementById('imagePreview');
-        const videoPreview = document.getElementById('videoPreview');
-        imageInput.value = '';
-        videoInput.value = '';
-        imagePreview.classList.add('hidden');
-        videoPreview.classList.add('hidden');
-        
-        // Show file info
-        const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-        
-        document.getElementById('carouselFileName').textContent = file.name;
-        document.getElementById('carouselFileSize').textContent = fileSize;
-        document.getElementById('carouselPreview').classList.remove('hidden');
-    }
-});
-
-// Clear carousel file function
-function clearCarouselFile() {
-    document.getElementById('carouselUpload').value = '';
-    document.getElementById('carouselPreview').classList.add('hidden');
-}
-
 // Video upload preview
 document.getElementById('videoUpload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
         // Clear other inputs and previews when video is selected
         const imageInput = document.getElementById('imageUpload');
-        const carouselInput = document.getElementById('carouselUpload');
         const imagePreview = document.getElementById('imagePreview');
-        const carouselPreview = document.getElementById('carouselPreview');
         imageInput.value = '';
-        carouselInput.value = '';
         imagePreview.classList.add('hidden');
-        carouselPreview.classList.add('hidden');
         
         const url = URL.createObjectURL(file);
         document.getElementById('videoSource').src = url;
