@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Uri;
 use Illuminate\Support\Facades\Http;
 use App\Models\Post;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class LinkedInService
 {
@@ -307,6 +307,11 @@ class LinkedInService
      */
     private function uploadImageV2($imageUrl, $author, $access_token)
     {
+        Log::info('📸 Starting image upload process', [
+            'image_url' => $imageUrl,
+            'author' => $author
+        ]);
+
         // Step 1: Initialize upload
         $initResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . $access_token,
@@ -321,10 +326,18 @@ class LinkedInService
         $uploadUrl = $initResponse['value']['uploadUrl'];
         $imageId = $initResponse['value']['image'];
 
-        Log::info('📤 Uploading image binary', ['imageId' => $imageId]);
+        Log::info('✅ Image upload initialized', [
+            'imageId' => $imageId,
+            'uploadUrl' => substr($uploadUrl, 0, 50) . '...'
+        ]);
 
         // Step 2: Upload image binary
         $imageContent = file_get_contents($imageUrl);
+        
+        Log::info('📤 Uploading image binary to LinkedIn', [
+            'imageId' => $imageId,
+            'size_bytes' => strlen($imageContent)
+        ]);
         
         Http::withHeaders([
             'Authorization' => 'Bearer ' . $access_token,
@@ -380,22 +393,45 @@ class LinkedInService
      */
     private function buildCarouselContentV2($post, $author, $access_token)
     {
+        Log::info('🎠 Starting carousel upload', [
+            'total_images' => count($post->carousel_images),
+            'image_urls' => $post->carousel_images
+        ]);
+
         $images = [];
         
         foreach ($post->carousel_images as $index => $imageUrl) {
+            $imageNumber = $index + 1;
+            $totalImages = count($post->carousel_images);
+            
+            Log::info("📸 Uploading carousel image {$imageNumber} of {$totalImages}", [
+                'image_url' => $imageUrl
+            ]);
+            
             $imageId = $this->uploadImageV2($imageUrl, $author, $access_token);
             
             $images[] = [
                 "id" => $imageId,
-                "altText" => "Slide " . ($index + 1)
+                "altText" => "Slide " . $imageNumber
             ];
+            
+            Log::info("✅ Carousel image {$imageNumber} uploaded", [
+                'image_id' => $imageId
+            ]);
         }
 
-        return [
+        $carouselContent = [
             "multiImage" => [
                 "images" => $images
             ]
         ];
+
+        Log::info('✅ Carousel content built successfully', [
+            'total_images_uploaded' => count($images),
+            'carousel_structure' => $carouselContent
+        ]);
+
+        return $carouselContent;
     }
 
     /**
