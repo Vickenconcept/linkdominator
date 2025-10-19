@@ -7,7 +7,7 @@ use App\Models\Integration;
 use App\Services\LinkedInService;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class UpdatePostAnalytics extends Command
 {
@@ -66,10 +66,20 @@ class UpdatePostAnalytics extends Command
                     continue;
                 }
 
-                // Extract LinkedIn post ID from URN format (urn:li:share:1234567890)
+                // Extract LinkedIn post ID from URN format
                 $linkedinPostId = $post->linkedin_post_id;
+                
+                // Handle different URN formats
                 if (str_starts_with($linkedinPostId, 'urn:li:share:')) {
                     $linkedinPostId = str_replace('urn:li:share:', '', $linkedinPostId);
+                } elseif (str_starts_with($linkedinPostId, 'urn:li:ugcPost:')) {
+                    $linkedinPostId = str_replace('urn:li:ugcPost:', '', $linkedinPostId);
+                }
+                
+                // If it's still a URN, try to extract the numeric part
+                if (str_contains($linkedinPostId, ':')) {
+                    $parts = explode(':', $linkedinPostId);
+                    $linkedinPostId = end($parts);
                 }
 
                 Log::info("📊 Updating analytics for post {$post->id}", [
@@ -94,7 +104,31 @@ class UpdatePostAnalytics extends Command
                     
                     $this->info("✅ Updated post {$post->id} - Likes: {$analytics['likes']}, Comments: {$analytics['comments']}, Shares: {$analytics['shares']}, Views: {$analytics['views']}");
                 } else {
-                    Log::warning("⚠️ Failed to fetch analytics for post {$post->id}");
+                    // LinkedIn Analytics API is not available - provide manual input option
+                    Log::warning("⚠️ LinkedIn Analytics API not available for post {$post->id}");
+                    
+                    if ($this->confirm("Would you like to manually enter analytics for post {$post->id}?", false)) {
+                        $likes = $this->ask('Enter number of likes:', 0);
+                        $comments = $this->ask('Enter number of comments:', 0);
+                        $shares = $this->ask('Enter number of shares:', 0);
+                        $views = $this->ask('Enter number of views:', 0);
+                        
+                        $manualAnalytics = [
+                            'likes' => (int)$likes,
+                            'comments' => (int)$comments,
+                            'shares' => (int)$shares,
+                            'views' => (int)$views,
+                            'clicks' => 0,
+                            'last_updated' => now()->toISOString(),
+                            'source' => 'manual'
+                        ];
+                        
+                        $post->updateAnalytics($manualAnalytics);
+                        $updatedCount++;
+                        
+                        $this->info("✅ Manually updated post {$post->id} analytics");
+                    }
+                    
                     $errorCount++;
                 }
 

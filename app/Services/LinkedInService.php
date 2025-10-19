@@ -271,38 +271,53 @@ class LinkedInService
         ];
 
         try {
-            // LinkedIn Analytics API endpoint
-            $analyticsUrl = "https://api.linkedin.com/rest/socialActions/{$linkedinPostId}/statistics";
+            // Try multiple LinkedIn Analytics API endpoints
+            $endpoints = [
+                "https://api.linkedin.com/rest/ugcPosts/{$linkedinPostId}/statistics",
+                "https://api.linkedin.com/v2/ugcPosts/{$linkedinPostId}/statistics", 
+                "https://api.linkedin.com/rest/socialActions/{$linkedinPostId}/statistics",
+                "https://api.linkedin.com/v2/socialActions/{$linkedinPostId}/statistics"
+            ];
             
-            $response = Http::withHeaders($headers)->get($analyticsUrl);
-            
-            Log::info('📊 Analytics API Response', [
-                'status_code' => $response->status(),
-                'body' => $response->body()
-            ]);
-
-            if ($response->successful()) {
-                $analytics = $response->json();
+            foreach ($endpoints as $analyticsUrl) {
+                Log::info('📊 Trying analytics endpoint', ['url' => $analyticsUrl]);
                 
-                // Extract metrics from LinkedIn's response format
-                $metrics = [
-                    'likes' => $analytics['likeCount'] ?? 0,
-                    'comments' => $analytics['commentCount'] ?? 0,
-                    'shares' => $analytics['shareCount'] ?? 0,
-                    'views' => $analytics['impressionCount'] ?? 0,
-                    'clicks' => $analytics['clickCount'] ?? 0,
-                    'last_updated' => now()->toISOString()
-                ];
-
-                Log::info('✅ Analytics extracted', ['metrics' => $metrics]);
-                return $metrics;
-            } else {
-                Log::warning('⚠️ Analytics API returned error', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
+                $response = Http::withHeaders($headers)->get($analyticsUrl);
+                
+                Log::info('📊 Analytics API Response', [
+                    'endpoint' => $analyticsUrl,
+                    'status_code' => $response->status(),
+                    'body' => substr($response->body(), 0, 200)
                 ]);
-                return null;
+
+                if ($response->successful()) {
+                    $analytics = $response->json();
+                    
+                    // Extract metrics from LinkedIn's response format
+                    $metrics = [
+                        'likes' => $analytics['likeCount'] ?? $analytics['likes'] ?? 0,
+                        'comments' => $analytics['commentCount'] ?? $analytics['comments'] ?? 0,
+                        'shares' => $analytics['shareCount'] ?? $analytics['shares'] ?? 0,
+                        'views' => $analytics['impressionCount'] ?? $analytics['views'] ?? 0,
+                        'clicks' => $analytics['clickCount'] ?? $analytics['clicks'] ?? 0,
+                        'last_updated' => now()->toISOString()
+                    ];
+
+                    Log::info('✅ Analytics extracted', ['metrics' => $metrics]);
+                    return $metrics;
+                } elseif ($response->status() !== 404) {
+                    // If it's not 404, log the error but continue trying other endpoints
+                    Log::warning('⚠️ Analytics API returned error', [
+                        'endpoint' => $analyticsUrl,
+                        'status' => $response->status(),
+                        'body' => substr($response->body(), 0, 200)
+                    ]);
+                }
             }
+            
+            // If all endpoints failed, return null
+            Log::warning('⚠️ All analytics endpoints failed for post', ['linkedin_post_id' => $linkedinPostId]);
+            return null;
         } catch (\Exception $e) {
             Log::error('❌ Failed to fetch analytics', [
                 'error' => $e->getMessage(),

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class RapidApiService
 {
@@ -15,8 +16,16 @@ class RapidApiService
     {
         $url = self::linkedin_provider_api . '/search-posts';
 
+        $apiKey = config('services.rapidapi.key');
+        
+        // Check if API key exists
+        if (!$apiKey) {
+            Log::error("RAPIDAPI_KEY not found in environment variables");
+            throw new \Exception("RAPIDAPI_KEY not configured");
+        }
+
         $headers = [
-            "x-rapidapi-key" => config('services.rapidapi.key'),
+            "x-rapidapi-key" => $apiKey,
             "x-rapidapi-host" => "fresh-linkedin-profile-data.p.rapidapi.com",
             "Content-Type" => "application/json"
         ];
@@ -24,7 +33,7 @@ class RapidApiService
         $payload = [
             "search_keywords" => $keyword,
             "sort_by" => "Latest",
-            "date_posted" => "",
+            "date_posted" => "", // Leave empty - API doesn't accept date filters
             "content_type" => "",
             "from_member" => [],
             "from_company" => [],
@@ -36,10 +45,17 @@ class RapidApiService
             "page" => 1
         ];
 
-        return Http::withHeaders($headers)
-            ->post($url, $payload)
-            ->throw()
-            ->json();
+        $response = Http::withHeaders($headers)
+            ->post($url, $payload);
+        
+        if ($response->failed()) {
+            \Log::error("RapidAPI request failed:", [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+        }
+        
+        return $response->throw()->json();
     }
 
     public function fetch_profile_posts($profile_url)
