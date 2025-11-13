@@ -51,7 +51,8 @@ return [
     ],
 
     'rapidapi' => [
-        'key' => env('RAPIDAPI_KEY')
+        'key' => env('RAPIDAPI_KEY'),
+        'allowed_hosts' => array_filter(array_map('trim', explode(',', env('RAPIDAPI_ALLOWED_HOSTS', 'linkedin-data-api.p.rapidapi.com,li-data-scraper.p.rapidapi.com,fresh-linkedin-profile-data.p.rapidapi.com'))))
     ],
 
     'calendly' => [

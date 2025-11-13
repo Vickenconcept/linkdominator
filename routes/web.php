@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use App\Http\Middleware\VerifyCsrfToken;
 
 use App\Http\Controllers\Authenticate\LoginController;
 use App\Http\Controllers\Authenticate\ForgotPasswordController;
@@ -27,6 +30,99 @@ Route::get('/', function () {
 });
 
 Route::post('/ipn/jvzoo', [JvzooIpnController::class, 'JVZoo'])->name('ipn.jvzoo');
+
+Route::match(['get', 'post'], '/debug/rapidapi/proxy', function (Request $request) {
+    logger('RapidAPI debug route accessed');
+    $allowedEnvironments = ['local', 'development', 'staging'];
+
+    if (!app()->environment($allowedEnvironments)) {
+        abort(403, 'RapidAPI debug route is disabled in this environment.');
+    }
+
+    $validated = $request->validate([
+        'host' => 'required|string',
+        'path' => 'required|string',
+        'method' => 'nullable|string|in:GET,POST,PUT,PATCH,DELETE',
+        'query' => 'nullable|string',
+        'payload' => 'nullable|string',
+        'headers' => 'nullable|string',
+    ]);
+
+    $allowedHosts = config('services.rapidapi.allowed_hosts', []);
+
+    if (!in_array($validated['host'], $allowedHosts, true)) {
+        return response()->json([
+            'error' => 'Host not allowed for RapidAPI testing.',
+            'allowed_hosts' => $allowedHosts,
+        ], 422);
+    }
+
+    $method = strtoupper($validated['method'] ?? 'GET');
+
+    $queryParams = [];
+    if (!empty($validated['query'])) {
+        $queryParams = json_decode($validated['query'], true);
+        if (!is_array($queryParams)) {
+            return response()->json(['error' => 'Invalid query JSON payload.'], 422);
+        }
+    }
+
+    $payload = [];
+    if (!empty($validated['payload'])) {
+        $payload = json_decode($validated['payload'], true);
+        if (!is_array($payload)) {
+            return response()->json(['error' => 'Invalid payload JSON body.'], 422);
+        }
+    }
+
+    $extraHeaders = [];
+    if (!empty($validated['headers'])) {
+        $extraHeaders = json_decode($validated['headers'], true);
+        if (!is_array($extraHeaders)) {
+            return response()->json(['error' => 'Invalid headers JSON payload.'], 422);
+        }
+    }
+
+    $rapidApiKey = config('services.rapidapi.key');
+
+    if (empty($rapidApiKey)) {
+        return response()->json(['error' => 'RAPIDAPI_KEY is not configured.'], 500);
+    }
+
+    $client = Http::timeout(45)->withHeaders(array_merge([
+        'X-RapidAPI-Key' => $rapidApiKey,
+        'X-RapidAPI-Host' => $validated['host'],
+        'Accept' => 'application/json',
+    ], $extraHeaders));
+
+    if (!empty($queryParams)) {
+        $client = $client->withOptions(['query' => $queryParams]);
+    }
+
+    $url = 'https://' . $validated['host'] . '/' . ltrim($validated['path'], '/');
+
+    $response = match ($method) {
+        'POST' => $client->post($url, $payload),
+        'PUT' => $client->put($url, $payload),
+        'PATCH' => $client->patch($url, $payload),
+        'DELETE' => $client->delete($url, $payload),
+        default => $client->get($url),
+    };
+
+    $body = $response->json();
+    if (is_null($body)) {
+        $decoded = json_decode($response->body(), true);
+        $body = $decoded ?? $response->body();
+    }
+
+    return response()->json([
+        'requested_url' => $url,
+        'method' => $method,
+        'status' => $response->status(),
+        'response_headers' => $response->headers(),
+        'body' => $body,
+    ], $response->status());
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])->name('debug.rapidapi.proxy');
 
 Route::controller(LoginController::class)->group(function () {
     Route::get('/auth/signin', 'index')->name('auth.login');
@@ -128,9 +224,18 @@ Route::middleware(['auth'])->group(function(){
         Route::get('/content-creator/analytics/{id}', 'analytics')->name('content-creator.analytics');
     });
 
+    // Competitor Followers (LinkedIn) Feature
+    Route::controller(App\Http\Controllers\LinkedInCompetitorController::class)->group(function(){
+        Route::get('/competitor-followers', 'index')->name('competitor-followers.index');
+        Route::post('/competitor-followers/fetch', 'fetch')->name('competitor-followers.fetch');
+        Route::get('/competitor-followers/{audienceId}', 'show')->name('competitor-followers.show');
+        Route::get('/competitor-followers/{audienceId}/export', 'exportCsv')->name('competitor-followers.export');
+    });
+
     // Inspiration Library Routes (Viral Posts Discovery)
     Route::controller(App\Http\Controllers\InspirationController::class)->group(function (){
         Route::get('/inspiration', 'index')->name('inspiration.index');
+        Route::post('/inspiration/preferences', 'updatePreferences')->name('inspiration.preferences.update');
         Route::post('/inspiration/store', 'storeFromWeb')->name('inspiration.store');
         Route::delete('/inspiration/delete/{id}', 'destroy')->name('inspiration.delete');
         Route::post('/inspiration/favorite/{id}', 'toggleFavorite')->name('inspiration.favorite');
@@ -225,6 +330,13 @@ Route::middleware(['auth'])->group(function(){
         Route::delete('/comment/campaign/delete/{id}', 'destroyCampaign')->name('comment.delete-campaign');
         Route::post('/comment/skip', 'skipComment')->name('comment.skip');
         Route::post('/comment/generate', 'generateComment')->name('comment.generate');
+    });
+
+    Route::controller(App\Http\Controllers\AutoCommentController::class)->group(function (){
+        Route::get('/auto-comment', 'index')->name('auto-comment.index');
+        Route::get('/auto-comment/preferences', 'preferences')->name('auto-comment.preferences');
+        Route::post('/auto-comment/preferences', 'storePreferences')->name('auto-comment.store-preferences');
+        Route::delete('/auto-comment/post/{id}', 'deletePost')->name('auto-comment.delete-post');
     });
 });
 

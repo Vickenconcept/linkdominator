@@ -12,6 +12,7 @@ Schedule::command('app:post-scheduler')->everyMinute();
 Schedule::command('app:update-post-analytics')->hourly();
 Schedule::command('app:fetch-linkedin-feeds')->twiceDailyAt(12, 18, 15);
 Schedule::command('calls:send-reminders')->everyFifteenMinutes();
+Schedule::command('app:process-auto-comments')->hourly(); // Auto-comment processing
 
 // Running the scheduler
 // * * * * * cd /home/tubetargeterapp/app.linkdominator.com && /usr/local/bin/ea-php83 artisan schedule:run >> /dev/null 2>&1

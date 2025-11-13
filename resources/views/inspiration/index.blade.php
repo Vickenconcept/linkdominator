@@ -1,6 +1,19 @@
 @extends('layout.auth')
 
 @section('content')
+<!-- Success/Error Messages -->
+@if(session('success'))
+<div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+    <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+</div>
+@endif
+
+@if(session('error'))
+<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+    <i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}
+</div>
+@endif
+
 <div class="flex justify-between items-center mb-6">
     <div>
         <h2 class="text-2xl font-bold text-gray-900">💡 Inspiration Library</h2>
@@ -59,6 +72,172 @@
                 <p class="text-sm font-medium text-gray-600">Avg Engagement</p>
                 <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['avg_engagement'], 1) }}%</p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Content Preferences (Collapsible) -->
+<div class="bg-white rounded-lg shadow mb-8">
+    <button onclick="togglePreferences()" 
+            class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+        <div class="flex items-center">
+            <i class="fas fa-sliders-h text-orange-600 mr-3"></i>
+            <div class="text-left">
+                <h3 class="text-lg font-semibold text-gray-900">Content Preferences</h3>
+                <p class="text-sm text-gray-500">Customize what viral posts you want to see</p>
+            </div>
+        </div>
+        <i id="preferences-icon" class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+    </button>
+    
+    <div id="preferences-section" class="px-6 pb-6 hidden">
+        <form method="POST" action="{{ route('inspiration.preferences.update') }}" class="space-y-6">
+            @csrf
+            
+            <!-- Industries -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-industry mr-1 text-gray-400"></i>Industries (What field are you in?)
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    @php
+                    $industries = [
+                        'Business & Entrepreneurship',
+                        'Technology & Software',
+                        'Marketing & Advertising',
+                        'Sales & Business Development',
+                        'Leadership & Management',
+                        'Healthcare & Medical',
+                        'Real Estate & Property',
+                        'Finance & Investment',
+                        'E-commerce & Retail',
+                        'Education & Training',
+                        'Consulting & Coaching',
+                        'Legal & Law',
+                        'Human Resources',
+                        'Product Management',
+                        'Design & Creative',
+                        'Content Creation'
+                    ];
+                    $userIndustries = $preferences->industries ?? ['Business & Entrepreneurship', 'Marketing & Advertising'];
+                    @endphp
+                    
+                    @foreach($industries as $industry)
+                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-orange-50 hover:border-orange-500 transition-colors
+                        {{ in_array($industry, $userIndustries) ? 'bg-orange-50 border-orange-500' : 'border-gray-200' }}">
+                        <input type="checkbox" 
+                               name="industries[]" 
+                               value="{{ $industry }}"
+                               {{ in_array($industry, $userIndustries) ? 'checked' : '' }}
+                               class="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                        <span class="ml-2 text-sm text-gray-700">{{ $industry }}</span>
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+            
+            <!-- Topics -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-tags mr-1 text-gray-400"></i>Topics & Keywords (What interests you?)
+                </label>
+                <div id="topics-container" class="flex flex-wrap gap-2 mb-2">
+                    @php
+                    $userTopics = $preferences->topics ?? ['entrepreneurship', 'marketing', 'leadership'];
+                    @endphp
+                    
+                    @foreach($userTopics as $topic)
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
+                        {{ $topic }}
+                        <button type="button" onclick="removeTopic(this)" class="ml-2 text-blue-500 hover:text-blue-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <input type="hidden" name="topics[]" value="{{ $topic }}">
+                    </span>
+                    @endforeach
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" 
+                           id="new-topic" 
+                           placeholder="e.g., AI, productivity, real estate tips"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <button type="button" 
+                            onclick="addTopic()"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                        <i class="fas fa-plus mr-1"></i>Add
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Date Range (CRITICAL for high engagement) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-calendar mr-1 text-gray-400"></i>Post Age (Older posts have more time to accumulate likes)
+                </label>
+                <select name="date_range" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="past-week" {{ ($preferences->date_range ?? 'past-month') == 'past-week' ? 'selected' : '' }}>
+                        Past Week (Latest, but lower engagement)
+                    </option>
+                    <option value="past-2-weeks" {{ ($preferences->date_range ?? 'past-month') == 'past-2-weeks' ? 'selected' : '' }}>
+                        Past 2 Weeks (Balanced)
+                    </option>
+                    <option value="past-3-weeks" {{ ($preferences->date_range ?? 'past-month') == 'past-3-weeks' ? 'selected' : '' }}>
+                        Past 3 Weeks (Good engagement)
+                    </option>
+                    <option value="past-month" {{ ($preferences->date_range ?? 'past-month') == 'past-month' ? 'selected' : '' }}>
+                        Past Month (Best for high engagement) ⭐
+                    </option>
+                    <option value="any-time" {{ ($preferences->date_range ?? 'past-month') == 'any-time' ? 'selected' : '' }}>
+                        Any Time (All posts)
+                    </option>
+                </select>
+                <p class="text-xs text-gray-600 mt-2">
+                    💡 <strong>Recommended:</strong> Past Month (2-4 weeks) - Posts have time to accumulate 100+ likes
+                </p>
+            </div>
+            
+            <!-- Engagement Threshold -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-fire mr-1 text-gray-400"></i>Minimum Engagement (How many likes to be considered "viral"?)
+                </label>
+                <div class="flex items-center gap-4">
+                    <input type="range" 
+                           name="min_engagement" 
+                           id="min-engagement" 
+                           min="50" 
+                           max="1000" 
+                           step="50" 
+                           value="{{ $preferences->min_engagement ?? 100 }}"
+                           class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="engagement-value" class="text-2xl font-bold text-orange-600 min-w-[100px] text-right">
+                        {{ $preferences->min_engagement ?? 100 }}+ likes
+                    </span>
+                </div>
+                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>50 (Good posts)</span>
+                    <span>1000+ (Very viral)</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-2">
+                    💡 <strong>Tip:</strong> 100-300 likes is ideal for quality viral content. Combine with "Past Month" date range for best results.
+                </p>
+            </div>
+            
+            <!-- Save Button -->
+            <div class="flex justify-end pt-4 border-t">
+                <button type="submit" 
+                        class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors font-medium">
+                    <i class="fas fa-save mr-2"></i>Save Preferences
+                </button>
+            </div>
+        </form>
+        
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm text-blue-800">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>How it works:</strong> Based on your preferences, our system will automatically fetch viral posts matching your industries and topics. Run <code class="px-2 py-1 bg-white rounded">php artisan app:fetch-linkedin-feeds</code> to fetch posts or wait for the daily automatic fetch.
+            </p>
         </div>
     </div>
 </div>
@@ -401,6 +580,65 @@
 <script>
 const csrfToken = '{{ csrf_token() }}';
 let currentRemixPostId = null;
+
+// Toggle preferences section
+function togglePreferences() {
+    const section = document.getElementById('preferences-section');
+    const icon = document.getElementById('preferences-icon');
+    
+    if (section.classList.contains('hidden')) {
+        section.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+    } else {
+        section.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+    }
+}
+
+// Add topic tag
+function addTopic() {
+    const input = document.getElementById('new-topic');
+    const topic = input.value.trim();
+    
+    if (!topic) return;
+    
+    const container = document.getElementById('topics-container');
+    const tag = document.createElement('span');
+    tag.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700';
+    tag.innerHTML = `
+        ${topic}
+        <button type="button" onclick="removeTopic(this)" class="ml-2 text-blue-500 hover:text-blue-700">
+            <i class="fas fa-times"></i>
+        </button>
+        <input type="hidden" name="topics[]" value="${topic}">
+    `;
+    
+    container.appendChild(tag);
+    input.value = '';
+}
+
+// Remove topic tag
+function removeTopic(button) {
+    button.parentElement.remove();
+}
+
+// Update engagement slider value display
+document.addEventListener('DOMContentLoaded', function() {
+    const slider = document.getElementById('min-engagement');
+    const valueDisplay = document.getElementById('engagement-value');
+    
+    if (slider && valueDisplay) {
+        slider.addEventListener('input', function() {
+            valueDisplay.textContent = this.value + '+ likes';
+        });
+    }
+    
+    // Auto-open preferences if user hasn't set them
+    const hasPreferences = {{ isset($preferences->id) ? 'true' : 'false' }};
+    if (!hasPreferences) {
+        togglePreferences();
+    }
+});
 
 // Use viral post as inspiration (copy to Content Creator)
 function useAsInspiration(postId) {

@@ -20,21 +20,31 @@ class FetchLinkedinFeeds extends Command
      *
      * @var string
      */
-    protected $signature = 'app:fetch-linkedin-feeds';
+    protected $signature = 'app:fetch-linkedin-feeds
+                            {--user= : Fetch for specific user ID only}
+                            {--limit=50 : Maximum posts to fetch per user}
+                            {--system-wide : Fetch once and share with all users (saves API calls)}
+                            {--keywords=5 : Number of keywords to search per user}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Fetch viral LinkedIn posts based on user preferences. Supports multi-user optimization.';
 
+    // Track API requests
+    private $apiRequestCount = 0;
+    
     /**
      * Execute the console command.
      */
     public function handle()
     {
+        $startTime = now();
         $this->info("Started fetching linkedin post...");
+        $this->info("Timestamp: " . $startTime->format('Y-m-d H:i:s'));
+        $this->newLine();
         
         // First, fetch viral posts for inspiration library
         $this->fetchViralPostsForInspiration();
@@ -62,7 +72,14 @@ class FetchLinkedinFeeds extends Command
                 if($item->campaign_type == 'keyword' && $item->keyword_list){
                     $item->keyword_list = str_replace("\r\n"," ",$item->keyword_list);
 
-                    $linkedin_posts = $rapidapi_service->search_posts($item->keyword_list);
+                    // Use engagement filters to save API credits
+                    // Only fetch posts that already meet minimum engagement
+                    $filters = [
+                        'min_likes' => 50, // Minimum engagement threshold
+                        'limit' => 100 // Limit results to save credits
+                    ];
+                    
+                    $linkedin_posts = $rapidapi_service->search_posts($item->keyword_list, 1, 'past-month', $filters);
                     $linkedin_posts = $linkedin_posts['data'];
 
                 }else if($item->campaign_type == 'profile' && $item->profile_list){
@@ -183,227 +200,369 @@ class FetchLinkedinFeeds extends Command
                 $this->info('No comment campaign available.');
             }
         }
+        $this->newLine();
+        $this->info('═══════════════════════════════════════════════');
+        $this->info('📊 API USAGE SUMMARY:');
+        $this->info('   API Requests Made: ' . $this->apiRequestCount);
+        $this->info('   Estimated Monthly Usage: ' . ($this->apiRequestCount * 30) . ' (if run daily)');
+        $this->info('   Time Elapsed: ' . now()->diffInSeconds($startTime) . ' seconds');
+        $this->info('═══════════════════════════════════════════════');
         $this->info('Completed fetching linkedin post.');
     }
 
     /**
      * Fetch viral posts for inspiration library
      * 
-     * HYBRID APPROACH (3 Sources):
+     * INTELLIGENT, DOMAIN-AGNOSTIC APPROACH:
      * 
-     * 1. TRULY VIRAL (1000+ likes): Fetch from popular LinkedIn creators
-     *    - Gary Vaynerchuk, Simon Sinek, Justin Welsh, etc.
-     *    - These consistently get 1000+ likes
+     * 1. Load user preferences (or use intelligent defaults)
+     * 2. Dynamic keyword generation from user's:
+     *    - Industries (tech, healthcare, real estate, etc.)
+     *    - Topics (AI, marketing, sales, leadership, etc.)
+     *    - Custom keywords
+     * 3. Multi-page search for better results
+     * 4. Optional: Fetch from user's favorite creators
+     * 5. Adjustable viral threshold per user
      * 
-     * 2. HIGH-PERFORMING (100+ likes): Keyword searches
-     *    - Recent posts with strong engagement
-     *    - Good inspiration even if not "viral"
+     * Works for ANY niche/industry - not hardcoded!
      * 
-     * 3. PERSONAL CURATION: Chrome extension (already built)
-     *    - Users save posts they find interesting
-     *    - Most personalized approach
+     * OPTIMIZATION FOR MULTIPLE USERS:
+     * - Use --limit to cap posts per user
+     * - Use --keywords to limit searches per user
+     * - Use --system-wide to fetch once and share (saves API calls)
+     * - Use --user=X to fetch for specific user only
      */
     private function fetchViralPostsForInspiration()
     {
-        $this->info("🔍 Fetching viral posts for inspiration library...");
-        $this->info("   Strategy: Hybrid (Popular Creators + Keyword Search)");
+        $this->info("🔍 Fetching viral posts - Intelligent & Domain-Agnostic");
         $this->newLine();
         
         $rapidapi_service = new RapidApiService;
         $totalFetched = 0;
         
-        // PART 1: Fetch from popular creators (TRULY VIRAL - 1000+ likes)
-        $totalFetched += $this->fetchFromPopularCreators($rapidapi_service);
+        // Check if system-wide mode (fetch once, share with all users)
+        if ($this->option('system-wide')) {
+            $this->info("🌐 SYSTEM-WIDE MODE: Fetching once and sharing with all users");
+            $this->info("   This saves API calls for multi-user environments");
+            $this->newLine();
+            $totalFetched += $this->fetchSystemWide($rapidapi_service);
+        } else {
+            // Get all users with preferences (or use system defaults)
+            $users = $this->getUsersToFetchFor();
+            
+            if ($users->isEmpty()) {
+                $this->warn("No users with preferences found. Using system defaults.");
+                $this->info("💡 Tip: Use --system-wide flag to fetch once for all users");
+                $this->newLine();
+                $totalFetched += $this->fetchWithDefaults($rapidapi_service);
+            } else {
+                $userCount = $users->count();
+                $this->info("👥 Found {$userCount} users with preferences");
+                $this->info("📊 Limits: " . $this->option('limit') . " posts/user, " . $this->option('keywords') . " keywords/user");
+                $this->newLine();
+                
+                foreach ($users as $user) {
+                    $this->info("📍 Fetching for: {$user->name}");
+                    $totalFetched += $this->fetchForUser($user, $rapidapi_service);
+                    $this->newLine();
+                }
+            }
+        }
         
-        // PART 2: Fetch from keyword searches (HIGH-PERFORMING - 100+ likes)
-        $totalFetched += $this->fetchFromKeywords($rapidapi_service);
-        
-        $this->newLine();
         $this->info("═══════════════════════════════════════════════");
         if ($totalFetched > 0) {
-            $this->info("✅ Total Fetched: {$totalFetched} posts for inspiration library");
+            $this->info("✅ Total Fetched: {$totalFetched} posts");
         } else {
             $this->warn("⚠️  No qualifying posts found");
-            $this->info("💡 Tip: Users can save posts manually via Chrome extension");
+            $this->info("💡 Users can update preferences at /inspiration");
         }
         $this->info("═══════════════════════════════════════════════");
     }
     
     /**
-     * Fetch posts from popular LinkedIn creators (1000+ likes guaranteed)
+     * Fetch system-wide library (efficient for many users)
+     * Fetches once and makes available to all users
      */
-    private function fetchFromPopularCreators($rapidapi_service)
+    private function fetchSystemWide($rapidapi_service)
     {
-        $this->info("📍 PART 1: Fetching from Popular Creators (Truly Viral Content)");
-        $this->info("   Threshold: 1000+ likes OR 10%+ engagement");
+        $this->info("📍 Fetching system-wide viral library");
+        $this->info("   All users will be able to browse and filter these posts");
         $this->newLine();
         
-        // Popular LinkedIn creators who consistently get viral engagement
-        $popularCreators = [
-            // Business & Entrepreneurship
-            ['url' => 'https://www.linkedin.com/in/garyvaynerchuk', 'name' => 'Gary Vaynerchuk'],
-            ['url' => 'https://www.linkedin.com/in/simonsinek', 'name' => 'Simon Sinek'],
-            ['url' => 'https://www.linkedin.com/in/justinwelsh', 'name' => 'Justin Welsh'],
-            
-            // Marketing & Sales
-            ['url' => 'https://www.linkedin.com/in/neilpatel', 'name' => 'Neil Patel'],
-            ['url' => 'https://www.linkedin.com/in/randfish', 'name' => 'Rand Fishkin'],
-            
-            // Leadership & Career
-            ['url' => 'https://www.linkedin.com/in/adamposajenichyberboard', 'name' => 'Adam Posner'],
-            ['url' => 'https://www.linkedin.com/in/briankdavis', 'name' => 'Brian K. Davis'],
-            
-            // Add more as needed - these are examples
+        // Comprehensive keywords covering major industries
+        $systemKeywords = [
+            'entrepreneurship', 'business strategy', 'startup',
+            'leadership', 'management', 'team building',
+            'marketing', 'sales', 'branding',
+            'technology', 'AI', 'software',
+            'career', 'professional development',
+            'productivity', 'innovation',
         ];
+        
+        $limit = $this->option('limit');
+        $this->info("  Target: {$limit} total posts across all categories");
+        
+        return $this->searchKeywordsWithMultiplePages(
+            $systemKeywords, 
+            1, // user_id = 1 (system-wide)
+            100, // minimum 100 likes
+            'past-month',
+            $rapidapi_service,
+            $limit
+        );
+    }
+    
+    /**
+     * Get users to fetch viral posts for
+     */
+    private function getUsersToFetchFor()
+    {
+        // If specific user ID provided, fetch for that user only
+        if ($this->option('user')) {
+            return \App\Models\User::where('id', $this->option('user'))->get();
+        }
+        
+        // Otherwise fetch for all users with preferences
+        return \App\Models\User::whereHas('contentPreferences')->get();
+    }
+    
+    /**
+     * Fetch viral posts for a specific user based on their preferences
+     */
+    private function fetchForUser($user, $rapidapi_service)
+    {
+        $preferences = $user->contentPreferences ?? \App\Models\UserContentPreference::make(\App\Models\UserContentPreference::getDefaults());
+        
+        $this->info("  Industries: " . implode(', ', $preferences->industries ?? []));
+        $this->info("  Topics: " . implode(', ', $preferences->topics ?? []));
+        $this->info("  Min Engagement: {$preferences->min_engagement} likes");
+        $this->info("  Date Range: " . ($preferences->date_range ?? 'past-month'));
+        $this->newLine();
         
         $totalFetched = 0;
         
-        foreach ($popularCreators as $creator) {
-            try {
-                $this->info("Fetching from: {$creator['name']}");
-                
-                $response = $rapidapi_service->fetch_profile_posts($creator['url']);
-                
-                if (isset($response['data']) && is_array($response['data'])) {
-                    $postCount = count($response['data']);
-                    $this->info("  Found {$postCount} posts");
-                    
-                    $viralCount = 0;
-                    $duplicateCount = 0;
-                    $nonViralCount = 0;
-                    
-                    foreach ($response['data'] as $postData) {
-                        $post = $postData['post'] ?? $postData;
-                        
-                        // Check if already exists
-                        $existingPost = \App\Models\ViralPost::where('linkedin_post_id', $post['urn'] ?? null)
-                            ->orWhere('post_url', $post['post_url'] ?? null)
-                            ->first();
-                            
-                        if ($existingPost) {
-                            $duplicateCount++;
-                            continue;
-                        }
-                        
-                        // Use STRICT viral criteria for popular creators
-                        if ($this->isTrulyViral($post)) {
-                            $viralCount++;
-                            $this->saveViralPost($post);
-                            $totalFetched++;
-                        } else {
-                            $nonViralCount++;
-                        }
-                    }
-                    
-                    if ($viralCount > 0) {
-                        $this->info("  ✅ Viral: {$viralCount}, Non-viral: {$nonViralCount}, Duplicates: {$duplicateCount}");
-                    } else {
-                        $this->info("  ⚪ Viral: 0, Non-viral: {$nonViralCount}, Duplicates: {$duplicateCount}");
-                    }
-                } else {
-                    $this->warn("  No data in response");
-                }
-                
-                sleep(2); // Rate limiting
-                
-            } catch (\Exception $e) {
-                $this->error("Error fetching from '{$creator['name']}': " . $e->getMessage());
-            }
+        // Fetch from user's favorite creators (if enabled)
+        if ($preferences->fetch_from_creators && !empty($preferences->favorite_creators)) {
+            $totalFetched += $this->fetchFromUserCreators($user, $preferences, $rapidapi_service);
         }
         
-        $this->newLine();
-        $this->info("📊 Popular Creators: Fetched {$totalFetched} truly viral posts");
-        $this->newLine();
+        // Fetch from keywords (industries + topics + custom keywords)
+        if ($preferences->fetch_from_keywords) {
+            $totalFetched += $this->fetchFromUserKeywords($user, $preferences, $rapidapi_service);
+        }
         
         return $totalFetched;
     }
     
     /**
-     * Fetch posts from keyword searches (100+ likes - high performing)
+     * Fetch using intelligent system defaults (domain-agnostic)
      */
-    private function fetchFromKeywords($rapidapi_service)
+    private function fetchWithDefaults($rapidapi_service)
     {
-        $this->info("📍 PART 2: Fetching from Keyword Searches (High-Performing Content)");
-        $this->info("   Threshold: 100+ likes OR 5%+ engagement");
+        $this->info("📍 Using System Defaults - Broad Industry Coverage");
         $this->newLine();
         
-        // Fewer, more targeted keywords (to save API calls)
-        $viralKeywords = [
-            'entrepreneurship',
-            'leadership',
-            'digital marketing',
-            'career growth',
-            'AI artificial intelligence',
-            'startup',
-            'productivity',
-            'business strategy',
+        // Broad, diverse keywords covering multiple industries
+        $keywords = [
+            // Business & Entrepreneurship
+            'entrepreneurship', 'startup', 'business growth',
+            
+            // Technology
+            'artificial intelligence', 'technology trends', 'software development',
+            
+            // Marketing & Sales  
+            'digital marketing', 'content strategy', 'sales techniques',
+            
+            // Leadership & Career
+            'leadership', 'career advice', 'professional development',
+            
+            // Industry-Specific
+            'real estate investing', 'healthcare innovation', 'financial planning',
+            'e-commerce', 'SaaS', 'consulting',
+            
+            // Skills & Growth
+            'productivity', 'personal branding', 'networking',
         ];
+        
+        return $this->searchKeywordsWithMultiplePages($keywords, 1, 100, 'past-month', $rapidapi_service);
+    }
+    
+    /**
+     * Fetch posts from user's favorite creators
+     */
+    private function fetchFromUserCreators($user, $preferences, $rapidapi_service)
+    {
+        $this->info("  🎯 Fetching from favorite creators...");
         
         $totalFetched = 0;
         
-        foreach ($viralKeywords as $keyword) {
+        foreach ($preferences->favorite_creators as $creatorUrl) {
             try {
-                $this->info("Searching for: {$keyword}");
-                
-                $response = $rapidapi_service->search_posts($keyword);
+                $response = $rapidapi_service->fetch_profile_posts($creatorUrl);
+                $this->apiRequestCount++; // Track API usage
                 
                 if (isset($response['data']) && is_array($response['data'])) {
-                    $postCount = count($response['data']);
-                    $this->info("  Found {$postCount} posts");
-                    
-                    $highPerformingCount = 0;
-                    $duplicateCount = 0;
-                    $lowPerformingCount = 0;
-                    
                     foreach ($response['data'] as $postData) {
                         $post = $postData['post'] ?? $postData;
                         
-                        // Check if already exists
-                        $existingPost = \App\Models\ViralPost::where('linkedin_post_id', $post['urn'] ?? null)
-                            ->orWhere('post_url', $post['post_url'] ?? null)
+                        // Check duplicate
+                        $existingPost = \App\Models\ViralPost::where('user_id', $user->id)
+                            ->where(function($query) use ($post) {
+                                $query->where('linkedin_post_id', $post['urn'] ?? null)
+                                      ->orWhere('post_url', $post['post_url'] ?? null);
+                            })
                             ->first();
                             
-                        if ($existingPost) {
-                            $duplicateCount++;
-                            continue;
-                        }
+                        if ($existingPost) continue;
                         
-                        // Use RELAXED criteria for keyword searches (100+ likes)
-                        if ($this->isHighPerforming($post)) {
-                            $highPerformingCount++;
-                            $this->saveViralPost($post);
+                        // Use user's custom threshold
+                        if ($this->meetsThreshold($post, $preferences->min_engagement)) {
+                            $this->saveViralPost($post, $user->id);
                             $totalFetched++;
-                        } else {
-                            $lowPerformingCount++;
                         }
                     }
-                    
-                    if ($highPerformingCount > 0) {
-                        $this->info("  ✅ High-performing: {$highPerformingCount}, Low: {$lowPerformingCount}, Duplicates: {$duplicateCount}");
-                    } else {
-                        $this->info("  ⚪ High-performing: 0, Low: {$lowPerformingCount}, Duplicates: {$duplicateCount}");
-                    }
-                } else {
-                    $this->warn("  No data in response");
                 }
                 
-                sleep(2); // Rate limiting
+                sleep(2);
                 
             } catch (\Exception $e) {
-                $this->error("Error fetching posts for keyword '{$keyword}': " . $e->getMessage());
+                $this->error("  Error fetching creator: " . $e->getMessage());
             }
         }
         
-        $this->newLine();
-        $this->info("📊 Keyword Searches: Fetched {$totalFetched} high-performing posts");
+        $this->info("  ✓ Fetched {$totalFetched} posts from creators");
+        return $totalFetched;
+    }
+    
+    /**
+     * Fetch posts from user's keywords (industries + topics + custom)
+     */
+    private function fetchFromUserKeywords($user, $preferences, $rapidapi_service)
+    {
+        $this->info("  🔍 Fetching from user keywords...");
         
+        $keywords = $preferences->getAllKeywords();
+        
+        if (empty($keywords)) {
+            $this->warn("  No keywords defined for user");
+            return 0;
+        }
+        
+        $this->info("  Keywords: " . implode(', ', array_slice($keywords, 0, 5)) . (count($keywords) > 5 ? '...' : ''));
+        
+        return $this->searchKeywordsWithMultiplePages(
+            $keywords, 
+            $user->id, 
+            $preferences->min_engagement,
+            $preferences->date_range ?? 'past-month',
+            $rapidapi_service
+        );
+    }
+    
+    /**
+     * Search multiple keywords with multi-page support for better results
+     */
+    private function searchKeywordsWithMultiplePages($keywords, $userId, $minEngagement, $dateRange, $rapidapi_service, $maxPosts = null)
+    {
+        $totalFetched = 0;
+        $maxPosts = $maxPosts ?? $this->option('limit') ?? 50; // Default 50 posts per user
+        $maxKeywords = $this->option('keywords') ?? 5; // Default 5 keywords (saves API calls)
+        $pagesPerKeyword = 2; // Search 2 pages per keyword for more results
+        
+        $limitedKeywords = array_slice($keywords, 0, $maxKeywords);
+        
+        foreach ($limitedKeywords as $keyword) {
+            // Check if we've hit the limit
+            if ($totalFetched >= $maxPosts) {
+                $this->info("  ✓ Reached limit of {$maxPosts} posts. Stopping search.");
+                break;
+            }
+            
+            try {
+                // Search multiple pages for each keyword
+                for ($page = 1; $page <= $pagesPerKeyword; $page++) {
+                    // Check limit again
+                    if ($totalFetched >= $maxPosts) break;
+                    
+                    // Use filters to reduce API calls - only fetch posts that meet engagement threshold
+                    $filters = [
+                        'min_likes' => $minEngagement,
+                        'limit' => 100 // Limit to 100 posts per page to save credits
+                    ];
+                    
+                    $response = $rapidapi_service->search_posts($keyword, $page, $dateRange, $filters);
+                    $this->apiRequestCount++; // Track API usage
+                    
+                    if (isset($response['data']) && is_array($response['data'])) {
+                        $found = 0;
+                        $checked = 0;
+                        $duplicates = 0;
+                        $belowThreshold = 0;
+                        
+                        foreach ($response['data'] as $postData) {
+                            // Check limit
+                            if ($totalFetched >= $maxPosts) break;
+                            
+                            $post = $postData['post'] ?? $postData;
+                            $checked++;
+                            
+                            // Check duplicate
+                            $existingPost = \App\Models\ViralPost::where('user_id', $userId)
+                                ->where(function($query) use ($post) {
+                                    $query->where('linkedin_post_id', $post['urn'] ?? null)
+                                          ->orWhere('post_url', $post['post_url'] ?? null);
+                                })
+                                ->first();
+                                
+                            if ($existingPost) {
+                                $duplicates++;
+                                continue;
+                            }
+                            
+                            // Debug: Log engagement (first 3 posts only)
+                            $likes = $post['num_likes'] ?? 0;
+                            if ($checked <= 3 && $totalFetched == 0) {
+                                \Log::info("Post engagement check:", [
+                                    'keyword' => $keyword,
+                                    'likes' => $likes,
+                                    'comments' => $post['num_comments'] ?? 0,
+                                    'threshold' => $minEngagement
+                                ]);
+                            }
+                            
+                            // Use custom threshold
+                            if ($this->meetsThreshold($post, $minEngagement)) {
+                                $this->saveViralPost($post, $userId);
+                                $totalFetched++;
+                                $found++;
+                            } else {
+                                $belowThreshold++;
+                            }
+                        }
+                        
+                        if ($found > 0) {
+                            $this->info("  ✓ '{$keyword}' (page {$page}): Found {$found} posts (total: {$totalFetched}/{$maxPosts})");
+                        } else if ($checked > 0) {
+                            $this->info("  ○ '{$keyword}' (page {$page}): 0 qualified (below threshold: {$belowThreshold})");
+                        }
+                    }
+                    
+                    sleep(1); // Rate limiting between pages
+                }
+                
+            } catch (\Exception $e) {
+                $this->error("  Error with keyword '{$keyword}': " . $e->getMessage());
+            }
+        }
+        
+        $this->info("  ✓ Total from keywords: {$totalFetched} posts");
         return $totalFetched;
     }
     
     /**
      * Save a viral post to database
      */
-    private function saveViralPost($post)
+    private function saveViralPost($post, $userId = 1)
     {
         // Determine post type
         $postType = $post['post_type'] ?? 'text';
@@ -429,12 +588,12 @@ class FetchLinkedinFeeds extends Command
         } elseif (isset($post['poster']['first']) && isset($post['poster']['last'])) {
             $authorName = $post['poster']['first'] . ' ' . $post['poster']['last'];
         } elseif (isset($post['poster_linkedin_url'])) {
-            // Extract from URL as last resort: linkedin.com/in/simonsinek -> Simon Sinek
+            // Extract from URL as last resort
             $authorName = $this->extractNameFromUrl($post['poster_linkedin_url']);
         }
         
         \App\Models\ViralPost::create([
-            'user_id' => 1, // System-wide library
+            'user_id' => $userId, // User-specific or system-wide (1)
             'author_name' => $authorName,
             'author_headline' => $post['poster_title'] ?? $post['poster']['headline'] ?? '',
             'author_profile_url' => $post['poster_linkedin_url'] ?? '',
@@ -454,17 +613,12 @@ class FetchLinkedinFeeds extends Command
     }
     
     /**
-     * TWO-TIER VIRAL DETECTION SYSTEM
+     * Check if post meets the engagement threshold
      * 
-     * Tier 1: TRULY VIRAL (for popular creators)
-     * Tier 2: HIGH-PERFORMING (for keyword searches)
+     * With date_range set to past-month, posts have had 2-4 weeks to accumulate likes
+     * So we can use the actual user threshold (100+ likes)
      */
-    
-    /**
-     * Check if a post is TRULY VIRAL (1000+ likes)
-     * Used for popular creator posts
-     */
-    private function isTrulyViral($post)
+    private function meetsThreshold($post, $minEngagement = 100)
     {
         $likes = $post['num_likes'] ?? 0;
         $comments = $post['num_comments'] ?? 0;
@@ -474,41 +628,14 @@ class FetchLinkedinFeeds extends Command
         $totalEngagement = $likes + $comments + $shares;
         $engagementRate = $views > 0 ? ($totalEngagement / $views) * 100 : 0;
         
-        // STRICT CRITERIA for truly viral content:
-        // 1. 1000+ likes (proven viral)
-        // 2. OR 10%+ engagement rate (exceptional)
-        // 3. OR 500+ likes AND 5%+ engagement (very strong)
-        
-        return $likes >= 1000 
-            || $engagementRate >= 10.0
-            || ($likes >= 500 && $engagementRate >= 5.0);
+        // Use actual threshold since posts are from 2-4 weeks ago (had time to get engagement)
+        return $likes >= $minEngagement 
+            || $engagementRate >= 5.0  // Exceptional engagement rate
+            || $comments >= max(20, $minEngagement / 5)  // Active discussion
+            || $shares >= max(10, $minEngagement / 10)  // Valuable content being shared
+            || ($totalEngagement >= $minEngagement && $engagementRate >= 3.0); // Good combined metrics
     }
     
-    /**
-     * Check if a post is HIGH-PERFORMING (100+ likes)
-     * Used for keyword search posts - more lenient
-     */
-    private function isHighPerforming($post)
-    {
-        $likes = $post['num_likes'] ?? 0;
-        $comments = $post['num_comments'] ?? 0;
-        $shares = $post['num_shares'] ?? 0;
-        $views = $post['num_views'] ?? 0;
-        
-        $totalEngagement = $likes + $comments + $shares;
-        $engagementRate = $views > 0 ? ($totalEngagement / $views) * 100 : 0;
-        
-        // RELAXED CRITERIA for high-performing content:
-        // 1. 100+ likes (solid performance)
-        // 2. OR 5%+ engagement rate (good engagement)
-        // 3. OR 50+ comments (active discussion)
-        // 4. OR 20+ shares (valuable content being shared)
-        
-        return $likes >= 100 
-            || $engagementRate >= 5.0
-            || $comments >= 50
-            || $shares >= 20;
-    }
     
     /**
      * Calculate engagement rate
@@ -572,3 +699,4 @@ class FetchLinkedinFeeds extends Command
         return 'Unknown';
     }
 }
+

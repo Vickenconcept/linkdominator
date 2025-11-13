@@ -58,4 +58,20 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    
+    /**
+     * Get the user's content preferences
+     */
+    public function contentPreferences()
+    {
+        return $this->hasOne(\App\Models\UserContentPreference::class);
+    }
+
+    /**
+     * Get the user's auto-comment preferences
+     */
+    public function autoCommentPreferences()
+    {
+        return $this->hasOne(\App\Models\AutoCommentPreference::class);
+    }
 }
