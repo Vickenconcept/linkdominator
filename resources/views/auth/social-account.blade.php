@@ -1,21 +1,32 @@
 @extends('layout.auth')
 
 @section('content')
-<div class="flex justify-between">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
-        Accounts
-    </h2>
+<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            Accounts
+        </h2>
+        <p class="text-sm text-gray-500 mt-1">Connect LinkedIn, then paste your session cookie once so every automation can run under your profile.</p>
+    </div>
     <button type="button"
-    class="block px-4 py-4 text-sm font-medium leading-2 
+    class="block px-4 py-3 text-sm font-medium leading-2 
     text-white transition-colors duration-150 bg-indigo-600 
     border border-transparent rounded-lg active:bg-indigo-600
     hover:bg-indigo-700 focus:outline-none focus:shadow-outline-indigo"
     aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-basic-modal" data-hs-overlay="#hs-basic-modal">
-        <span class="mt-1">Connect</span>
+        Connect
     </button>
 </div>
 
-<div class="mt-6">
+<div class="mt-6 space-y-4">
+    <div class="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+        <p class="font-medium">Why we need your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie</p>
+        <p class="mt-1">LinkedIn allows automations (post likers, group members, audience creation) only when they run with your own browser session. Paste your session cookie and user agent below once, and we’ll reuse it for every Phantom job. LinkedIn rotates the cookie every few weeks, so refresh it whenever runs start failing.</p>
+        <a href="https://linkdominator.com/help/linkedin-session-cookie" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm font-semibold text-orange-700 hover:text-orange-900 mt-2">
+            How to copy the cookie & user agent
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M12.293 2.293a1 1 0 011.414 0L18 6.586v.001a1 1 0 01-.293.707l-9 9a1 1 0 01-.63.287l-4 .363a1 1 0 01-1.086-1.087l.363-4a1 1 0 01.287-.63l9-9zM5.414 15L5.2 17.2l2.2-.214L15 9.586 13.414 8 5.414 16z"></path></svg>
+        </a>
+    </div>
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">
             <div class="grid grid-cols-12 p-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-semibold px-3 text-sm">
@@ -28,7 +39,7 @@
             </div>
             <div>
                 @foreach($accounts as $account)
-                <div class="grid grid-cols-12 py-4 px-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-normal text-sm">
+                <div class="grid grid-cols-12 gap-y-3 py-4 px-3 mb-3 bg-white border border-gray-200 rounded-lg shadow-sm font-normal text-sm">
                     <div class="col-span-1">
                         @if ($account->picture)
                         <img src="{{$account->picture}}" alt="" class="rounded-full w-8 h-8">
@@ -76,6 +87,47 @@
                             <button type="submit" class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-2 py-2.5 me-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-indigo-800">Disconnect</button>
                         </form>
                     </div>
+                    @if($account->oauth_provider === 'linkedin')
+                        <div class="col-span-12 border-t pt-4 mt-2">
+                            <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                                @if($account->linkedin_session_verified_at)
+                                    <span>Last updated {{ $account->linkedin_session_verified_at->diffForHumans() }}.</span>
+                                @else
+                                    <span class="text-orange-600 font-medium">No LinkedIn session saved yet.</span>
+                                @endif
+                            </div>
+                            @php
+                                $maskedCookie = '';
+                                if ($account->linkedin_session_cookie) {
+                                    $maskedCookie = substr($account->linkedin_session_cookie, 0, 4)
+                                        . str_repeat('*', max(strlen($account->linkedin_session_cookie) - 8, 4))
+                                        . substr($account->linkedin_session_cookie, -4);
+                                }
+                            @endphp
+                            <form method="POST" action="{{ route('social-account.credentials', $account->id) }}" class="space-y-3">
+                                @csrf
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">LinkedIn Session Cookie (li_at)</label>
+                                    <textarea name="linkedin_session_cookie" rows="2" class="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="li_at=...">{{ old('linkedin_session_cookie') ?? $maskedCookie }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Browser User Agent</label>
+                                    <textarea name="linkedin_user_agent" rows="2" class="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64)...">{{ old('linkedin_user_agent') ?? ($account->linkedin_user_agent ?? '') }}</textarea>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    Tip: Keep the browser logged in while copying the cookie. If you log out everywhere, LinkedIn invalidates the value immediately.
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <button type="submit" class="inline-flex items-center rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400">
+                                        Save session
+                                    </button>
+                                    @if($account->linkedin_session_verified_at)
+                                        <span class="text-xs text-gray-500">Stored securely & encrypted.</span>
+                                    @endif
+                                </div>
+                            </form>
+                        </div>
+                    @endif
                 </div>
                 @endforeach
             </div>

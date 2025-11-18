@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\FetchCompetitorFollowersJob;
 use App\Models\Audience;
 use App\Models\AudienceList;
+use App\Models\Integration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -21,18 +22,33 @@ class LinkedInCompetitorController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('competitor_followers.index', compact('audiences'));
+        $hasLinkedInSession = Integration::where('user_id', $user->id)
+            ->where('oauth_provider', 'linkedin')
+            ->whereNotNull('linkedin_session_cookie')
+            ->exists();
+
+        return view('competitor_followers.index', compact('audiences', 'hasLinkedInSession'));
     }
 
     public function fetch(Request $request)
     {
         $data = $request->validate([
             'company_url' => ['required', 'url'],
-            'linkedin_session_cookie' => ['required', 'string'],
-            'linkedin_user_agent' => ['required', 'string']
         ]);
 
         $user = Auth::user();
+
+        $integration = Integration::where('user_id', $user->id)
+            ->where('oauth_provider', 'linkedin')
+            ->whereNotNull('linkedin_session_cookie')
+            ->latest('linkedin_session_verified_at')
+            ->first();
+
+        if (!$integration) {
+            return redirect()
+                ->route('competitor-followers.index')
+                ->with('error', __('competitor_followers.session_missing'));
+        }
 
         $audience = Audience::create([
             'audience_name' => parse_url($data['company_url'], PHP_URL_HOST) ?: 'Competitor Followers',
@@ -50,8 +66,8 @@ class LinkedInCompetitorController extends Controller
             $user->id,
             $audience->id,
             $data['company_url'],
-            $data['linkedin_session_cookie'],
-            $data['linkedin_user_agent']
+            $integration->linkedin_session_cookie,
+            $integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')
         );
 
         return redirect()->route('competitor-followers.index')

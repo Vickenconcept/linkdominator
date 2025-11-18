@@ -256,6 +256,7 @@ Route::middleware(['auth'])->group(function(){
 
     Route::controller(SocialAccountController::class)->group(function (){
         Route::get('/social-account', 'index')->name('social-account.index');
+        Route::post('/social-account/{integration}/credentials', 'storeCredentials')->name('social-account.credentials');
         Route::delete('/social-account/disconnect/{id}', 'disconnect')->name('social-account.disconnect');
     });
 

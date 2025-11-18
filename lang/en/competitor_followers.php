@@ -23,7 +23,8 @@ return [
     'th_location' => 'Location',
     'th_profile' => 'Profile',
     'th_last_activity' => 'Last Activity',
-    'fetch_started' => 'Fetching started. This may take a few minutes.'
+    'fetch_started' => 'Fetching started. This may take a few minutes.',
+    'session_missing' => 'Add your LinkedIn session cookie on the Social Accounts page before running this fetch.'
 ];
 
 

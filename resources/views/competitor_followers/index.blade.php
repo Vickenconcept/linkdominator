@@ -8,30 +8,28 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ __('competitor_followers.title') }}</h2>
+    <div class="bg-white rounded-lg shadow p-4 sm:p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">{{ __('competitor_followers.title') }}</h2>
+            <a href="{{ route('social-account.index') }}" class="text-sm text-orange-600 hover:text-orange-800 font-medium">Manage LinkedIn session →</a>
+        </div>
+        @if (session('error'))
+            <div class="rounded border border-red-200 bg-red-50 text-red-800 px-4 py-3 text-sm">
+                {{ session('error') }}
+            </div>
+        @endif
+        @if (!$hasLinkedInSession)
+            <div class="rounded border border-orange-200 bg-orange-50 text-orange-900 px-4 py-3 text-sm">
+                <p class="font-medium">Add your LinkedIn session cookie first</p>
+                <p class="mt-1">Visit the Social Accounts page, open your connected LinkedIn profile, and paste your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie + user agent. We’ll auto-fill it for every competitor fetch.</p>
+            </div>
+        @endif
         <form method="POST" action="{{ route('competitor-followers.fetch') }}" class="grid grid-cols-1 gap-4">
             @csrf
             <div>
                 <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.company_url_label') }}</label>
                 <input name="company_url" type="url" required placeholder="https://www.linkedin.com/company/..." class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" />
                 @error('company_url')
-                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.session_cookie_label') }}</label>
-                <textarea name="linkedin_session_cookie" required rows="3" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="li_at=..."></textarea>
-                <p class="text-xs text-gray-500 mt-1">{{ __('competitor_followers.session_cookie_help') }}</p>
-                @error('linkedin_session_cookie')
-                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.user_agent_label') }}</label>
-                <textarea name="linkedin_user_agent" required rows="2" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="{{ __('competitor_followers.user_agent_placeholder') }}"></textarea>
-                <p class="text-xs text-gray-500 mt-1">{{ __('competitor_followers.user_agent_help') }}</p>
-                @error('linkedin_user_agent')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                 @enderror
             </div>
