@@ -39,8 +39,8 @@ class RapidApiService
             "Content-Type" => "application/json"
         ];
 
-        // Map our date range to API format
-        $datePosted = $dateRange === 'any-time' ? '' : $dateRange;
+        // Map our date range to API format (RapidAPI expects title case phrases e.g. "Past Week")
+        $datePosted = $this->normalizeDatePostedParameter($dateRange);
 
         // Get filter values with defaults
         $minLikes = $filters['min_likes'] ?? null;
@@ -48,11 +48,14 @@ class RapidApiService
         $minShares = $filters['min_shares'] ?? null;
         $limit = $filters['limit'] ?? 50; // Default limit to reduce API calls
 
+        $sortBy = ($datePosted !== null && $datePosted !== '') ? 'Top match' : 'Latest';
+
+        $searchKeyword = $this->normalizeSearchKeyword($keyword);
+
         // Build payload - request exactly what we need
         $payload = [
-            "search_keywords" => $keyword,
-            "sort_by" => "Latest", // Sort by latest to get fresh posts
-            "date_posted" => $datePosted,
+            "search_keywords" => $searchKeyword,
+            "sort_by" => $sortBy,
             "content_type" => "",
             "from_member" => [],
             "from_company" => [],
@@ -64,16 +67,32 @@ class RapidApiService
             "page" => $page
         ];
 
-        // Add engagement filters - RapidAPI should filter server-side and return only matching posts
-        // If RapidAPI supports these parameters, it will return exactly what we need
-        if ($minLikes !== null) {
-            $payload["min_likes"] = $minLikes;
+        if ($datePosted !== null) {
+            $payload["date_posted"] = $datePosted;
         }
-        if ($minComments !== null) {
-            $payload["min_comments"] = $minComments;
-        }
-        if ($minShares !== null) {
-            $payload["min_shares"] = $minShares;
+
+        // RapidAPI rejects engagement filters when date_posted is supplied.
+        $canSendEngagementFilters = ($datePosted === null || $datePosted === '');
+
+        if ($canSendEngagementFilters) {
+            // Add engagement filters - RapidAPI should filter server-side and return only matching posts
+            if ($minLikes !== null) {
+                $payload["min_likes"] = $minLikes;
+            }
+            if ($minComments !== null) {
+                $payload["min_comments"] = $minComments;
+            }
+            if ($minShares !== null) {
+                $payload["min_shares"] = $minShares;
+            }
+        } elseif ($minLikes !== null || $minComments !== null || $minShares !== null) {
+            Log::info("RapidAPI limitation: engagement filters can't be combined with date_posted. Falling back to client-side filtering.", [
+                'keyword' => $keyword,
+                'date_posted' => $datePosted,
+                'min_likes' => $minLikes,
+                'min_comments' => $minComments,
+                'min_shares' => $minShares,
+            ]);
         }
         
         // Note: If RapidAPI supports pagination limits, we could add "per_page" or similar
@@ -83,8 +102,11 @@ class RapidApiService
         Log::info("RapidAPI request - requesting filtered posts directly from API:", [
             'endpoint' => 'search-posts',
             'keyword' => $keyword,
+            'normalized_keyword' => $searchKeyword,
             'page' => $page,
             'date_range' => $datePosted,
+            'original_date_range' => $dateRange,
+            'sort_by' => $sortBy,
             'min_likes' => $minLikes,
             'min_comments' => $minComments,
             'min_shares' => $minShares,
@@ -231,15 +253,18 @@ class RapidApiService
     }
 
     /**
-     * Fetch recent posts from a company page using author_company filter
+     * Fetch recent posts from a company page
+     * Uses the correct RapidAPI endpoint: /get-company-posts
      *
-     * @param string $companyUrl LinkedIn company URL
-     * @param int $page Pagination page
+     * @param string $companyUrl LinkedIn company URL (e.g., https://www.linkedin.com/company/microsoft/)
+     * @param int $page Pagination page (converted to start parameter: 0 for page 1, 50 for page 2, etc.)
+     * @param string $sortBy Sort by: "top" or "recent" (default: "recent")
      * @return array
      */
-    public function fetch_company_posts(string $companyUrl, int $page = 1): array
+    public function fetch_company_posts(string $companyUrl, int $page = 1, string $sortBy = 'recent'): array
     {
-        $url = self::linkedin_provider_api . '/search-posts';
+        // Try the company posts endpoint first
+        $url = self::linkedin_provider_api . '/get-company-posts';
 
         $apiKey = config('services.rapidapi.key');
         if (!$apiKey) {
@@ -249,26 +274,28 @@ class RapidApiService
 
         $headers = [
             "x-rapidapi-key" => $apiKey,
-            "x-rapidapi-host" => "fresh-linkedin-profile-data.p.rapidapi.com",
-            "Content-Type" => "application/json"
+            "x-rapidapi-host" => "fresh-linkedin-profile-data.p.rapidapi.com"
         ];
 
-        $payload = [
-            "search_keywords" => "",
-            "sort_by" => "Latest",
-            "date_posted" => "past-month",
-            "content_type" => "",
-            "from_member" => [],
-            "from_company" => [],
-            "mentioning_member" => [],
-            "mentioning_company" => [],
-            "author_company" => [$companyUrl],
-            "author_industry" => [],
-            "author_keyword" => "",
-            "page" => $page
+        // Convert page to start parameter: page 1 = 0, page 2 = 50, etc.
+        $start = ($page - 1) * 50;
+
+        $params = [
+            "linkedin_url" => $companyUrl,
+            "start" => $start,
+            "sort_by" => $sortBy
         ];
 
-        $response = Http::withHeaders($headers)->post($url, $payload);
+        Log::info('RapidAPI company posts request', [
+            'company_url' => $companyUrl,
+            'page' => $page,
+            'start' => $start,
+            'sort_by' => $sortBy,
+            'endpoint' => '/get-company-posts'
+        ]);
+
+        $response = Http::withHeaders($headers)->get($url, $params);
+        
         if ($response->failed()) {
             Log::error("RapidAPI company posts request failed:", [
                 'status' => $response->status(),
@@ -276,12 +303,119 @@ class RapidApiService
                 'company' => $companyUrl,
                 'page' => $page
             ]);
+            
+            if ($response->status() == 429) {
+                throw new \Exception("RapidAPI quota exceeded. Please upgrade your plan or wait for quota reset.");
+            }
+            
+            // If /get-company-posts doesn't exist, fall back to search-posts
+            if ($response->status() == 404) {
+                Log::warning('RapidAPI: /get-company-posts endpoint not found, falling back to /search-posts');
+                return $this->fetch_company_posts_fallback($companyUrl, $page);
+            }
+        }
+
+        return $response->throw()->json();
+    }
+
+    /**
+     * Fallback method using search-posts endpoint (if get-company-posts doesn't exist)
+     *
+     * @param string $companyUrl
+     * @param int $page
+     * @return array
+     */
+    private function fetch_company_posts_fallback(string $companyUrl, int $page): array
+    {
+        $url = self::linkedin_provider_api . '/search-posts';
+
+        $apiKey = config('services.rapidapi.key');
+        $headers = [
+            "x-rapidapi-key" => $apiKey,
+            "x-rapidapi-host" => "fresh-linkedin-profile-data.p.rapidapi.com",
+            "Content-Type" => "application/json"
+        ];
+
+        $companyIdentifier = $this->normalizeCompanyIdentifier($companyUrl);
+
+        $payload = [
+            "search_keywords" => "",
+            "sort_by" => "Latest",
+            "content_type" => "",
+            "from_member" => [],
+            "from_company" => [],
+            "mentioning_member" => [],
+            "mentioning_company" => [],
+            "author_company" => [$companyIdentifier],
+            "author_industry" => [],
+            "author_keyword" => "",
+            "page" => $page
+        ];
+
+        Log::info('RapidAPI company posts fallback request', [
+            'company_url' => $companyUrl,
+            'normalized_company' => $companyIdentifier,
+            'page' => $page
+        ]);
+
+        $response = Http::withHeaders($headers)->post($url, $payload);
+        
+        if ($response->failed()) {
             if ($response->status() == 429) {
                 throw new \Exception("RapidAPI quota exceeded. Please upgrade your plan or wait for quota reset.");
             }
         }
 
         return $response->throw()->json();
+    }
+
+    private function normalizeDatePostedParameter(?string $dateRange): ?string
+    {
+        if ($dateRange === null) {
+            return null;
+        }
+
+        $dateRange = trim($dateRange);
+        $normalized = strtolower(str_replace(['_', ' '], '-', $dateRange));
+
+        $map = [
+            'any-time' => '',
+            'anytime' => '',
+            'past-week' => 'Past week',
+            'past-2-weeks' => 'Past 2 weeks',
+            'past-3-weeks' => 'Past 3 weeks',
+            'past-month' => 'Past month',
+        ];
+
+        if (array_key_exists($normalized, $map)) {
+            return $map[$normalized];
+        }
+
+        // If caller already passed a supported value (e.g. "Past Week"), use it as-is
+        return $dateRange;
+    }
+
+    private function normalizeSearchKeyword(string $keyword): string
+    {
+        $normalized = str_replace(['&', '/', '\\'], ' ', $keyword);
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+
+        return trim($normalized);
+    }
+
+    private function normalizeCompanyIdentifier(string $companyUrl): string
+    {
+        $identifier = trim($companyUrl);
+
+        // If it already looks like a slug (no protocol), just return
+        if (!str_contains($identifier, '://')) {
+            return $identifier;
+        }
+
+        $path = parse_url($identifier, PHP_URL_PATH) ?: '';
+        $segments = array_values(array_filter(explode('/', $path)));
+
+        return $segments[count($segments) - 1] ?? $identifier;
     }
 
 }

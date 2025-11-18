@@ -62,5 +62,22 @@ return [
         'client_secret' => env('CALENDLY_CLIENT_SECRET'),
         'redirect' => env('CALENDLY_REDIRECT_URL'),
         'webhook_url' => env('CALENDLY_WEBHOOK_URL', 'https://app.linkdominator.com/api/calendly/webhook')
+    ],
+
+    'phantombuster' => [
+        'api_key' => env('PHANTOMBUSTER_API_KEY'),
+        'api_url' => env('PHANTOMBUSTER_API_URL', 'https://api.phantombuster.com/api/v1'),
+        // LinkedIn Post Likers Export - extracts users who liked a specific post (requires post URL)
+        'linkedin_post_likers_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID'),
+        // LinkedIn Post Commenters Export - extracts users who commented on a specific post (requires post URL)
+        'linkedin_post_commenters_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_COMMENTERS_PHANTOM_ID'),
+        // Limit how many company posts we process per run (helps reduce RapidAPI costs while testing)
+        'company_posts_limit' => env('COMPETITOR_POSTS_LIMIT', 5),
+        // Required for LinkedIn phantoms: Get manually from LinkedIn browser cookies
+        // Steps: 1) Log into LinkedIn, 2) Open DevTools (F12) > Application > Cookies > linkedin.com, 3) Copy "li_at" cookie value
+        'linkedin_session_cookie' => env('PHANTOMBUSTER_LINKEDIN_SESSION_COOKIE'),
+        // Optional: Custom user agent (defaults to Chrome on Windows if not set)
+        // To get: Open DevTools > Console > type: navigator.userAgent
+        'linkedin_user_agent' => env('PHANTOMBUSTER_LINKEDIN_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'),
     ]
 ];

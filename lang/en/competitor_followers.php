@@ -3,8 +3,11 @@
 return [
     'title' => 'Competitor Active Followers',
     'company_url_label' => 'LinkedIn Company URL',
-    'audience_name_label' => 'Audience Name (optional)',
-    'audience_name_placeholder' => 'e.g. Microsoft Active Followers – Nov',
+    'session_cookie_label' => 'LinkedIn Session Cookie (li_at)',
+    'session_cookie_help' => 'Paste your li_at cookie so the fetch can run under your LinkedIn session.',
+    'user_agent_label' => 'Browser User Agent',
+    'user_agent_placeholder' => 'e.g. Mozilla/5.0 (Windows NT 10.0; Win64; x64)...',
+    'user_agent_help' => 'Use the browser user agent string from the same browser where you copied the cookie.',
     'fetch_button' => 'Fetch Followers',
     'history_title' => 'Fetch History',
     'th_name' => 'Audience',

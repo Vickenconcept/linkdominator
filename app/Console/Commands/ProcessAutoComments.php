@@ -294,7 +294,8 @@ class ProcessAutoComments extends Command
                     'limit' => 50 // Only fetch 50 posts max that meet criteria
                 ];
                 
-                $response = $rapidapiService->search_posts($keyword, 1, 'past-week', $filters);
+                // RapidAPI no longer honors relative date ranges, so request all-time and filter locally.
+                $response = $rapidapiService->search_posts($keyword, 1, 'any-time', $filters);
                 
                 if (empty($response['data']) || !is_array($response['data'])) {
                     $this->info("    ℹ️  No posts found for keyword: {$keyword}");

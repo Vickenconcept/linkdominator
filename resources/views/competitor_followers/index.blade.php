@@ -10,7 +10,7 @@
 
     <div class="bg-white rounded-lg shadow p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ __('competitor_followers.title') }}</h2>
-        <form method="POST" action="{{ route('competitor-followers.fetch') }}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <form method="POST" action="{{ route('competitor-followers.fetch') }}" class="grid grid-cols-1 gap-4">
             @csrf
             <div>
                 <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.company_url_label') }}</label>
@@ -20,8 +20,20 @@
                 @enderror
             </div>
             <div>
-                <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.audience_name_label') }}</label>
-                <input name="audience_name" type="text" placeholder="{{ __('competitor_followers.audience_name_placeholder') }}" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.session_cookie_label') }}</label>
+                <textarea name="linkedin_session_cookie" required rows="3" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="li_at=..."></textarea>
+                <p class="text-xs text-gray-500 mt-1">{{ __('competitor_followers.session_cookie_help') }}</p>
+                @error('linkedin_session_cookie')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.user_agent_label') }}</label>
+                <textarea name="linkedin_user_agent" required rows="2" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="{{ __('competitor_followers.user_agent_placeholder') }}"></textarea>
+                <p class="text-xs text-gray-500 mt-1">{{ __('competitor_followers.user_agent_help') }}</p>
+                @error('linkedin_user_agent')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
             </div>
             <div class="flex items-end">
                 <button type="submit" class="inline-flex items-center justify-center rounded bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 w-full md:w-auto">{{ __('competitor_followers.fetch_button') }}</button>

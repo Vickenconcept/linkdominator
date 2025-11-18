@@ -80,7 +80,13 @@ class FetchLinkedinFeeds extends Command
                     ];
                     
                     $linkedin_posts = $rapidapi_service->search_posts($item->keyword_list, 1, 'past-month', $filters);
-                    $linkedin_posts = $linkedin_posts['data'];
+                    $linkedin_posts = $linkedin_posts['data'] ?? [];
+                    $linkedin_posts = array_values(array_filter($linkedin_posts, function ($post) {
+                        return $this->postWithinDateRange($post, 'past-month');
+                    }));
+                    $linkedin_posts = array_map(function ($post) {
+                        return is_array($post) ? (object) $post : $post;
+                    }, $linkedin_posts);
 
                 }else if($item->campaign_type == 'profile' && $item->profile_list){
                     $item->profile_list = explode("\r\n", $item->profile_list);
@@ -498,6 +504,7 @@ class FetchLinkedinFeeds extends Command
                         $checked = 0;
                         $duplicates = 0;
                         $belowThreshold = 0;
+                        $outsideDateRange = 0;
                         
                         foreach ($response['data'] as $postData) {
                             // Check limit
@@ -522,7 +529,7 @@ class FetchLinkedinFeeds extends Command
                             // Debug: Log engagement (first 3 posts only)
                             $likes = $post['num_likes'] ?? 0;
                             if ($checked <= 3 && $totalFetched == 0) {
-                                \Log::info("Post engagement check:", [
+                                Log::info("Post engagement check:", [
                                     'keyword' => $keyword,
                                     'likes' => $likes,
                                     'comments' => $post['num_comments'] ?? 0,
@@ -530,6 +537,12 @@ class FetchLinkedinFeeds extends Command
                                 ]);
                             }
                             
+                            // Respect user-selected date range (RapidAPI no longer filters this server-side)
+                            if (!$this->postWithinDateRange($post, $dateRange)) {
+                                $outsideDateRange++;
+                                continue;
+                            }
+
                             // Use custom threshold
                             if ($this->meetsThreshold($post, $minEngagement)) {
                                 $this->saveViralPost($post, $userId);
@@ -543,7 +556,7 @@ class FetchLinkedinFeeds extends Command
                         if ($found > 0) {
                             $this->info("  ✓ '{$keyword}' (page {$page}): Found {$found} posts (total: {$totalFetched}/{$maxPosts})");
                         } else if ($checked > 0) {
-                            $this->info("  ○ '{$keyword}' (page {$page}): 0 qualified (below threshold: {$belowThreshold})");
+                            $this->info("  ○ '{$keyword}' (page {$page}): 0 qualified (below threshold: {$belowThreshold}, outside range: {$outsideDateRange}, duplicates: {$duplicates})");
                         }
                     }
                     
@@ -557,6 +570,49 @@ class FetchLinkedinFeeds extends Command
         
         $this->info("  ✓ Total from keywords: {$totalFetched} posts");
         return $totalFetched;
+    }
+    
+    /**
+     * Determine if a post falls within the requested date range.
+     * RapidAPI stopped honoring date_posted filters, so we enforce them client-side.
+     */
+    private function postWithinDateRange($post, ?string $dateRange): bool
+    {
+        if (empty($dateRange) || $dateRange === 'any-time') {
+            return true;
+        }
+
+        $postedAt = null;
+
+        if (is_array($post)) {
+            $postedAt = $post['posted'] ?? ($post['post']['posted'] ?? null);
+        } elseif (is_object($post)) {
+            $postedAt = $post->posted ?? ($post->post->posted ?? null);
+        }
+
+        if (!$postedAt) {
+            return false;
+        }
+
+        try {
+            $postDate = Carbon::parse($postedAt);
+        } catch (\Throwable $th) {
+            return false;
+        }
+
+        $cutoff = match ($dateRange) {
+            'past-week' => now()->subWeek(),
+            'past-2-weeks' => now()->subWeeks(2),
+            'past-3-weeks' => now()->subWeeks(3),
+            'past-month' => now()->subMonth(),
+            default => null,
+        };
+
+        if ($cutoff === null) {
+            return true;
+        }
+
+        return $postDate->greaterThanOrEqualTo($cutoff);
     }
     
     /**

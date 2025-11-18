@@ -28,13 +28,14 @@ class LinkedInCompetitorController extends Controller
     {
         $data = $request->validate([
             'company_url' => ['required', 'url'],
-            'audience_name' => ['nullable', 'string', 'max:255']
+            'linkedin_session_cookie' => ['required', 'string'],
+            'linkedin_user_agent' => ['required', 'string']
         ]);
 
         $user = Auth::user();
 
         $audience = Audience::create([
-            'audience_name' => $data['audience_name'] ?? parse_url($data['company_url'], PHP_URL_HOST) ?: 'Competitor Followers',
+            'audience_name' => parse_url($data['company_url'], PHP_URL_HOST) ?: 'Competitor Followers',
             'audience_id' => now()->timestamp . $user->id,
             'audience_type' => 'LI',
             'user_id' => $user->id,
@@ -45,7 +46,13 @@ class LinkedInCompetitorController extends Controller
             ])
         ]);
 
-        FetchCompetitorFollowersJob::dispatch($user->id, $audience->id, $data['company_url']);
+        FetchCompetitorFollowersJob::dispatch(
+            $user->id,
+            $audience->id,
+            $data['company_url'],
+            $data['linkedin_session_cookie'],
+            $data['linkedin_user_agent']
+        );
 
         return redirect()->route('competitor-followers.index')
             ->with('status', __('competitor_followers.fetch_started'));
