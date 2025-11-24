@@ -11,9 +11,11 @@ use App\Models\Ministat;
 use App\Models\SnLead;
 use App\Models\SnLeadList;
 use App\Models\UserActivity;
+use App\Models\Integration;
 use App\Helpers\CampaignHelper;
 use App\Services\EmailFinder;
 use App\Services\LeadShareService;
+use App\Services\PhantomBusterService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -202,21 +204,39 @@ class ChromeApiController extends Controller
         $audience_id = $request->query('audienceId');
         $total_count = $request->query('totalCount');
 
+        Log::info('Fetching audience list', [
+            'audience_id' => $audience_id,
+            'total_count' => $total_count,
+            'linkedin_id' => $request->header('lk-id')
+        ]);
+
+        // Use parameterized query to prevent SQL injection and handle type correctly
         if (isset($total_count)) {
-            $user_list = sprintf("
+            $audience_list = DB::select("
                 SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
                 con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
-                from audience_lists where audience_id = %s order by date(created_at) desc limit %s;
-            ", $audience_id, (int)$total_count);
+                FROM audience_lists 
+                WHERE audience_id = ? 
+                ORDER BY DATE(created_at) DESC 
+                LIMIT ?
+            ", [$audience_id, (int)$total_count]);
         } else {
-            $user_list = sprintf("
-            SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
-            con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
-            from audience_lists where audience_id = %s order by date(created_at) desc;
-            ", $audience_id);
+            $audience_list = DB::select("
+                SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
+                con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
+                FROM audience_lists 
+                WHERE audience_id = ? 
+                ORDER BY DATE(created_at) DESC
+            ", [$audience_id]);
         }
 
-        $audience_list = DB::select($user_list);
+        Log::info('Audience list fetched', [
+            'audience_id' => $audience_id,
+            'audience_id_type' => gettype($audience_id),
+            'count' => count($audience_list),
+            'sample_ids' => array_slice(array_column($audience_list, 'id'), 0, 3),
+            'sample_connection_ids' => array_slice(array_column($audience_list, 'con_id'), 0, 3)
+        ]);
 
         return response()->json([
             'audience' => $audience_list
@@ -226,10 +246,12 @@ class ChromeApiController extends Controller
     public function storeAudienceList(Request $request)
     {
         try {
-            // Log::info('Storing audience list item', [
-            //     'request_data' => $request->all(),
-            //     'linkedin_id' => $request->header('lk-id')
-            // ]);
+            Log::info('Storing audience list item', [
+                'request_data' => $request->all(),
+                'linkedin_id' => $request->header('lk-id'),
+                'audience_id' => $request->audienceId,
+                'connection_id' => $request->connectionId
+            ]);
 
             $audience_id = $request->audienceId;
             $first_name = $request->firstName;
@@ -670,6 +692,157 @@ class ChromeApiController extends Controller
         }
     }
 
+    public function fetchPostLikersFromPhantom(Request $request)
+    {
+        try {
+            $user = $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => $th->getMessage(),
+                'status' => 401
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'post_url' => ['required', 'url'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500']
+        ]);
+
+        $integration = Integration::where('user_id', $user->id)
+            ->where('oauth_provider', 'linkedin')
+            ->whereNotNull('linkedin_session_cookie')
+            ->latest('linkedin_session_verified_at')
+            ->first();
+
+        if (!$integration) {
+            return $this->errorResponse(
+                'LinkedIn session cookie not found. Please update it from the Social Accounts page.',
+                422
+            );
+        }
+
+        try {
+            $service = new PhantomBusterService();
+            $likers = $service->fetchPostLikersForUrl(
+                $validated['post_url'],
+                600,
+                15,
+                $integration->linkedin_session_cookie,
+                $integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')
+            );
+
+            Log::info('Post likers received from PhantomBuster', [
+                'total_from_phantom' => count($likers),
+                'requested_limit' => $validated['limit'] ?? 'not set',
+                'post_url' => $validated['post_url'],
+            ]);
+
+            $likersBeforeLimit = count($likers);
+            if (isset($validated['limit'])) {
+                $likers = array_slice($likers, 0, (int) $validated['limit']);
+                Log::info('Post likers limited', [
+                    'before_limit' => $likersBeforeLimit,
+                    'after_limit' => count($likers),
+                    'limit_value' => (int) $validated['limit'],
+                ]);
+            }
+
+            // Filter out company entries (they don't have profileLink) and transform valid profiles
+            $normalized = [];
+            $skippedCompanies = 0;
+            $skippedNoProfileLink = 0;
+            $transformationErrors = 0;
+            
+            foreach ($likers as $index => $profile) {
+                try {
+                    // Skip company entries (they have companyUrl but no profileLink)
+                    if (isset($profile['companyUrl']) && !isset($profile['profileLink'])) {
+                        $skippedCompanies++;
+                        Log::debug('Skipping company entry', [
+                            'index' => $index,
+                            'company_name' => $profile['companyName'] ?? 'unknown',
+                            'company_url' => $profile['companyUrl'] ?? null,
+                        ]);
+                        continue;
+                    }
+                    // Skip entries without profileLink (can't extract publicIdentifier)
+                    if (!isset($profile['profileLink']) && !isset($profile['profile_link'])) {
+                        $skippedNoProfileLink++;
+                        Log::debug('Skipping entry without profileLink', [
+                            'index' => $index,
+                            'name' => $profile['name'] ?? 'unknown',
+                            'has_companyUrl' => isset($profile['companyUrl']),
+                        ]);
+                        continue;
+                    }
+                    $transformed = $this->transformPhantomProfile($profile);
+                    if (empty($transformed['publicIdentifier']) && empty($transformed['connectionId'])) {
+                        Log::warning('Transformed profile missing identifiers', [
+                            'index' => $index,
+                            'name' => $transformed['fullName'] ?? 'unknown',
+                            'profile_link' => $profile['profileLink'] ?? null,
+                        ]);
+                    }
+                    $normalized[] = $transformed;
+                } catch (\Throwable $e) {
+                    $transformationErrors++;
+                    Log::error('Error transforming profile', [
+                        'index' => $index,
+                        'error' => $e->getMessage(),
+                        'profile_data' => array_keys($profile),
+                    ]);
+                }
+            }
+
+            Log::info('Post likers filtered and transformed', [
+                'total_from_phantom' => $likersBeforeLimit,
+                'after_limit' => count($likers),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'transformation_errors' => $transformationErrors,
+                'valid_profiles' => count($normalized),
+            ]);
+
+            Log::info('Returning post likers to frontend', [
+                'profiles_count' => count($normalized),
+                'total_from_phantom' => $likersBeforeLimit,
+                'after_limit' => count($likers),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'transformation_errors' => $transformationErrors,
+                'requested_limit' => $validated['limit'] ?? 'not set',
+            ]);
+
+            // Log sample of first few profiles for debugging
+            if (count($normalized) > 0) {
+                Log::debug('Sample profiles being returned', [
+                    'sample_count' => min(3, count($normalized)),
+                    'samples' => array_slice($normalized, 0, 3),
+                ]);
+            }
+
+            return $this->successResponse([
+                'profiles' => $normalized,
+                'total' => count($normalized),
+                'total_from_phantom' => $likersBeforeLimit,
+                'after_limit' => count($likers),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'post_url' => $validated['post_url'],
+                'fetched_at' => now()->toISOString()
+            ], 'Fetched post likers successfully');
+        } catch (\Throwable $th) {
+            Log::error('Chrome API: Failed to fetch post likers', [
+                'user_id' => $user->id,
+                'post_url' => $validated['post_url'],
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+
+            return $this->errorResponse('Failed to fetch post likers: ' . $th->getMessage(), 500);
+        }
+    }
+
     public function storeSnLeads(Request $request)
     {
         try {
@@ -798,6 +971,95 @@ class ChromeApiController extends Controller
         if (str_contains($url, '/'))
             $url = str_replace('/', '', $url);
         return $url;
+    }
+
+    protected function transformPhantomProfile(array $profile): array
+    {
+        // Handle PhantomBuster's field names (profileLink, name, occupation)
+        $profileLink = $profile['profileLink'] ?? $profile['profile_link'] ?? null;
+        $name = $profile['name'] ?? null;
+        
+        // Extract publicIdentifier from profileLink
+        $publicIdentifier = $profile['publicIdentifier']
+            ?? $profile['public_identifier']
+            ?? null;
+        
+        if (!$publicIdentifier && $profileLink) {
+            // Extract from profileLink: https://www.linkedin.com/in/ACoAAAnfhacBqHAzP0jCagk7MHo-qefJ4d3zbUw
+            // or https://www.linkedin.com/in/username/
+            if (preg_match('#/in/([^/?]+)#', $profileLink, $matches)) {
+                $publicIdentifier = $matches[1];
+            }
+        }
+        
+        // Split name into firstName and lastName
+        $firstName = $profile['firstName'] ?? $profile['first_name'] ?? null;
+        $lastName = $profile['lastName'] ?? $profile['last_name'] ?? null;
+        
+        if (!$firstName || !$lastName) {
+            if ($name) {
+                $nameParts = explode(' ', trim($name), 2);
+                $firstName = $firstName ?? $nameParts[0] ?? null;
+                $lastName = $lastName ?? ($nameParts[1] ?? null);
+            }
+        }
+        
+        $fullName = $profile['fullName']
+            ?? $name
+            ?? trim(trim($firstName ?? '') . ' ' . trim($lastName ?? ''));
+
+        $profileUrl = $profile['profileUrl']
+            ?? $profile['profile_url']
+            ?? $profileLink
+            ?? ($publicIdentifier ? 'https://www.linkedin.com/in/' . $publicIdentifier . '/' : null);
+
+        $connectionId = $profile['connectionId']
+            ?? $profile['connection_id']
+            ?? $publicIdentifier
+            ?? $profileUrl
+            ?? uniqid('lnk_', true);
+
+        // PhantomBuster doesn't provide connectionDegree for post likers
+        // Set to null so filtering logic knows it's unknown
+        $connectionDegree = $profile['connectionDegree']
+            ?? $profile['connection_degree']
+            ?? $profile['degree']
+            ?? null;
+
+        return [
+            'firstName' => $firstName,
+            'lastName' => $lastName,
+            'fullName' => $fullName,
+            'headline' => $profile['headline']
+                ?? $profile['jobTitle']
+                ?? $profile['occupation']
+                ?? null,
+            'location' => $profile['location']
+                ?? $profile['locationName']
+                ?? $profile['city']
+                ?? null,
+            'publicIdentifier' => $publicIdentifier,
+            'profileUrl' => $profileUrl,
+            'connectionId' => $connectionId,
+            'memberUrn' => $profile['memberUrn']
+                ?? $profile['member_urn']
+                ?? $profile['objectUrn']
+                ?? null,
+            'trackingId' => $profile['trackingId']
+                ?? $profile['tracking_id']
+                ?? null,
+            'connectionDegree' => $connectionDegree,
+            'connectionDegreeValue' => $connectionDegree
+                ? (int) filter_var($connectionDegree, FILTER_SANITIZE_NUMBER_INT)
+                : null,
+            // Store the raw degree string for proper mapping (e.g., "1st", "2nd", "3rd")
+            'degreeRaw' => $connectionDegree,
+            'pictureUrl' => $profile['pictureUrl'] ?? $profile['picture_url'] ?? null,
+            'companyName' => $profile['companyName']
+                ?? $profile['company_name']
+                ?? $profile['company']
+                ?? null,
+        ];
     }
 
 

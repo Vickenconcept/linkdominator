@@ -90,6 +90,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::delete('autoresponse/delete/{id}', 'deleteAutoResponse');
     Route::get('lang', 'langFilter');
     Route::post('conf', 'LinkedInConfig');
+    Route::post('audience/post-likers', 'fetchPostLikersFromPhantom');
     Route::post('snleads/store', 'storeSnLeads');
     Route::get('snleads/lists', 'getSnLeadList');
     Route::post('snleads/list/store', 'storeSnLeadList');

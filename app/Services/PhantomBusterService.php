@@ -458,6 +458,35 @@ class PhantomBusterService
     }
 
     /**
+     * Fetch likers for a single LinkedIn post using PhantomBuster.
+     *
+     * @param string $postUrl Full LinkedIn post URL
+     * @param int $maxWaitSeconds
+     * @param int $pollIntervalSeconds
+     * @param string|null $sessionCookie Optional override for li_at
+     * @param string|null $userAgent Optional override for user agent
+     * @return array
+     * @throws \Exception
+     */
+    public function fetchPostLikersForUrl(
+        string $postUrl,
+        int $maxWaitSeconds = 300,
+        int $pollIntervalSeconds = 10,
+        ?string $sessionCookie = null,
+        ?string $userAgent = null
+    ): array {
+        $this->sessionCookieOverride = $sessionCookie;
+        $this->userAgentOverride = $userAgent;
+
+        try {
+            return $this->fetchPostLikers($postUrl, $maxWaitSeconds, $pollIntervalSeconds);
+        } finally {
+            $this->sessionCookieOverride = null;
+            $this->userAgentOverride = null;
+        }
+    }
+
+    /**
      * Extract post URLs from RapidAPI posts array
      *
      * @param array $posts Posts from RapidAPI
@@ -558,6 +587,18 @@ class PhantomBusterService
             $messages = $output['data']['messages'] ?? [];
             $progress = $output['data']['progress'] ?? null;
             
+            // Log full output structure on first attempt or when finished
+            if ($attempts === 1 || $containerStatus === 'not running' || $containerStatus === 'finished') {
+                Log::info('PhantomBuster: Full output structure', [
+                    'attempt' => $attempts,
+                    'full_output' => $output,
+                    'data_keys' => isset($output['data']) ? array_keys($output['data']) : [],
+                    'output_keys' => isset($output['output']) && is_array($output['output']) ? array_keys($output['output']) : 'not_array',
+                    'data_output_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : 'not_set',
+                    'data_output_sample' => isset($output['data']['output']) ? (is_array($output['data']['output']) ? array_slice($output['data']['output'], 0, 2) : substr((string)$output['data']['output'], 0, 500)) : null
+                ]);
+            }
+            
             Log::info('PhantomBuster: Post likers status check', [
                 'attempt' => $attempts,
                 'container_status' => $containerStatus,
@@ -565,7 +606,9 @@ class PhantomBusterService
                 'likers_count' => is_array($likers) ? count($likers) : 0,
                 'progress' => $progress,
                 'has_resultObject' => isset($output['data']['resultObject']),
-                'messages' => $messages
+                'messages' => $messages,
+                'output_array_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : 'not_set',
+                'output_array_count' => isset($output['data']['output']) && is_array($output['data']['output']) ? count($output['data']['output']) : 'not_array'
             ]);
             
             if (is_array($likers) && !empty($likers)) {
@@ -575,6 +618,38 @@ class PhantomBusterService
             
             // Check if phantom is finished (even if no data yet)
             if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                // Check for error messages first
+                $errorDetected = false;
+                $errorMessage = null;
+                
+                // Check messages array for errors
+                if (!empty($messages) && is_array($messages)) {
+                    $messagesText = is_array($messages) ? implode(' | ', array_filter($messages)) : (string)$messages;
+                    Log::info('PhantomBuster: Checking messages for errors', [
+                        'messages' => $messages,
+                        'messages_text' => $messagesText
+                    ]);
+                    
+                    // Check for common error patterns
+                    $errorPatterns = [
+                        'export limit' => 'Export limit reached - upgrade your PhantomBuster plan',
+                        'slot' => 'No available slots - wait or upgrade plan',
+                        'limit reached' => 'PhantomBuster limit reached',
+                        'couldn\'t load' => 'Could not load post - post may be private or deleted',
+                        'session' => 'LinkedIn session expired - refresh your li_at cookie',
+                        'unauthorized' => 'LinkedIn authorization failed',
+                        'error' => 'PhantomBuster error detected'
+                    ];
+                    
+                    foreach ($errorPatterns as $pattern => $description) {
+                        if (stripos($messagesText, $pattern) !== false) {
+                            $errorDetected = true;
+                            $errorMessage = $description . " (found: '$pattern')";
+                            break;
+                        }
+                    }
+                }
+                
                 // One final check for data in resultObject
                 if (isset($output['data']['resultObject'])) {
                     $resultObject = $output['data']['resultObject'];
@@ -584,7 +659,7 @@ class PhantomBusterService
                         'is_string' => is_string($resultObject),
                         'is_empty' => empty($resultObject),
                         'count' => is_array($resultObject) ? count($resultObject) : (is_string($resultObject) ? strlen($resultObject) : 'N/A'),
-                        'sample' => is_array($resultObject) && !empty($resultObject) ? array_slice($resultObject, 0, 1) : (is_string($resultObject) ? substr($resultObject, 0, 200) : $resultObject)
+                        'sample' => is_array($resultObject) && !empty($resultObject) ? array_slice($resultObject, 0, 1) : (is_string($resultObject) ? substr($resultObject, 0, 500) : $resultObject)
                     ]);
                     
                     // If resultObject is a JSON string, try to decode it
@@ -593,9 +668,36 @@ class PhantomBusterService
                         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                             // Check if it's an error message
                             if (isset($decoded[0]['error'])) {
-                                Log::warning('PhantomBuster: Phantom returned error in resultObject', [
-                                    'error' => $decoded[0]['error'],
-                                    'post_url' => $decoded[0]['postUrl'] ?? $postUrl
+                                $errorDetected = true;
+                                $errorText = $decoded[0]['error'];
+                                
+                                // Check if this is likely a session expiration issue
+                                $sessionExpiredPatterns = [
+                                    'cannot be displayed',
+                                    'not available',
+                                    'access denied',
+                                    'unauthorized',
+                                    'session expired'
+                                ];
+                                
+                                $isSessionIssue = false;
+                                foreach ($sessionExpiredPatterns as $pattern) {
+                                    if (stripos($errorText, $pattern) !== false) {
+                                        $isSessionIssue = true;
+                                        $errorMessage = "LinkedIn session expired or invalid - refresh your li_at cookie. Error: " . $errorText;
+                                        break;
+                                    }
+                                }
+                                
+                                if (!$isSessionIssue) {
+                                    $errorMessage = "PhantomBuster error: " . $errorText;
+                                }
+                                
+                                Log::error('PhantomBuster: Phantom returned error in resultObject', [
+                                    'error' => $errorText,
+                                    'post_url' => $decoded[0]['postUrl'] ?? $postUrl,
+                                    'is_session_issue' => $isSessionIssue,
+                                    'full_result' => $decoded
                                 ]);
                                 break; // Don't return error data
                             }
@@ -603,14 +705,59 @@ class PhantomBusterService
                             Log::info('PhantomBuster: Found likers in resultObject (decoded from JSON string)', ['count' => count($decoded)]);
                             return $decoded;
                         }
+                        
+                        // Check if resultObject string contains error keywords
+                        $errorPatterns = [
+                            'export limit' => 'Export limit reached',
+                            'couldn\'t load' => 'Could not load post',
+                            'error' => 'Error in result'
+                        ];
+                        foreach ($errorPatterns as $pattern => $description) {
+                            if (stripos($resultObject, $pattern) !== false) {
+                                $errorDetected = true;
+                                $errorMessage = $description . " (found in resultObject)";
+                                Log::error('PhantomBuster: Error detected in resultObject string', [
+                                    'error_pattern' => $pattern,
+                                    'resultObject_sample' => substr($resultObject, 0, 500)
+                                ]);
+                                break 2;
+                            }
+                        }
                     }
                     
                     if (is_array($resultObject) && !empty($resultObject)) {
                         // Check if it's an error message
                         if (isset($resultObject[0]['error'])) {
-                            Log::warning('PhantomBuster: Phantom returned error in resultObject', [
-                                'error' => $resultObject[0]['error'],
-                                'post_url' => $resultObject[0]['postUrl'] ?? $postUrl
+                            $errorDetected = true;
+                            $errorText = $resultObject[0]['error'];
+                            
+                            // Check if this is likely a session expiration issue
+                            $sessionExpiredPatterns = [
+                                'cannot be displayed',
+                                'not available',
+                                'access denied',
+                                'unauthorized',
+                                'session expired'
+                            ];
+                            
+                            $isSessionIssue = false;
+                            foreach ($sessionExpiredPatterns as $pattern) {
+                                if (stripos($errorText, $pattern) !== false) {
+                                    $isSessionIssue = true;
+                                    $errorMessage = "LinkedIn session expired or invalid - refresh your li_at cookie. Error: " . $errorText;
+                                    break;
+                                }
+                            }
+                            
+                            if (!$isSessionIssue) {
+                                $errorMessage = "PhantomBuster error: " . $errorText;
+                            }
+                            
+                            Log::error('PhantomBuster: Phantom returned error in resultObject', [
+                                'error' => $errorText,
+                                'post_url' => $resultObject[0]['postUrl'] ?? $postUrl,
+                                'is_session_issue' => $isSessionIssue,
+                                'full_result' => $resultObject
                             ]);
                             break; // Don't return error data
                         }
@@ -619,13 +766,78 @@ class PhantomBusterService
                     }
                 }
                 
-                Log::warning('PhantomBuster: Phantom finished but no likers found', [
-                    'container_status' => $containerStatus,
-                    'messages' => $messages,
-                    'output_keys' => isset($output['data']) ? array_keys($output['data']) : [],
-                    'has_resultObject' => isset($output['data']['resultObject']),
-                    'resultObject_type' => isset($output['data']['resultObject']) ? gettype($output['data']['resultObject']) : null
-                ]);
+                // Check the output array itself for errors or data
+                $outputArray = $output['data']['output'] ?? null;
+                if ($outputArray !== null) {
+                    if (is_string($outputArray)) {
+                        // Check for specific PhantomBuster messages in the log string
+                        if (stripos($outputArray, 'Every post is scraped') !== false || stripos($outputArray, 'input is empty') !== false) {
+                            $errorDetected = true;
+                            $errorMessage = "Post already scraped or input empty - PhantomBuster may have cached this post. Try a different post URL or clear PhantomBuster cache.";
+                            Log::warning('PhantomBuster: Post already scraped message detected', [
+                                'output_sample' => substr($outputArray, 0, 500),
+                                'post_url' => $postUrl
+                            ]);
+                        } elseif (stripos($outputArray, 'export limit') !== false || stripos($outputArray, 'limit reached') !== false) {
+                            $errorDetected = true;
+                            $errorMessage = "Export limit reached - found in output string";
+                        } else {
+                            // Try to decode as JSON
+                            $decodedOutput = json_decode($outputArray, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedOutput)) {
+                                if (isset($decodedOutput[0]['error'])) {
+                                    $errorDetected = true;
+                                    $errorMessage = "PhantomBuster output error: " . $decodedOutput[0]['error'];
+                                } elseif (!empty($decodedOutput)) {
+                                    // It's actually data, not an error!
+                                    Log::info('PhantomBuster: Found likers in output array (decoded from string)', ['count' => count($decodedOutput)]);
+                                    return $decodedOutput;
+                                }
+                            }
+                        }
+                    } elseif (is_array($outputArray) && !empty($outputArray)) {
+                        // Check if first item is an error
+                        if (isset($outputArray[0]['error'])) {
+                            $errorDetected = true;
+                            $errorMessage = "PhantomBuster output error: " . $outputArray[0]['error'];
+                        } else {
+                            // It's actual data!
+                            Log::info('PhantomBuster: Found likers in output array', ['count' => count($outputArray)]);
+                            return $outputArray;
+                        }
+                    }
+                }
+                
+                // Log detailed error information
+                if ($errorDetected) {
+                    Log::error('PhantomBuster: Phantom finished with error - no likers returned', [
+                        'error_message' => $errorMessage,
+                        'container_status' => $containerStatus,
+                        'agent_status' => $agentStatus,
+                        'messages' => $messages,
+                        'post_url' => $postUrl,
+                        'output_keys' => isset($output['data']) ? array_keys($output['data']) : [],
+                        'has_resultObject' => isset($output['data']['resultObject']),
+                        'resultObject_type' => isset($output['data']['resultObject']) ? gettype($output['data']['resultObject']) : null,
+                        'output_array_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : null,
+                        'output_array_sample' => isset($output['data']['output']) ? (is_string($output['data']['output']) ? substr($output['data']['output'], 0, 500) : (is_array($output['data']['output']) ? array_slice($output['data']['output'], 0, 2) : $output['data']['output'])) : null,
+                        'full_output_sample' => isset($output['data']) ? array_slice($output['data'], 0, 5) : null
+                    ]);
+                } else {
+                    Log::warning('PhantomBuster: Phantom finished but no likers found (no error detected)', [
+                        'container_status' => $containerStatus,
+                        'agent_status' => $agentStatus,
+                        'messages' => $messages,
+                        'post_url' => $postUrl,
+                        'output_keys' => isset($output['data']) ? array_keys($output['data']) : [],
+                        'has_resultObject' => isset($output['data']['resultObject']),
+                        'resultObject_type' => isset($output['data']['resultObject']) ? gettype($output['data']['resultObject']) : null,
+                        'output_array_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : null,
+                        'output_array_sample' => isset($output['data']['output']) ? (is_string($output['data']['output']) ? substr($output['data']['output'], 0, 500) : (is_array($output['data']['output']) ? array_slice($output['data']['output'], 0, 2) : $output['data']['output'])) : null,
+                        'full_output_sample' => isset($output['data']) ? array_slice($output['data'], 0, 5) : null,
+                        'note' => 'Phantom finished immediately - likely export limit reached (you have 1055 exports). Check PhantomBuster dashboard to confirm.'
+                    ]);
+                }
                 break;
             }
             
@@ -638,9 +850,17 @@ class PhantomBusterService
             }
         }
 
-        Log::warning('PhantomBuster: Timeout or no data for post likers', [
+        $errorNote = 'Phantom may have hit export limits, slot limits, or session issues. Check PhantomBuster dashboard for details.';
+        if (isset($errorMessage) && stripos($errorMessage, 'session expired') !== false) {
+            $errorNote = 'LinkedIn session cookie (li_at) appears to be expired. Please refresh it from the Social Accounts page.';
+        }
+        
+        Log::error('PhantomBuster: Timeout or no data for post likers', [
             'post_url' => $postUrl,
-            'waited_seconds' => time() - $startTime
+            'waited_seconds' => time() - $startTime,
+            'max_wait_seconds' => $maxWaitSeconds,
+            'note' => $errorNote,
+            'error_message' => $errorMessage ?? null
         ]);
         return [];
     }
