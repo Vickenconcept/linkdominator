@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class PhantomBusterService
 {
@@ -50,11 +51,36 @@ class PhantomBusterService
         ])->post($url, $payload);
 
         if ($response->failed()) {
+            $status = $response->status();
             $errorBody = $response->json();
-            $errorMessage = $errorBody['error'] ?? $response->body();
+            $errorMessage = is_array($errorBody) ? ($errorBody['error'] ?? json_encode($errorBody)) : $response->body();
+            
+            // Handle rate limiting (429) - parallel execution limit
+            if ($status === 429) {
+                $detailedError = is_array($errorBody) && isset($errorBody['details']['detailedErrorSlug']) 
+                    ? $errorBody['details']['detailedErrorSlug'] 
+                    : null;
+                
+                $helpfulError = "PhantomBuster rate limit reached (429). ";
+                if ($detailedError === 'maxParallelismReached') {
+                    $helpfulError .= "Your account allows only 1 parallel execution. Wait for running phantoms to finish, or upgrade your plan for more parallel executions.";
+                } else {
+                    $helpfulError .= "Too many requests. Please wait before retrying.";
+                }
+                $helpfulError .= " Original error: {$errorMessage}";
+                
+                Log::error("PhantomBuster launch failed - Rate limit", [
+                    'status' => $status,
+                    'body' => $errorBody,
+                    'phantom_id' => $phantomId,
+                    'detailed_error' => $detailedError
+                ]);
+                
+                throw new \Exception($helpfulError);
+            }
             
             // Provide helpful error message for "Agent not found"
-            if ($response->status() === 400 && str_contains(strtolower($errorMessage), 'agent not found')) {
+            if ($status === 400 && str_contains(strtolower($errorMessage), 'agent not found')) {
                 $helpfulError = "Phantom ID '{$phantomId}' not found in your workspace.\n\n";
                 $helpfulError .= "This usually means:\n";
                 $helpfulError .= "1. The phantom needs to be added to your workspace first\n";
@@ -64,7 +90,7 @@ class PhantomBusterService
                 $helpfulError .= "Original error: {$errorMessage}";
                 
                 Log::error("PhantomBuster launch failed - Agent not found", [
-                    'status' => $response->status(),
+                    'status' => $status,
                     'body' => $errorBody,
                     'phantom_id' => $phantomId,
                     'helpful_message' => $helpfulError
@@ -74,7 +100,7 @@ class PhantomBusterService
             }
             
             Log::error("PhantomBuster launch failed:", [
-                'status' => $response->status(),
+                'status' => $status,
                 'body' => $errorBody,
                 'phantom_id' => $phantomId
             ]);
@@ -90,29 +116,41 @@ class PhantomBusterService
         ]);
         
         // Try different possible field names for container ID
-        $containerId = $data['containerId'] 
-            ?? $data['container_id'] 
-            ?? $data['id'] 
-            ?? $data['outputId']
-            ?? null;
-        
-        Log::info('PhantomBuster: Phantom launched successfully', [
-            'phantom_id' => $phantomId,
-            'container_id' => $containerId,
-            'response_keys' => array_keys($data)
-        ]);
-        
-        // If containerId is in a nested structure, try to extract it
-        if (!$containerId && isset($data['data'])) {
+        // First check nested structure (most common format)
+        $containerId = null;
+        if (isset($data['data']) && is_array($data['data'])) {
             $containerId = $data['data']['containerId'] 
                 ?? $data['data']['container_id'] 
                 ?? $data['data']['id'] 
                 ?? null;
         }
         
+        // Fallback to top-level keys
+        if (!$containerId) {
+            $containerId = $data['containerId'] 
+                ?? $data['container_id'] 
+                ?? $data['id'] 
+                ?? $data['outputId']
+                ?? null;
+        }
+        
+        Log::info('PhantomBuster: Phantom launched successfully', [
+            'phantom_id' => $phantomId,
+            'container_id' => $containerId,
+            'response_keys' => array_keys($data),
+            'has_data_key' => isset($data['data']),
+            'data_keys' => isset($data['data']) && is_array($data['data']) ? array_keys($data['data']) : []
+        ]);
+        
         // Add containerId to response if we found it
         if ($containerId) {
             $data['containerId'] = $containerId;
+        } else {
+            Log::error('PhantomBuster: Could not extract containerId from launch response', [
+                'phantom_id' => $phantomId,
+                'full_response' => $data
+            ]);
+            throw new \Exception("Failed to extract container ID from PhantomBuster launch response");
         }
 
         return $data;
@@ -141,12 +179,23 @@ class PhantomBusterService
         ]);
 
         if ($response->failed()) {
+            $status = $response->status();
+            $body = $response->body();
+            
             Log::error("PhantomBuster output fetch failed:", [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $status,
+                'body' => $body,
                 'phantom_id' => $phantomId,
                 'container_id' => $containerId
             ]);
+            
+            // Handle 404 gracefully - container may not be ready yet or may have expired
+            if ($status === 404) {
+                $errorData = json_decode($body, true);
+                $errorMessage = $errorData['error'] ?? 'Container not found';
+                throw new \Exception("Container not found (404): {$errorMessage}. Container may not be ready yet or may have expired.");
+            }
+            
             $response->throw();
         }
 
@@ -325,13 +374,174 @@ class PhantomBusterService
      * @param int $pollIntervalSeconds Seconds between status checks
      * @return array Array of engager profiles
      */
+    /**
+     * Get globally scraped post URLs for a company (shared across all users)
+     * Uses cache + database aggregation from all audiences for this company
+     */
+    private function getGlobalScrapedPosts(string $companyUrl): array
+    {
+        $normalizedUrl = $this->normalizeCompanyUrl($companyUrl);
+        $cacheKey = "scraped_posts:{$normalizedUrl}";
+        
+        // Check cache first (fast, expires after 30 days)
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null && is_array($cached)) {
+            return $cached;
+        }
+        
+        // If not in cache, check all audiences for this company URL
+        $scrapedPosts = $this->getScrapedPostsFromAllAudiences($normalizedUrl);
+        
+        // Cache for 30 days
+        Cache::put($cacheKey, $scrapedPosts, now()->addDays(30));
+        
+        return $scrapedPosts;
+    }
+    
+    /**
+     * Add post URLs to global scraped list (shared across all users)
+     */
+    private function addToGlobalScrapedPosts(string $companyUrl, array $postUrls): void
+    {
+        if (empty($postUrls)) {
+            return;
+        }
+        
+        $normalizedUrl = $this->normalizeCompanyUrl($companyUrl);
+        $cacheKey = "scraped_posts:{$normalizedUrl}";
+        
+        // Get existing scraped posts
+        $existing = $this->getGlobalScrapedPosts($companyUrl);
+        
+        // Merge and deduplicate
+        $allScraped = array_unique(array_merge($existing, $postUrls));
+        
+        // Update cache (30 days)
+        Cache::put($cacheKey, $allScraped, now()->addDays(30));
+        
+        // Also update all audiences for this company URL (for persistence)
+        $this->updateAllAudiencesForCompany($normalizedUrl, $allScraped);
+        
+        Log::info('PhantomBuster: Updated global scraped posts', [
+            'company_url' => $normalizedUrl,
+            'new_posts' => count($postUrls),
+            'total_scraped' => count($allScraped)
+        ]);
+    }
+    
+    /**
+     * Normalize company URL for consistent caching
+     */
+    private function normalizeCompanyUrl(string $url): string
+    {
+        $parsed = parse_url($url);
+        $scheme = $parsed['scheme'] ?? 'https';
+        $host = $parsed['host'] ?? '';
+        $path = rtrim($parsed['path'] ?? '', '/');
+        
+        return strtolower("{$scheme}://{$host}{$path}");
+    }
+    
+    /**
+     * Get scraped posts from all audiences for a company URL
+     */
+    private function getScrapedPostsFromAllAudiences(string $normalizedUrl): array
+    {
+        $allScraped = [];
+        
+        // Query all audiences for this company URL
+        $audiences = \App\Models\Audience::where('source', 'linkedin_company_followers')
+            ->where('tag', 'competitor_active_followers')
+            ->whereNotNull('source_meta')
+            ->get();
+        
+        foreach ($audiences as $audience) {
+            $meta = json_decode($audience->source_meta, true);
+            if (!is_array($meta)) {
+                continue;
+            }
+            
+            // Check if this audience is for the same company
+            $audienceCompanyUrl = $meta['company_url'] ?? null;
+            if ($audienceCompanyUrl && $this->normalizeCompanyUrl($audienceCompanyUrl) === $normalizedUrl) {
+                $scraped = $meta['scraped_post_urls'] ?? [];
+                if (is_array($scraped)) {
+                    $allScraped = array_merge($allScraped, $scraped);
+                }
+            }
+        }
+        
+        return array_unique($allScraped);
+    }
+    
+    /**
+     * Update all audiences for a company URL with scraped posts
+     */
+    private function updateAllAudiencesForCompany(string $normalizedUrl, array $scrapedPosts): void
+    {
+        $audiences = \App\Models\Audience::where('source', 'linkedin_company_followers')
+            ->where('tag', 'competitor_active_followers')
+            ->whereNotNull('source_meta')
+            ->get();
+        
+        foreach ($audiences as $audience) {
+            $meta = json_decode($audience->source_meta, true) ?? [];
+            $audienceCompanyUrl = $meta['company_url'] ?? null;
+            
+            // Update audiences for this company
+            if ($audienceCompanyUrl && $this->normalizeCompanyUrl($audienceCompanyUrl) === $normalizedUrl) {
+                $existingScraped = $meta['scraped_post_urls'] ?? [];
+                $allScraped = array_unique(array_merge($existingScraped, $scrapedPosts));
+                $meta['scraped_post_urls'] = $allScraped;
+                
+                $audience->source_meta = json_encode($meta);
+                $audience->save();
+            }
+        }
+    }
+    
+    /**
+     * Clear global scraped posts for a company URL (admin/reset function)
+     */
+    public function clearGlobalScrapedPosts(string $companyUrl): void
+    {
+        $normalizedUrl = $this->normalizeCompanyUrl($companyUrl);
+        $cacheKey = "scraped_posts:{$normalizedUrl}";
+        
+        // Clear cache
+        Cache::forget($cacheKey);
+        
+        // Clear from all audiences for this company
+        $audiences = \App\Models\Audience::where('source', 'linkedin_company_followers')
+            ->where('tag', 'competitor_active_followers')
+            ->whereNotNull('source_meta')
+            ->get();
+        
+        foreach ($audiences as $audience) {
+            $meta = json_decode($audience->source_meta, true) ?? [];
+            $audienceCompanyUrl = $meta['company_url'] ?? null;
+            
+            if ($audienceCompanyUrl && $this->normalizeCompanyUrl($audienceCompanyUrl) === $normalizedUrl) {
+                unset($meta['scraped_post_urls']);
+                $audience->source_meta = json_encode($meta);
+                $audience->save();
+            }
+        }
+        
+        Log::info('PhantomBuster: Cleared global scraped posts', [
+            'company_url' => $normalizedUrl
+        ]);
+    }
+
     public function fetchCompanyPostEngagers(
         string $companyUrl,
         ?string $phantomId = null,
         int $maxWaitSeconds = 600,
         int $pollIntervalSeconds = 15,
         ?string $sessionCookie = null,
-        ?string $userAgent = null
+        ?string $userAgent = null,
+        array $alreadyScrapedPostUrls = [],
+        $audience = null
     ): array {
         $this->sessionCookieOverride = $sessionCookie;
         $this->userAgentOverride = $userAgent;
@@ -340,9 +550,10 @@ class PhantomBusterService
                 'company_url' => $companyUrl
             ]);
 
-            // Step 1: Get company posts using RapidAPI
+            // Step 1: Get company posts using RapidAPI - sort by "top" for highest engagement
             $rapidApiService = new \App\Services\RapidApiService();
-            $posts = $rapidApiService->fetch_company_posts($companyUrl, 1);
+            // Try "top" first for highest engagement posts, fallback to "recent" if not supported
+            $posts = $rapidApiService->fetch_company_posts($companyUrl, 1, 'top');
             
             if (empty($posts) || !isset($posts['data']) || empty($posts['data'])) {
                 Log::warning('PhantomBuster: No posts found for company', ['company_url' => $companyUrl]);
@@ -351,88 +562,270 @@ class PhantomBusterService
 
             Log::info('PhantomBuster: Found company posts from RapidAPI', [
                 'company_url' => $companyUrl,
-                'posts_count' => count($posts['data'])
+                'posts_count' => count($posts['data']),
+                'sort_by' => 'top'
             ]);
 
-            // Step 2: Extract post URLs from RapidAPI posts
-            $postUrls = $this->extractPostUrlsFromRapidApi($posts['data']);
+            // Step 2: Sort posts by engagement (likes + comments) before extracting URLs
+            // This ensures we process the most engaging posts first
+            $sortedPosts = $this->sortPostsByEngagement($posts['data']);
+            
+            // Extract post URLs from sorted posts
+            $allPostUrls = $this->extractPostUrlsFromRapidApi($sortedPosts);
+            
+            if (empty($allPostUrls)) {
+                Log::warning('PhantomBuster: No post URLs found in posts', ['company_url' => $companyUrl]);
+                return ['engagers' => [], 'newly_scraped_posts' => []];
+            }
+            
+            // Filter out ONLY posts this specific user/audience has already scraped
+            // Each user tracks their own scraped posts independently
+            // This allows multiple users to scrape the same posts if PhantomBuster allows it
+            $postUrls = array_values(array_filter($allPostUrls, function($url) use ($alreadyScrapedPostUrls) {
+                return !in_array($url, $alreadyScrapedPostUrls);
+            }));
+            
+            Log::info('PhantomBuster: Filtered posts by user scraped status', [
+                'total_posts_available' => count($allPostUrls),
+                'user_scraped' => count($alreadyScrapedPostUrls),
+                'posts_to_process' => count($postUrls),
+                'skipped_posts' => count($allPostUrls) - count($postUrls),
+                'note' => 'Each user tracks their own scraped posts. Multiple users can attempt the same posts.'
+            ]);
             
             if (empty($postUrls)) {
-                Log::warning('PhantomBuster: No post URLs found in posts', ['company_url' => $companyUrl]);
-                return [];
-            }
-
-            $postLimit = max(1, (int) config('services.phantombuster.company_posts_limit', 5));
-            if (count($postUrls) > $postLimit) {
-                $postUrls = array_slice($postUrls, 0, $postLimit);
-                Log::info('PhantomBuster: Limiting number of posts for this run', [
-                    'limit' => $postLimit,
-                    'post_urls_count' => count($postUrls)
+                Log::warning('PhantomBuster: All posts have already been scraped', [
+                    'company_url' => $companyUrl,
+                    'total_posts' => count($allPostUrls),
+                    'already_scraped' => count($alreadyScrapedPostUrls)
                 ]);
+                return ['engagers' => [], 'newly_scraped_posts' => []];
             }
 
-            Log::info('PhantomBuster: Extracted post URLs', [
-                'post_urls_count' => count($postUrls),
-                'sample_urls' => array_slice($postUrls, 0, 3)
+            // Step 3: Process posts dynamically - skip already-scraped ones and continue
+            // Keep processing until we find unscraped posts or hit max attempts
+            $maxAttempts = (int) config('services.phantombuster.company_posts_limit', 15);
+            $maxSuccessfulPosts = 5; // Target: try to get data from at least 5 posts
+            $minEngagersForEarlyStop = (int) config('services.phantombuster.min_engagers_for_early_stop', 1000);
+            
+            Log::info('PhantomBuster: Starting dynamic post processing', [
+                'total_posts_available' => count($postUrls),
+                'max_attempts' => $maxAttempts,
+                'target_successful_posts' => $maxSuccessfulPosts,
+                'note' => 'Will skip already-scraped posts and continue until finding unscraped ones.'
             ]);
 
-            // Step 3: For each post, get likers and commenters
             $allEngagers = [];
             $processedPosts = 0;
+            $skippedPosts = 0;
+            $successfulPosts = 0;
+            $postIndex = 0;
+            $newlyScrapedPostUrls = []; // Track newly scraped posts to return
             
-            foreach ($postUrls as $postUrl) {
+            // Process posts until we find enough unscraped ones or hit max attempts
+            while ($postIndex < count($postUrls) && $processedPosts < $maxAttempts) {
+                $postUrl = $postUrls[$postIndex];
+                $postIndex++;
                 $processedPosts++;
                 Log::info('PhantomBuster: Processing post', [
                     'post_number' => $processedPosts,
-                    'total_posts' => count($postUrls),
+                    'post_index' => $postIndex,
+                    'total_available' => count($postUrls),
+                    'successful_so_far' => $successfulPosts,
+                    'skipped_so_far' => $skippedPosts,
                     'post_url' => $postUrl
                 ]);
+
+                $postEngagers = 0;
+                $likersFailed = false;
+                $commentersFailed = false;
 
                 try {
                     // Get likers for this post
                     $likers = $this->fetchPostLikers($postUrl, $maxWaitSeconds, $pollIntervalSeconds);
+                    
+                    // Ensure we only merge arrays (filter out any non-array items)
+                    $validLikers = array_filter($likers, function($liker) {
+                        return is_array($liker);
+                    });
+                    
+                    $postEngagers += count($validLikers);
                     Log::info('PhantomBuster: Got likers for post', [
                         'post_url' => $postUrl,
-                        'likers_count' => count($likers)
+                        'likers_count' => count($validLikers),
+                        'filtered_out' => count($likers) - count($validLikers)
                     ]);
-                    $allEngagers = array_merge($allEngagers, $likers);
+                    $allEngagers = array_merge($allEngagers, $validLikers);
                 } catch (\Exception $e) {
+                    $likersFailed = true;
+                    $errorMsg = $e->getMessage();
+                    $isAlreadyScraped = str_contains($errorMsg, 'already scraped') || 
+                                       str_contains($errorMsg, 'input is empty');
+                    
                     Log::warning('PhantomBuster: Failed to get likers for post', [
                         'post_url' => $postUrl,
-                        'error' => $e->getMessage()
+                        'error' => $errorMsg,
+                        'already_scraped' => $isAlreadyScraped,
+                        'error_type' => get_class($e)
                     ]);
+                    
+                    // If it's a 429 error (rate limit), wait a bit before continuing
+                    if (str_contains($errorMsg, '429') || str_contains($errorMsg, 'parallel')) {
+                        Log::info('PhantomBuster: Rate limit hit, waiting before next request', [
+                            'wait_seconds' => 30
+                        ]);
+                        sleep(30); // Wait 30 seconds for rate limit to clear
+                    }
                 }
+
+                // Small delay between likers and commenters to avoid hitting parallel limits
+                sleep(2);
 
                 try {
                     // Get commenters for this post
                     $commenters = $this->fetchPostCommenters($postUrl, $maxWaitSeconds, $pollIntervalSeconds);
+                    
+                    // Ensure we only merge arrays (filter out any non-array items)
+                    $validCommenters = array_filter($commenters, function($commenter) {
+                        return is_array($commenter);
+                    });
+                    
+                    $postEngagers += count($validCommenters);
                     Log::info('PhantomBuster: Got commenters for post', [
                         'post_url' => $postUrl,
-                        'commenters_count' => count($commenters)
+                        'commenters_count' => count($validCommenters),
+                        'filtered_out' => count($commenters) - count($validCommenters)
                     ]);
-                    $allEngagers = array_merge($allEngagers, $commenters);
+                    $allEngagers = array_merge($allEngagers, $validCommenters);
                 } catch (\Exception $e) {
+                    $commentersFailed = true;
+                    $errorMsg = $e->getMessage();
+                    $isAlreadyScraped = str_contains($errorMsg, 'already scraped') || 
+                                       str_contains($errorMsg, 'No new comments found');
+                    
                     Log::warning('PhantomBuster: Failed to get commenters for post', [
                         'post_url' => $postUrl,
-                        'error' => $e->getMessage()
+                        'error' => $errorMsg,
+                        'already_scraped' => $isAlreadyScraped,
+                        'error_type' => get_class($e)
                     ]);
+                    
+                    // If it's a 429 error (rate limit), wait a bit before continuing
+                    if (str_contains($errorMsg, '429') || str_contains($errorMsg, 'parallel')) {
+                        Log::info('PhantomBuster: Rate limit hit, waiting before next request', [
+                            'wait_seconds' => 30
+                        ]);
+                        sleep(30); // Wait 30 seconds for rate limit to clear
+                    }
                 }
+                
+                // Track successful vs skipped posts
+                $shouldMarkAsScraped = false;
+                
+                if ($postEngagers > 0) {
+                    $successfulPosts++;
+                    $shouldMarkAsScraped = true;
+                    
+                    Log::info('PhantomBuster: Post processed successfully', [
+                        'post_url' => $postUrl,
+                        'engagers_count' => $postEngagers,
+                        'successful_posts' => $successfulPosts,
+                        'total_engagers_so_far' => count($allEngagers)
+                    ]);
+                    
+                    // Early stop if we have enough engagers (saves PhantomBuster credits)
+                    if ($minEngagersForEarlyStop > 0 && count($allEngagers) >= $minEngagersForEarlyStop) {
+                        Log::info('PhantomBuster: Early stopping - enough engagers collected (saving credits)', [
+                            'successful_posts' => $successfulPosts,
+                            'total_engagers' => count($allEngagers),
+                            'min_required' => $minEngagersForEarlyStop,
+                            'phantom_calls_used' => $processedPosts * 2,
+                            'phantom_calls_saved' => ($maxAttempts - $processedPosts) * 2
+                        ]);
+                        break; // Stop processing more posts to save credits
+                    }
+                    
+                    // If we've found enough successful posts with good data, continue but log it
+                    if ($successfulPosts >= $maxSuccessfulPosts && count($allEngagers) >= 100) {
+                        Log::info('PhantomBuster: Found enough successful posts, continuing to max attempts', [
+                            'successful_posts' => $successfulPosts,
+                            'total_engagers' => count($allEngagers),
+                            'remaining_attempts' => $maxAttempts - $processedPosts
+                        ]);
+                    }
+                } elseif ($likersFailed && $commentersFailed) {
+                    $skippedPosts++;
+                    // Mark as scraped for THIS USER ONLY (not globally)
+                    // Other users can still try this post - maybe PhantomBuster will allow it for them
+                    $newlyScrapedPostUrls[] = $postUrl;
+                    
+                    Log::info('PhantomBuster: Post already scraped by PhantomBuster - marking for this user only', [
+                        'post_url' => $postUrl,
+                        'skipped_posts' => $skippedPosts,
+                        'successful_posts' => $successfulPosts,
+                        'remaining_attempts' => $maxAttempts - $processedPosts,
+                        'total_engagers_so_far' => count($allEngagers),
+                        'note' => 'This post marked as scraped for this user. Other users can still attempt it.'
+                    ]);
+                } else {
+                    // Partial success (one succeeded, one failed) - still mark as attempted
+                    if ($postEngagers > 0 || $likersFailed || $commentersFailed) {
+                        $newlyScrapedPostUrls[] = $postUrl;
+                    }
+                }
+                
+                // Small delay before processing next post to avoid hitting parallel limits
+                sleep(2);
             }
+            
+            Log::info('PhantomBuster: Finished processing all posts', [
+                'posts_processed' => $processedPosts,
+                'posts_available' => count($postUrls),
+                'successful_posts' => $successfulPosts,
+                'skipped_posts' => $skippedPosts
+            ]);
+            
+            Log::info('PhantomBuster: Post processing summary', [
+                'total_posts_processed' => $processedPosts,
+                'successful_posts' => $successfulPosts,
+                'skipped_posts' => $skippedPosts,
+                'total_engagers_found' => count($allEngagers)
+            ]);
 
             // Remove duplicates by public identifier
             $uniqueEngagers = [];
             $seen = [];
             foreach ($allEngagers as $engager) {
-                $publicId = $engager['publicIdentifier'] 
-                    ?? $engager['public_identifier'] 
+                // Skip if not an array (shouldn't happen, but safety check)
+                if (!is_array($engager)) {
+                    Log::warning('PhantomBuster: Skipping non-array engager', [
+                        'type' => gettype($engager),
+                        'value' => is_string($engager) ? substr($engager, 0, 100) : $engager
+                    ]);
+                    continue;
+                }
+                
+                $publicId = null;
+                
+                // Check profileLink first (PhantomBuster's format)
+                $profileLink = $engager['profileLink'] 
                     ?? $engager['profileUrl'] 
+                    ?? $engager['profile_url'] 
                     ?? null;
                 
-                // Extract from profileUrl if needed
-                if (!$publicId && isset($engager['profileUrl'])) {
-                    if (preg_match('/linkedin\.com\/in\/([^\/]+)/', $engager['profileUrl'], $matches)) {
+                // Extract ID from profileLink/profileUrl
+                if ($profileLink) {
+                    if (preg_match('/linkedin\.com\/in\/([^\/\?]+)/', $profileLink, $matches)) {
                         $publicId = $matches[1];
                     }
+                }
+                
+                // Fallback to other fields
+                if (!$publicId) {
+                    $publicId = $engager['publicIdentifier'] 
+                        ?? $engager['public_identifier'] 
+                        ?? $engager['memberId'] 
+                        ?? null;
                 }
                 
                 if ($publicId && !isset($seen[$publicId])) {
@@ -447,10 +840,17 @@ class PhantomBusterService
             Log::info('PhantomBuster: Finished fetching engagers', [
                 'company_url' => $companyUrl,
                 'total_engagers' => count($allEngagers),
-                'unique_engagers' => count($uniqueEngagers)
+                'unique_engagers' => count($uniqueEngagers),
+                'newly_scraped_posts' => count($newlyScrapedPostUrls ?? [])
             ]);
 
-            return $uniqueEngagers;
+            // Return both engagers and newly scraped posts for tracking
+            // Note: Scraped posts are tracked per-user in the audience source_meta
+            // This allows multiple users to attempt the same posts independently
+            return [
+                'engagers' => $uniqueEngagers,
+                'newly_scraped_posts' => $newlyScrapedPostUrls ?? []
+            ];
         } finally {
             $this->sessionCookieOverride = null;
             $this->userAgentOverride = null;
@@ -487,9 +887,53 @@ class PhantomBusterService
     }
 
     /**
-     * Extract post URLs from RapidAPI posts array
+     * Sort posts by engagement (likes + comments)
+     * Posts with higher engagement will be processed first
      *
      * @param array $posts Posts from RapidAPI
+     * @return array Sorted posts array (highest engagement first)
+     */
+    private function sortPostsByEngagement(array $posts): array
+    {
+        usort($posts, function($a, $b) {
+            // Extract engagement metrics
+            $likesA = (int)($a['num_likes'] ?? $a['likes'] ?? $a['like_count'] ?? 0);
+            $commentsA = (int)($a['num_comments'] ?? $a['comments'] ?? $a['comment_count'] ?? 0);
+            $engagementA = $likesA + ($commentsA * 2); // Weight comments more (they show stronger engagement)
+            
+            $likesB = (int)($b['num_likes'] ?? $b['likes'] ?? $b['like_count'] ?? 0);
+            $commentsB = (int)($b['num_comments'] ?? $b['comments'] ?? $b['comment_count'] ?? 0);
+            $engagementB = $likesB + ($commentsB * 2);
+            
+            // Sort descending (highest engagement first)
+            return $engagementB <=> $engagementA;
+        });
+        
+        // Log top 3 posts for debugging
+        if (count($posts) > 0) {
+            $topPosts = array_slice($posts, 0, min(3, count($posts)));
+            $topEngagement = [];
+            foreach ($topPosts as $post) {
+                $likes = (int)($post['num_likes'] ?? $post['likes'] ?? $post['like_count'] ?? 0);
+                $comments = (int)($post['num_comments'] ?? $post['comments'] ?? $post['comment_count'] ?? 0);
+                $topEngagement[] = [
+                    'likes' => $likes,
+                    'comments' => $comments,
+                    'total' => $likes + ($comments * 2)
+                ];
+            }
+            Log::info('PhantomBuster: Top engaging posts selected', [
+                'top_3_engagement' => $topEngagement
+            ]);
+        }
+        
+        return $posts;
+    }
+
+    /**
+     * Extract post URLs from RapidAPI posts array
+     *
+     * @param array $posts Posts from RapidAPI (should be sorted by engagement)
      * @return array Array of post URLs
      */
     private function extractPostUrlsFromRapidApi(array $posts): array
@@ -566,15 +1010,54 @@ class PhantomBusterService
             throw new \Exception("Failed to get container ID from PhantomBuster launch for post likers");
         }
 
+        // Wait a bit before first poll to allow container to initialize
+        // PhantomBuster containers need time to start up
+        sleep(5);
+
         // Poll for completion
         $startTime = time();
         $attempts = 0;
+        $last404Time = null;
         
         while (time() - $startTime < $maxWaitSeconds) {
             $attempts++;
-            sleep($pollIntervalSeconds);
+            
+            try {
+                // Don't sleep on first attempt since we already waited 5 seconds
+                if ($attempts > 1) {
+                    sleep($pollIntervalSeconds);
+                }
 
-            $output = $this->getPhantomOutput($phantomId, $containerId);
+                $output = $this->getPhantomOutput($phantomId, $containerId);
+            } catch (\Exception $e) {
+                // Handle 404 errors gracefully - container might not be ready yet
+                if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                    if ($last404Time === null) {
+                        $last404Time = time();
+                    }
+                    
+                    // If we keep getting 404s for more than 30 seconds, give up
+                    if (time() - $last404Time > 30) {
+                        Log::error('PhantomBuster: Container not found after multiple attempts', [
+                            'phantom_id' => $phantomId,
+                            'container_id' => $containerId,
+                            'attempts' => $attempts,
+                            'post_url' => $postUrl
+                        ]);
+                        return [];
+                    }
+                    
+                    Log::info('PhantomBuster: Container not ready yet, waiting...', [
+                        'attempt' => $attempts,
+                        'phantom_id' => $phantomId,
+                        'container_id' => $containerId
+                    ]);
+                    continue;
+                }
+                
+                // For other errors, re-throw
+                throw $e;
+            }
             
             // Check multiple possible locations for the data
             $likers = $output['data']['output'] 
@@ -911,15 +1394,54 @@ class PhantomBusterService
             throw new \Exception("Failed to get container ID from PhantomBuster launch for post commenters");
         }
 
+        // Wait a bit before first poll to allow container to initialize
+        // PhantomBuster containers need time to start up
+        sleep(5);
+
         // Poll for completion
         $startTime = time();
         $attempts = 0;
+        $last404Time = null;
         
         while (time() - $startTime < $maxWaitSeconds) {
             $attempts++;
-            sleep($pollIntervalSeconds);
+            
+            try {
+                // Don't sleep on first attempt since we already waited 5 seconds
+                if ($attempts > 1) {
+                    sleep($pollIntervalSeconds);
+                }
 
-            $output = $this->getPhantomOutput($phantomId, $containerId);
+                $output = $this->getPhantomOutput($phantomId, $containerId);
+            } catch (\Exception $e) {
+                // Handle 404 errors gracefully - container might not be ready yet
+                if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                    if ($last404Time === null) {
+                        $last404Time = time();
+                    }
+                    
+                    // If we keep getting 404s for more than 30 seconds, give up
+                    if (time() - $last404Time > 30) {
+                        Log::error('PhantomBuster: Container not found after multiple attempts', [
+                            'phantom_id' => $phantomId,
+                            'container_id' => $containerId,
+                            'attempts' => $attempts,
+                            'post_url' => $postUrl
+                        ]);
+                        return [];
+                    }
+                    
+                    Log::info('PhantomBuster: Container not ready yet, waiting...', [
+                        'attempt' => $attempts,
+                        'phantom_id' => $phantomId,
+                        'container_id' => $containerId
+                    ]);
+                    continue;
+                }
+                
+                // For other errors, re-throw
+                throw $e;
+            }
             
             // Check multiple possible locations for the data
             $commenters = $output['data']['output'] 

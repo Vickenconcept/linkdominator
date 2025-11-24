@@ -71,8 +71,14 @@ return [
         'linkedin_post_likers_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID'),
         // LinkedIn Post Commenters Export - extracts users who commented on a specific post (requires post URL)
         'linkedin_post_commenters_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_COMMENTERS_PHANTOM_ID'),
-        // Limit how many company posts we process per run (helps reduce RapidAPI costs while testing)
-        'company_posts_limit' => env('COMPETITOR_POSTS_LIMIT', 5),
+        // Limit how many company posts we process per run
+        // Each post = 2 phantom calls (likers + commenters), so 5 posts = 10 calls
+        // Lower = less PhantomBuster credits used, Higher = more data scraped
+        'company_posts_limit' => env('COMPETITOR_POSTS_LIMIT', 15),
+        
+        // Stop early if we get enough engagers (saves credits)
+        // Set to 0 to disable early stopping
+        'min_engagers_for_early_stop' => env('PHANTOMBUSTER_MIN_ENGAGERS_EARLY_STOP', 1000),
         // Required for LinkedIn phantoms: Get manually from LinkedIn browser cookies
         // Steps: 1) Log into LinkedIn, 2) Open DevTools (F12) > Application > Cookies > linkedin.com, 3) Copy "li_at" cookie value
         'linkedin_session_cookie' => env('PHANTOMBUSTER_LINKEDIN_SESSION_COOKIE'),

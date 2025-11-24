@@ -21,9 +21,18 @@
         @if (!$hasLinkedInSession)
             <div class="rounded border border-orange-200 bg-orange-50 text-orange-900 px-4 py-3 text-sm">
                 <p class="font-medium">Add your LinkedIn session cookie first</p>
-                <p class="mt-1">Visit the Social Accounts page, open your connected LinkedIn profile, and paste your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie + user agent. We’ll auto-fill it for every competitor fetch.</p>
+                <p class="mt-1">Visit the Social Accounts page, open your connected LinkedIn profile, and paste your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie + user agent. We'll auto-fill it for every competitor fetch.</p>
             </div>
         @endif
+        <div class="rounded border border-blue-200 bg-blue-50 text-blue-900 px-4 py-3 text-sm">
+            <p class="font-medium">ℹ️ How it works</p>
+            <ul class="mt-2 space-y-1 text-xs list-disc list-inside">
+                <li>We scrape people who <strong>liked or commented</strong> on recent company posts (not all followers)</li>
+                <li>By default, we process <strong>3-5 recent posts</strong> to keep API costs low</li>
+                <li>If you see "No comments found" from PhantomBuster, that's normal - not all posts have comments</li>
+                <li>To get more people, increase the <code class="font-mono bg-white/60 px-1 py-0.5 rounded">COMPETITOR_POSTS_LIMIT</code> in your .env file</li>
+            </ul>
+        </div>
         <form method="POST" action="{{ route('competitor-followers.fetch') }}" class="grid grid-cols-1 gap-4">
             @csrf
             <div>
@@ -48,6 +57,7 @@
                 <thead>
                     <tr class="text-gray-600">
                         <th class="py-2 pr-4">{{ __('competitor_followers.th_name') }}</th>
+                        <th class="py-2 pr-4">Followers</th>
                         <th class="py-2 pr-4">{{ __('competitor_followers.th_created') }}</th>
                         <th class="py-2 pr-4">{{ __('competitor_followers.th_actions') }}</th>
                     </tr>
@@ -56,8 +66,12 @@
                     @forelse($audiences as $aud)
                         <tr class="border-t">
                             <td class="py-2 pr-4">
-                                <div class="font-medium text-gray-900">{{ $aud->audience_name }}</div>
+                                <div class="font-medium text-gray-900">{{ $aud->audience_name ?? 'Competitor Followers' }}</div>
                                 <div class="text-xs text-gray-500">{{ optional(json_decode($aud->source_meta))->company_url }}</div>
+                            </td>
+                            <td class="py-2 pr-4 text-gray-700">
+                                <span class="font-semibold">{{ $aud->followers_count ?? 0 }}</span>
+                                <span class="text-xs text-gray-500">people</span>
                             </td>
                             <td class="py-2 pr-4 text-gray-700">{{ $aud->created_at->format('Y-m-d H:i') }}</td>
                             <td class="py-2 pr-4">
@@ -67,7 +81,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" class="py-6 text-center text-gray-500">{{ __('competitor_followers.empty') }}</td>
+                            <td colspan="4" class="py-6 text-center text-gray-500">{{ __('competitor_followers.empty') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

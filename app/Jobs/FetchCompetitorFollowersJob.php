@@ -50,23 +50,71 @@ class FetchCompetitorFollowersJob implements ShouldQueue
         ]);
 
         try {
+            // Get already-scraped post URLs from audience source_meta to skip them
+            $scrapedPostUrls = [];
+            if ($audience->source_meta) {
+                $meta = json_decode($audience->source_meta, true);
+                if (isset($meta['scraped_post_urls']) && is_array($meta['scraped_post_urls'])) {
+                    $scrapedPostUrls = $meta['scraped_post_urls'];
+                }
+            }
+            
+            Log::info('FetchCompetitorFollowersJob: Checking for already-scraped posts', [
+                'audience_id' => $audience->audience_id,
+                'already_scraped_count' => count($scrapedPostUrls),
+                'company_url' => $this->companyUrl
+            ]);
+            
             // Fetch company post engagers (people who liked/commented on company posts)
             // This doesn't require admin access and works for any company
-            $followers = $service->fetchCompanyPostEngagers(
+            // Pass scraped post URLs to skip them
+            $result = $service->fetchCompanyPostEngagers(
                 $this->companyUrl,
                 null,
                 600,
                 15,
                 $this->sessionCookie,
-                $this->userAgent
+                $this->userAgent,
+                $scrapedPostUrls, // Pass already-scraped posts
+                $audience // Pass audience to update source_meta with newly scraped posts
             );
+            
+            $followers = $result['engagers'] ?? $result;
+            $newlyScrapedPosts = $result['newly_scraped_posts'] ?? [];
             
             Log::info('FetchCompetitorFollowersJob: PhantomBuster returned engagers', [
                 'company_url' => $this->companyUrl,
-                'engagers_count' => count($followers)
+                'engagers_count' => is_array($followers) ? count($followers) : 0,
+                'newly_scraped_posts_count' => count($newlyScrapedPosts)
             ]);
+            
+            // Update audience source_meta with newly scraped post URLs
+            if (!empty($newlyScrapedPosts)) {
+                $existingScraped = $scrapedPostUrls;
+                $allScraped = array_unique(array_merge($existingScraped, $newlyScrapedPosts));
+                
+                $meta = json_decode($audience->source_meta, true) ?? [];
+                $meta['scraped_post_urls'] = $allScraped;
+                $audience->source_meta = json_encode($meta);
+                $audience->save();
+                
+                Log::info('FetchCompetitorFollowersJob: Updated audience with scraped posts', [
+                    'audience_id' => $audience->audience_id,
+                    'newly_scraped' => count($newlyScrapedPosts),
+                    'total_scraped' => count($allScraped)
+                ]);
+            }
 
             foreach ($followers as $follower) {
+                // Skip if not an array (safety check)
+                if (!is_array($follower)) {
+                    Log::warning('FetchCompetitorFollowersJob: Skipping non-array follower', [
+                        'type' => gettype($follower),
+                        'value' => is_string($follower) ? substr($follower, 0, 100) : $follower
+                    ]);
+                    continue;
+                }
+                
                 $this->storeFollower($audience, $follower, $uniqueByPublicId, $created);
             }
 
@@ -102,17 +150,30 @@ class FetchCompetitorFollowersJob implements ShouldQueue
         }
 
         // PhantomBuster returns different field names, handle various formats
-        $publicId = $follower['publicIdentifier'] 
-            ?? $follower['public_identifier'] 
+        // Check profileLink first (PhantomBuster's format)
+        $publicId = null;
+        $profileLink = $follower['profileLink'] 
             ?? $follower['profileUrl'] 
+            ?? $follower['profile_url'] 
             ?? null;
 
-        // Extract from profileUrl if needed: https://www.linkedin.com/in/username/
-        if (!$publicId && isset($follower['profileUrl'])) {
-            $url = $follower['profileUrl'];
-            if (preg_match('/linkedin\.com\/in\/([^\/]+)/', $url, $matches)) {
-                $publicId = $matches[1];
+        // Extract ID from profileLink/profileUrl
+        if ($profileLink) {
+            // Try to extract public identifier from URL
+            // Format can be: https://www.linkedin.com/in/username/ or https://www.linkedin.com/in/ACoAA.../
+            if (preg_match('/linkedin\.com\/in\/([^\/\?]+)/', $profileLink, $matches)) {
+                $extractedId = $matches[1];
+                // Use extracted ID (could be username or internal ID)
+                $publicId = $extractedId;
             }
+        }
+
+        // Fallback to other fields
+        if (!$publicId) {
+            $publicId = $follower['publicIdentifier'] 
+                ?? $follower['public_identifier'] 
+                ?? $follower['memberId'] // Use memberId as fallback
+                ?? null;
         }
 
         if ($publicId && isset($seen[$publicId])) {
@@ -133,7 +194,9 @@ class FetchCompetitorFollowersJob implements ShouldQueue
             ?? ($fullName && str_contains($fullName, ' ') ? explode(' ', $fullName, 2)[1] : null);
 
         // Extract job title and company
-        $jobTitle = $follower['headline'] 
+        // PhantomBuster uses 'occupation' field for job title
+        $jobTitle = $follower['occupation'] 
+            ?? $follower['headline'] 
             ?? $follower['title'] 
             ?? $follower['jobTitle'] 
             ?? null;
@@ -148,8 +211,9 @@ class FetchCompetitorFollowersJob implements ShouldQueue
             ?? $follower['locationName'] 
             ?? null;
 
-        // Profile URL
-        $profileUrl = $follower['profileUrl'] 
+        // Profile URL - use profileLink if available, otherwise construct from publicId
+        $profileUrl = $follower['profileLink'] 
+            ?? $follower['profileUrl'] 
             ?? $follower['profile_url'] 
             ?? ($publicId ? 'https://www.linkedin.com/in/' . $publicId . '/' : null);
 
