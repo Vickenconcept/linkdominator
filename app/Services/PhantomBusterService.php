@@ -82,11 +82,9 @@ class PhantomBusterService
             // Provide helpful error message for "Agent not found"
             if ($status === 400 && str_contains(strtolower($errorMessage), 'agent not found')) {
                 $helpfulError = "Phantom ID '{$phantomId}' not found in your workspace.\n\n";
-                $helpfulError .= "This usually means:\n";
-                $helpfulError .= "1. The phantom needs to be added to your workspace first\n";
-                $helpfulError .= "2. Go to https://phantombuster.com/phantoms and add 'LinkedIn Company Follower Collector'\n";
-                $helpfulError .= "3. After adding, get your instance ID from the phantom's URL\n";
-                $helpfulError .= "4. The ID in the public URL is a template ID, not your instance\n\n";
+                $helpfulError .= "This usually means the agent is not added to your workspace yet.\n";
+                $helpfulError .= "1. Go to https://phantombuster.com/phantoms and add the phantom you intend to run.\n";
+                $helpfulError .= "2. Use the instance ID from your workspace URL (the template/gallery ID will not work).\n\n";
                 $helpfulError .= "Original error: {$errorMessage}";
                 
                 Log::error("PhantomBuster launch failed - Agent not found", [
@@ -366,7 +364,6 @@ class PhantomBusterService
      * Workflow:
      * 1. Get company posts using RapidAPI (to get post URLs)
      * 2. For each post, extract likers (using LinkedIn Post Likers Export)
-     * 3. For each post, extract commenters (using LinkedIn Post Commenters Export)
      *
      * @param string $companyUrl LinkedIn company URL
      * @param string|null $phantomId Not used anymore (kept for backward compatibility)
@@ -566,7 +563,7 @@ class PhantomBusterService
                 'sort_by' => 'top'
             ]);
 
-            // Step 2: Sort posts by engagement (likes + comments) before extracting URLs
+            // Step 2: Sort posts by engagement (likes) before extracting URLs
             // This ensures we process the most engaging posts first
             $sortedPosts = $this->sortPostsByEngagement($posts['data']);
             
@@ -638,7 +635,6 @@ class PhantomBusterService
 
                 $postEngagers = 0;
                 $likersFailed = false;
-                $commentersFailed = false;
 
                 try {
                     // Get likers for this post
@@ -677,47 +673,6 @@ class PhantomBusterService
                         sleep(30); // Wait 30 seconds for rate limit to clear
                     }
                 }
-
-                // Small delay between likers and commenters to avoid hitting parallel limits
-                sleep(2);
-
-                try {
-                    // Get commenters for this post
-                    $commenters = $this->fetchPostCommenters($postUrl, $maxWaitSeconds, $pollIntervalSeconds);
-                    
-                    // Ensure we only merge arrays (filter out any non-array items)
-                    $validCommenters = array_filter($commenters, function($commenter) {
-                        return is_array($commenter);
-                    });
-                    
-                    $postEngagers += count($validCommenters);
-                    Log::info('PhantomBuster: Got commenters for post', [
-                        'post_url' => $postUrl,
-                        'commenters_count' => count($validCommenters),
-                        'filtered_out' => count($commenters) - count($validCommenters)
-                    ]);
-                    $allEngagers = array_merge($allEngagers, $validCommenters);
-                } catch (\Exception $e) {
-                    $commentersFailed = true;
-                    $errorMsg = $e->getMessage();
-                    $isAlreadyScraped = str_contains($errorMsg, 'already scraped') || 
-                                       str_contains($errorMsg, 'No new comments found');
-                    
-                    Log::warning('PhantomBuster: Failed to get commenters for post', [
-                        'post_url' => $postUrl,
-                        'error' => $errorMsg,
-                        'already_scraped' => $isAlreadyScraped,
-                        'error_type' => get_class($e)
-                    ]);
-                    
-                    // If it's a 429 error (rate limit), wait a bit before continuing
-                    if (str_contains($errorMsg, '429') || str_contains($errorMsg, 'parallel')) {
-                        Log::info('PhantomBuster: Rate limit hit, waiting before next request', [
-                            'wait_seconds' => 30
-                        ]);
-                        sleep(30); // Wait 30 seconds for rate limit to clear
-                    }
-                }
                 
                 // Track successful vs skipped posts
                 $shouldMarkAsScraped = false;
@@ -739,8 +694,8 @@ class PhantomBusterService
                             'successful_posts' => $successfulPosts,
                             'total_engagers' => count($allEngagers),
                             'min_required' => $minEngagersForEarlyStop,
-                            'phantom_calls_used' => $processedPosts * 2,
-                            'phantom_calls_saved' => ($maxAttempts - $processedPosts) * 2
+                            'phantom_calls_used' => $processedPosts,
+                            'phantom_calls_saved' => ($maxAttempts - $processedPosts)
                         ]);
                         break; // Stop processing more posts to save credits
                     }
@@ -753,7 +708,7 @@ class PhantomBusterService
                             'remaining_attempts' => $maxAttempts - $processedPosts
                         ]);
                     }
-                } elseif ($likersFailed && $commentersFailed) {
+                } elseif ($likersFailed) {
                     $skippedPosts++;
                     // Mark as scraped for THIS USER ONLY (not globally)
                     // Other users can still try this post - maybe PhantomBuster will allow it for them
@@ -767,11 +722,11 @@ class PhantomBusterService
                         'total_engagers_so_far' => count($allEngagers),
                         'note' => 'This post marked as scraped for this user. Other users can still attempt it.'
                     ]);
-                } else {
-                    // Partial success (one succeeded, one failed) - still mark as attempted
-                    if ($postEngagers > 0 || $likersFailed || $commentersFailed) {
-                        $newlyScrapedPostUrls[] = $postUrl;
-                    }
+                }
+                
+                // Mark post as scraped if we attempted it
+                if ($shouldMarkAsScraped) {
+                    $newlyScrapedPostUrls[] = $postUrl;
                 }
                 
                 // Small delay before processing next post to avoid hitting parallel limits
@@ -887,7 +842,421 @@ class PhantomBusterService
     }
 
     /**
-     * Sort posts by engagement (likes + comments)
+     * Fetch search results from a LinkedIn search URL using PhantomBuster's "LinkedIn Search Export".
+     *
+     * @param string $searchUrl A full LinkedIn search URL (people search preferred)
+     * @param int $maxWaitSeconds Maximum seconds to wait for the phantom to finish
+     * @param int $pollIntervalSeconds Poll interval while waiting
+     * @param string|null $sessionCookie Optional override for li_at
+     * @param string|null $userAgent Optional override for user agent
+     * @param array|null $identities Optional identities array format: [['identityId' => string, 'sessionCookie' => string, 'userAgent' => string]]
+     * @return array Array of profiles from PhantomBuster
+     * @throws \Exception
+     */
+    public function fetchSearchExportResults(
+        ?string $searchUrl = null,
+        int $maxWaitSeconds = 600,
+        int $pollIntervalSeconds = 15,
+        ?string $sessionCookie = null,
+        ?string $userAgent = null,
+        ?string $keywords = null,
+        array $connectionDegrees = [],
+        string $category = 'People',
+        ?int $resultsLimit = null,
+        ?array $identities = null
+    ): array {
+        $this->sessionCookieOverride = $sessionCookie;
+        $this->userAgentOverride = $userAgent;
+
+        try {
+            $phantomId = config('services.phantombuster.linkedin_search_export_phantom_id');
+
+            if (!$phantomId) {
+                $phantomId = $this->findPhantomByName('linkedin search export');
+            }
+
+            if (!$phantomId) {
+                Log::warning('PhantomBuster: LinkedIn Search Export phantom not found, skipping search extraction');
+                return [];
+            }
+
+            $arguments = [];
+
+            // Normalize category to ensure it's capitalized (PhantomBuster requires "People" not "people")
+            $category = ucfirst(strtolower(trim($category)));
+
+            $hasKeywords = $keywords && trim($keywords) !== '';
+            $hasUrl = $searchUrl && trim($searchUrl) !== '';
+
+            // Priority: If complete URL is provided (with filters), use it
+            // Otherwise, use keywords mode and build minimal URL
+            if ($hasUrl) {
+                // Complete URL provided - use it (includes keywords and all filters)
+                $arguments['searchUrl'] = $searchUrl;
+                $arguments['linkedInSearchUrl'] = $searchUrl;
+                $arguments['searchType'] = 'linkedInSearchUrl';
+                
+                // Also include keywords if provided (for PhantomBuster's keyword mode compatibility)
+                if ($hasKeywords) {
+                    $arguments['keywords'] = trim($keywords);
+                    $arguments['category'] = $category;
+                    if (!empty($connectionDegrees)) {
+                        $arguments['connectionDegreesToScrape'] = $connectionDegrees;
+                    }
+                }
+            } elseif ($hasKeywords) {
+                // Only keywords provided - build minimal URL
+                $arguments['keywords'] = trim($keywords);
+                $arguments['category'] = $category;
+                if (!empty($connectionDegrees)) {
+                    $arguments['connectionDegreesToScrape'] = $connectionDegrees;
+                }
+                $arguments['searchType'] = 'keywords';
+                
+                // Build minimal search URL from keywords
+                $encodedKeywords = urlencode(trim($keywords));
+                $networkParam = urlencode(json_encode(!empty($connectionDegrees) ? $connectionDegrees : ['2','3+']));
+                $builtUrl = "https://www.linkedin.com/search/results/all/?keywords={$encodedKeywords}&network={$networkParam}";
+                $arguments['searchUrl'] = $builtUrl;
+                $arguments['linkedInSearchUrl'] = $builtUrl;
+            } else {
+                throw new \Exception("Search export requires either a searchUrl or keywords.");
+            }
+
+            // Add limits to match Phantom config expectations
+            $limit = $resultsLimit ?? 100;
+            $perSearch = max(1, min($limit, 1000)); // cap at 1000
+            // Mirror Phantom UI defaults: 100 per launch, 10 lines per launch
+            $perLaunch = max(1, min($perSearch, 100));
+            $linesPerLaunch = max(1, min(10, $perLaunch));
+
+            $arguments['numberOfResultsPerSearch'] = $perSearch;
+            $arguments['numberOfResultsPerLaunch'] = $perLaunch;
+            $arguments['numberOfLinesPerLaunch'] = $linesPerLaunch;
+            $arguments['enrichLeadsWithAdditionalInformation'] = true;
+
+            // Use identities array format if provided, otherwise use top-level sessionCookie/userAgent
+            if (!empty($identities) && is_array($identities)) {
+                // Format identities array for PhantomBuster - match exact structure from PhantomBuster dashboard
+                $formattedIdentities = [];
+                foreach ($identities as $identity) {
+                    if (is_array($identity) && isset($identity['sessionCookie'])) {
+                        $formattedIdentity = [
+                            'sessionCookie' => $identity['sessionCookie']
+                        ];
+                        
+                        // Add identityId if provided (optional but recommended for reuse)
+                        if (isset($identity['identityId']) && !empty($identity['identityId'])) {
+                            $formattedIdentity['identityId'] = $identity['identityId'];
+                        }
+                        
+                        // Add userAgent to identity (required in identities array)
+                        if (isset($identity['userAgent']) && !empty($identity['userAgent'])) {
+                            $formattedIdentity['userAgent'] = $identity['userAgent'];
+                        } elseif ($userAgent) {
+                            $formattedIdentity['userAgent'] = $userAgent;
+                        } elseif ($this->getUserAgent()) {
+                            $formattedIdentity['userAgent'] = $this->getUserAgent();
+                        }
+                        
+                        $formattedIdentities[] = $formattedIdentity;
+                    }
+                }
+                
+                if (!empty($formattedIdentities)) {
+                    $arguments['identities'] = $formattedIdentities;
+                    
+                    // Also add top-level userAgent (PhantomBuster structure includes both)
+                    $topLevelUserAgent = $userAgent ?? $this->getUserAgent();
+                    if ($topLevelUserAgent) {
+                        $arguments['userAgent'] = $topLevelUserAgent;
+                    }
+                    
+                    Log::info('PhantomBuster: Using identities array format', [
+                        'identities_count' => count($formattedIdentities),
+                        'has_identityId' => !empty($formattedIdentities[0]['identityId'] ?? null)
+                    ]);
+                }
+            } else {
+                // Fallback to top-level sessionCookie and userAgent (backward compatibility)
+                $sessionCookieValue = $this->getSessionCookie();
+                if ($sessionCookieValue) {
+                    $arguments['sessionCookie'] = $sessionCookieValue;
+                }
+
+                $userAgentValue = $this->getUserAgent();
+                if ($userAgentValue) {
+                    $arguments['userAgent'] = $userAgentValue;
+                }
+            }
+
+            $launchResponse = $this->launchPhantom($phantomId, $arguments);
+            $containerId = $launchResponse['containerId'] ?? $launchResponse['data']['containerId'] ?? null;
+
+            if (!$containerId) {
+                throw new \Exception("Failed to get container ID from PhantomBuster launch for search export");
+            }
+
+            // Wait briefly before polling
+            sleep(5);
+
+            $startTime = time();
+            $attempts = 0;
+            $last404Time = null;
+            $alreadyRetrievedWarning = false; // Track if we detect "already retrieved" warning
+
+            while (time() - $startTime < $maxWaitSeconds) {
+                $attempts++;
+
+                try {
+                    if ($attempts > 1) {
+                        sleep($pollIntervalSeconds);
+                    }
+
+                    $output = $this->getPhantomOutput($phantomId, $containerId);
+                } catch (\Exception $e) {
+                    if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                        if ($last404Time === null) {
+                            $last404Time = time();
+                        }
+
+                        if (time() - $last404Time > 30) {
+                            Log::error('PhantomBuster: Search export container not found after multiple attempts', [
+                                'phantom_id' => $phantomId,
+                                'container_id' => $containerId,
+                                'attempts' => $attempts,
+                                'search_url' => $searchUrl
+                            ]);
+                            return [];
+                        }
+
+                        Log::info('PhantomBuster: Search export container not ready yet, waiting...', [
+                            'attempt' => $attempts,
+                            'phantom_id' => $phantomId,
+                            'container_id' => $containerId
+                        ]);
+                        continue;
+                    }
+
+                    throw $e;
+                }
+
+                // Extract profiles - handle both JSON string and array formats
+                $profiles = [];
+                
+                // Check for "already retrieved" warning in output
+                $outputString = '';
+                if (isset($output['data']['output']) && is_string($output['data']['output'])) {
+                    $outputString = $output['data']['output'];
+                }
+                
+                $alreadyRetrievedWarning = stripos($outputString, "already retrieved all results") !== false;
+                
+                if ($alreadyRetrievedWarning) {
+                    Log::warning('PhantomBuster: Search already retrieved - results may be cached', [
+                        'message' => 'PhantomBuster indicates this search was already performed. Results may be in cache.',
+                        'suggestion' => 'Try changing search keywords or parameters, or check PhantomBuster dashboard for cached results'
+                    ]);
+                }
+                
+                // Try resultObject first (newer phantoms return JSON string here)
+                if (!empty($output['data']['resultObject'] ?? null)) {
+                    $resultObject = $output['data']['resultObject'];
+                    
+                    if (is_string($resultObject)) {
+                        // Decode JSON string
+                        $decoded = json_decode($resultObject, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                            $profiles = $decoded;
+                        } else {
+                            Log::warning('PhantomBuster: Failed to decode resultObject JSON string', [
+                                'json_error' => json_last_error_msg(),
+                                'resultObject_preview' => substr($resultObject, 0, 200)
+                            ]);
+                        }
+                    } elseif (is_array($resultObject)) {
+                        $profiles = $resultObject;
+                    }
+                }
+                
+                // Fallback to output if resultObject didn't yield data
+                if (empty($profiles) && !empty($output['data']['output'] ?? null)) {
+                    $outputData = $output['data']['output'];
+                    
+                    if (is_string($outputData)) {
+                        // Skip if it's just log text (contains warning messages but no JSON)
+                        // Check if it looks like JSON (starts with [ or {)
+                        $trimmed = trim($outputData);
+                        if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                            $decoded = json_decode($outputData, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $profiles = $decoded;
+                            } else {
+                                Log::warning('PhantomBuster: Output is string but not valid JSON', [
+                                    'json_error' => json_last_error_msg(),
+                                    'output_preview' => substr($outputData, 0, 200),
+                                    'is_log_text' => $alreadyRetrievedWarning
+                                ]);
+                            }
+                        } else {
+                            // It's log text, not JSON data
+                            Log::info('PhantomBuster: Output is log text, not profile data', [
+                                'output_preview' => substr($outputData, 0, 300),
+                                'has_warning' => $alreadyRetrievedWarning
+                            ]);
+                        }
+                    } elseif (is_array($outputData)) {
+                        $profiles = $outputData;
+                    }
+                }
+                
+                // Final fallback to top-level output
+                if (empty($profiles) && !empty($output['output'] ?? null)) {
+                    $topLevelOutput = $output['output'];
+                    if (is_string($topLevelOutput)) {
+                        $trimmed = trim($topLevelOutput);
+                        if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                            $decoded = json_decode($topLevelOutput, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $profiles = $decoded;
+                            }
+                        }
+                    } elseif (is_array($topLevelOutput)) {
+                        $profiles = $topLevelOutput;
+                    }
+                }
+
+                $containerStatus = $output['data']['containerStatus'] ?? null;
+                $agentStatus = $output['data']['agentStatus'] ?? null;
+                $messages = $output['data']['messages'] ?? [];
+                $progress = $output['data']['progress'] ?? null;
+
+                Log::info('PhantomBuster: Search export status check', [
+                    'attempt' => $attempts,
+                    'container_status' => $containerStatus,
+                    'agent_status' => $agentStatus,
+                    'profiles_count' => count($profiles),
+                    'messages' => $messages,
+                    'progress' => $progress,
+                    'has_output' => isset($output['data']['output']),
+                    'has_resultObject' => isset($output['data']['resultObject']),
+                    'resultObject_type' => isset($output['data']['resultObject']) ? gettype($output['data']['resultObject']) : null,
+                    'output_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : null,
+                ]);
+
+                // Filter out error objects - PhantomBuster sometimes returns error objects instead of profiles
+                $validProfiles = [];
+                $errorObjects = [];
+                foreach ($profiles as $profile) {
+                    if (!is_array($profile)) {
+                        continue;
+                    }
+                    // Skip error objects (they have 'error' key but no valid profile data)
+                    if (isset($profile['error']) && empty($profile['fullName']) && empty($profile['profileUrl']) && empty($profile['firstName'])) {
+                        $errorObjects[] = $profile;
+                        continue;
+                    }
+                    // Only include profiles with at least a name or profileUrl
+                    if (!empty($profile['fullName']) || !empty($profile['profileUrl']) || !empty($profile['firstName'])) {
+                        $validProfiles[] = $profile;
+                    }
+                }
+                
+                // Log errors if all results were error objects
+                if (!empty($errorObjects) && empty($validProfiles)) {
+                    $firstError = $errorObjects[0] ?? null;
+                    Log::warning('PhantomBuster: All returned items were error objects', [
+                        'error_count' => count($errorObjects),
+                        'first_error' => $firstError,
+                        'error_message' => $firstError['error'] ?? null,
+                        'error_query' => $firstError['query'] ?? null,
+                        'search_url' => $searchUrl,
+                        'keywords' => $keywords,
+                        'suggestion' => 'Check PhantomBuster dashboard for detailed error message. This may indicate LinkedIn session issues or search parameter problems.'
+                    ]);
+                } elseif (!empty($errorObjects)) {
+                    Log::info('PhantomBuster: Filtered out error objects', [
+                        'error_count' => count($errorObjects),
+                        'valid_profiles_count' => count($validProfiles),
+                        'first_error' => $errorObjects[0] ?? null
+                    ]);
+                }
+                
+                $profiles = $validProfiles;
+
+                if (!empty($profiles) && is_array($profiles) && count($profiles) > 0) {
+                    Log::info('PhantomBuster: Successfully extracted profiles', ['count' => count($profiles)]);
+                    return $profiles;
+                }
+
+                if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                    // Check if this is the "already retrieved" case
+                    if ($alreadyRetrievedWarning && empty($profiles)) {
+                        Log::info('PhantomBuster: Search already retrieved - returning empty array for pagination', [
+                            'container_status' => $containerStatus,
+                            'agent_status' => $agentStatus,
+                            'message' => 'This exact search was already performed. Returning empty array to allow frontend pagination to stop gracefully.',
+                            'note' => 'PhantomBuster returns all results at once, so pagination requests with same params will be empty'
+                        ]);
+                        // Return empty array instead of throwing exception
+                        // This allows frontend pagination to stop gracefully when no more results
+                        return [];
+                    }
+                    
+                    // Finished but no data - log detailed information
+                    Log::warning('PhantomBuster: Search export finished immediately with no data', [
+                        'container_status' => $containerStatus,
+                        'agent_status' => $agentStatus,
+                        'messages' => $messages,
+                        'progress' => $progress,
+                        'output_keys' => isset($output['data']) ? array_keys($output['data']) : [],
+                        'has_output' => isset($output['data']['output']),
+                        'output_type' => isset($output['data']['output']) ? gettype($output['data']['output']) : null,
+                        'output_preview' => isset($output['data']['output']) ? (
+                            is_string($output['data']['output']) ? substr($output['data']['output'], 0, 500) : 
+                            (is_array($output['data']['output']) ? json_encode(array_slice($output['data']['output'], 0, 2)) : 
+                            $output['data']['output'])
+                        ) : null,
+                        'full_output_sample' => isset($output['data']) ? array_slice($output['data'], 0, 10) : null,
+                    ]);
+                    break;
+                }
+            }
+
+            // Check for "already retrieved" warning in final output if we didn't catch it earlier
+            $finalOutputString = '';
+            if (isset($output['data']['output']) && is_string($output['data']['output'])) {
+                $finalOutputString = $output['data']['output'];
+            }
+            $finalAlreadyRetrieved = stripos($finalOutputString, "already retrieved all results") !== false;
+            
+            if ($finalAlreadyRetrieved && empty($profiles)) {
+                Log::info('PhantomBuster: Search already retrieved - returning empty array for pagination', [
+                    'search_url' => $searchUrl,
+                    'keywords' => $keywords,
+                    'waited_seconds' => time() - $startTime,
+                    'note' => 'Returning empty array to allow frontend pagination to stop gracefully'
+                ]);
+                // Return empty array instead of throwing exception
+                // This allows frontend pagination to stop gracefully when no more results
+                return [];
+            }
+
+            Log::warning('PhantomBuster: Search export finished with no data', [
+                'search_url' => $searchUrl,
+                'waited_seconds' => time() - $startTime,
+                'max_wait_seconds' => $maxWaitSeconds,
+            ]);
+
+            return [];
+        } finally {
+            $this->sessionCookieOverride = null;
+            $this->userAgentOverride = null;
+        }
+    }
+
+    /**
+     * Sort posts by engagement (likes only)
      * Posts with higher engagement will be processed first
      *
      * @param array $posts Posts from RapidAPI
@@ -896,17 +1265,12 @@ class PhantomBusterService
     private function sortPostsByEngagement(array $posts): array
     {
         usort($posts, function($a, $b) {
-            // Extract engagement metrics
+            // Extract engagement metrics (likes only)
             $likesA = (int)($a['num_likes'] ?? $a['likes'] ?? $a['like_count'] ?? 0);
-            $commentsA = (int)($a['num_comments'] ?? $a['comments'] ?? $a['comment_count'] ?? 0);
-            $engagementA = $likesA + ($commentsA * 2); // Weight comments more (they show stronger engagement)
-            
             $likesB = (int)($b['num_likes'] ?? $b['likes'] ?? $b['like_count'] ?? 0);
-            $commentsB = (int)($b['num_comments'] ?? $b['comments'] ?? $b['comment_count'] ?? 0);
-            $engagementB = $likesB + ($commentsB * 2);
             
-            // Sort descending (highest engagement first)
-            return $engagementB <=> $engagementA;
+            // Sort descending (highest likes first)
+            return $likesB <=> $likesA;
         });
         
         // Log top 3 posts for debugging
@@ -915,11 +1279,8 @@ class PhantomBusterService
             $topEngagement = [];
             foreach ($topPosts as $post) {
                 $likes = (int)($post['num_likes'] ?? $post['likes'] ?? $post['like_count'] ?? 0);
-                $comments = (int)($post['num_comments'] ?? $post['comments'] ?? $post['comment_count'] ?? 0);
                 $topEngagement[] = [
-                    'likes' => $likes,
-                    'comments' => $comments,
-                    'total' => $likes + ($comments * 2)
+                    'likes' => $likes
                 ];
             }
             Log::info('PhantomBuster: Top engaging posts selected', [
@@ -1348,198 +1709,6 @@ class PhantomBusterService
         return [];
     }
 
-    /**
-     * Fetch commenters for a specific post URL
-     *
-     * @param string $postUrl LinkedIn post URL
-     * @param int $maxWaitSeconds
-     * @param int $pollIntervalSeconds
-     * @return array Array of commenter profiles
-     */
-    private function fetchPostCommenters(
-        string $postUrl,
-        int $maxWaitSeconds = 300,
-        int $pollIntervalSeconds = 10
-    ): array {
-        $phantomId = config('services.phantombuster.linkedin_post_commenters_phantom_id');
-        
-        if (!$phantomId) {
-            $phantomId = $this->findPhantomByName('linkedin post commenters');
-        }
-        
-        if (!$phantomId) {
-            Log::warning('PhantomBuster: LinkedIn Post Commenters phantom not found, skipping commenters extraction');
-            return [];
-        }
-
-        $arguments = [
-            'postUrl' => $postUrl,
-        ];
-        
-        // Add session cookie and user agent
-        $sessionCookie = $this->getSessionCookie();
-        if ($sessionCookie) {
-            $arguments['sessionCookie'] = $sessionCookie;
-        }
-        
-        $userAgent = $this->getUserAgent();
-        if ($userAgent) {
-            $arguments['userAgent'] = $userAgent;
-        }
-
-        $launchResponse = $this->launchPhantom($phantomId, $arguments);
-        $containerId = $launchResponse['containerId'] ?? $launchResponse['data']['containerId'] ?? null;
-        
-        if (!$containerId) {
-            throw new \Exception("Failed to get container ID from PhantomBuster launch for post commenters");
-        }
-
-        // Wait a bit before first poll to allow container to initialize
-        // PhantomBuster containers need time to start up
-        sleep(5);
-
-        // Poll for completion
-        $startTime = time();
-        $attempts = 0;
-        $last404Time = null;
-        
-        while (time() - $startTime < $maxWaitSeconds) {
-            $attempts++;
-            
-            try {
-                // Don't sleep on first attempt since we already waited 5 seconds
-                if ($attempts > 1) {
-                    sleep($pollIntervalSeconds);
-                }
-
-                $output = $this->getPhantomOutput($phantomId, $containerId);
-            } catch (\Exception $e) {
-                // Handle 404 errors gracefully - container might not be ready yet
-                if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
-                    if ($last404Time === null) {
-                        $last404Time = time();
-                    }
-                    
-                    // If we keep getting 404s for more than 30 seconds, give up
-                    if (time() - $last404Time > 30) {
-                        Log::error('PhantomBuster: Container not found after multiple attempts', [
-                            'phantom_id' => $phantomId,
-                            'container_id' => $containerId,
-                            'attempts' => $attempts,
-                            'post_url' => $postUrl
-                        ]);
-                        return [];
-                    }
-                    
-                    Log::info('PhantomBuster: Container not ready yet, waiting...', [
-                        'attempt' => $attempts,
-                        'phantom_id' => $phantomId,
-                        'container_id' => $containerId
-                    ]);
-                    continue;
-                }
-                
-                // For other errors, re-throw
-                throw $e;
-            }
-            
-            // Check multiple possible locations for the data
-            $commenters = $output['data']['output'] 
-                ?? $output['data']['resultObject'] 
-                ?? $output['output'] 
-                ?? [];
-            
-            $containerStatus = $output['data']['containerStatus'] ?? null;
-            $agentStatus = $output['data']['agentStatus'] ?? null;
-            $messages = $output['data']['messages'] ?? [];
-            $progress = $output['data']['progress'] ?? null;
-            
-            Log::info('PhantomBuster: Post commenters status check', [
-                'attempt' => $attempts,
-                'container_status' => $containerStatus,
-                'agent_status' => $agentStatus,
-                'commenters_count' => is_array($commenters) ? count($commenters) : 0,
-                'progress' => $progress,
-                'has_resultObject' => isset($output['data']['resultObject']),
-                'messages' => $messages
-            ]);
-            
-            if (is_array($commenters) && !empty($commenters)) {
-                Log::info('PhantomBuster: Got commenters data', ['count' => count($commenters)]);
-                return $commenters;
-            }
-            
-            // Check if phantom is finished (even if no data yet)
-            if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
-                // One final check for data in resultObject
-                if (isset($output['data']['resultObject'])) {
-                    $resultObject = $output['data']['resultObject'];
-                    Log::info('PhantomBuster: Checking resultObject', [
-                        'type' => gettype($resultObject),
-                        'is_array' => is_array($resultObject),
-                        'is_string' => is_string($resultObject),
-                        'is_empty' => empty($resultObject),
-                        'count' => is_array($resultObject) ? count($resultObject) : (is_string($resultObject) ? strlen($resultObject) : 'N/A'),
-                        'sample' => is_array($resultObject) && !empty($resultObject) ? array_slice($resultObject, 0, 1) : (is_string($resultObject) ? substr($resultObject, 0, 200) : $resultObject)
-                    ]);
-                    
-                    // If resultObject is a JSON string, try to decode it
-                    if (is_string($resultObject)) {
-                        $decoded = json_decode($resultObject, true);
-                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                            // Check if it's an error message
-                            if (isset($decoded[0]['error'])) {
-                                Log::warning('PhantomBuster: Phantom returned error in resultObject', [
-                                    'error' => $decoded[0]['error'],
-                                    'post_url' => $decoded[0]['postUrl'] ?? $postUrl
-                                ]);
-                                break; // Don't return error data
-                            }
-                            // It's valid data
-                            Log::info('PhantomBuster: Found commenters in resultObject (decoded from JSON string)', ['count' => count($decoded)]);
-                            return $decoded;
-                        }
-                    }
-                    
-                    if (is_array($resultObject) && !empty($resultObject)) {
-                        // Check if it's an error message
-                        if (isset($resultObject[0]['error'])) {
-                            Log::warning('PhantomBuster: Phantom returned error in resultObject', [
-                                'error' => $resultObject[0]['error'],
-                                'post_url' => $resultObject[0]['postUrl'] ?? $postUrl
-                            ]);
-                            break; // Don't return error data
-                        }
-                        Log::info('PhantomBuster: Found commenters in resultObject', ['count' => count($resultObject)]);
-                        return $resultObject;
-                    }
-                }
-                
-                Log::warning('PhantomBuster: Phantom finished but no commenters found', [
-                    'container_status' => $containerStatus,
-                    'messages' => $messages,
-                    'output_keys' => isset($output['data']) ? array_keys($output['data']) : [],
-                    'has_resultObject' => isset($output['data']['resultObject']),
-                    'resultObject_type' => isset($output['data']['resultObject']) ? gettype($output['data']['resultObject']) : null
-                ]);
-                break;
-            }
-            
-            if ($containerStatus === 'error') {
-                Log::error('PhantomBuster: Phantom error', [
-                    'messages' => $messages,
-                    'agent_status' => $agentStatus
-                ]);
-                break;
-            }
-        }
-
-        Log::warning('PhantomBuster: Timeout or no data for post commenters', [
-            'post_url' => $postUrl,
-            'waited_seconds' => time() - $startTime
-        ]);
-        return [];
-    }
 
     private function getSessionCookie(): ?string
     {
@@ -1550,5 +1719,6 @@ class PhantomBusterService
     {
         return $this->userAgentOverride ?? config('services.phantombuster.linkedin_user_agent');
     }
+
 }
 

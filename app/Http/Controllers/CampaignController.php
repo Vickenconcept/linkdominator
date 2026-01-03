@@ -596,15 +596,21 @@ class CampaignController extends Controller
         $campaign_data = [];
 
         if ($user) {
-            $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end) as total_lead_list";
+            $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, COALESCE(sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end), 0) as total_lead_list";
 
             $campaigns = Campaign::select(DB::raw($query))
-                ->join('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
+                ->leftJoin('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
                 ->leftJoin('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
                 ->where('campaigns.user_id', $user->id)
-                ->groupBy('id', 'name', 'status', 'created_at', 'sequence_type', 'process_condition', 'user_id')
+                ->groupBy('campaigns.id', 'campaigns.name', 'campaigns.status', 'campaigns.created_at', 'campaigns.sequence_type', 'campaigns.process_condition', 'campaigns.user_id')
                 ->orderBy('campaigns.id', 'desc')
                 ->get();
+
+            \Log::info('Campaigns query result', [
+                'user_id' => $user->id,
+                'campaigns_count' => $campaigns->count(),
+                'campaign_ids' => $campaigns->pluck('id')->toArray()
+            ]);
 
             $campaign_list = new CampaignList;
 
@@ -615,17 +621,28 @@ class CampaignController extends Controller
 
                 array_push($campaign_data, $item);
             }
+
+            $resourceData = $this->campaignResource($campaign_data);
+            
+            \Log::info('Campaigns resource data', [
+                'campaign_data_count' => count($campaign_data),
+                'resource_data_count' => count($resourceData),
+                'sample_campaign' => $resourceData[0] ?? null
+            ]);
         } else {
             return response()->json([
-                "message" => "Unauthorized",
-                "status" => 400
+                'status' => 400,
+                'message' => 'Unauthorized',
+                'timestamp' => now()->toISOString()
             ], 400);
         }
 
         return response()->json([
+            'status' => 200,
+            'message' => 'Campaigns retrieved successfully',
             'data' => $this->campaignResource($campaign_data),
-            'status' => 200
-        ]);
+            'timestamp' => now()->toISOString()
+        ], 200);
     }
 
     /**
@@ -1023,7 +1040,7 @@ class CampaignController extends Controller
                     'listId' => $tracking->lead_list,
                     'memberUrn' => $leadData->con_member_urn ?? $leadData->object_urn,
                     'trackingId' => $leadData->con_tracking_id ?? null,
-                    'networkDistance' => $leadData->con_distance ?? $leadData->degree,
+                    'networkDistance' => $this->convertNetworkDistanceToInt($leadData->con_distance ?? $leadData->degree),
                     'createdAt' => $leadData->created_at ?? null,
                     // Campaign tracking fields
                     'accept_status' => $tracking->accept_status,
@@ -1086,6 +1103,38 @@ class CampaignController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Convert network distance from DISTANCE_X format to integer
+     * Handles: "DISTANCE_1", "DISTANCE_2", "DISTANCE_3" -> 1, 2, 3
+     * Also handles: 1, 2, 3 (already integers) -> 1, 2, 3
+     */
+    private function convertNetworkDistanceToInt($networkDistance)
+    {
+        if ($networkDistance === null || $networkDistance === '') {
+            return null;
+        }
+
+        // If it's already a number, return it as integer
+        if (is_numeric($networkDistance)) {
+            return (int)$networkDistance;
+        }
+
+        // If it's a string in DISTANCE_X format, extract the number
+        if (is_string($networkDistance) && strpos($networkDistance, '_') !== false) {
+            $parts = explode('_', $networkDistance);
+            if (isset($parts[1]) && is_numeric($parts[1])) {
+                return (int)$parts[1];
+            }
+        }
+
+        // If it's a string like "1st", "2nd", "3rd", extract number
+        if (is_string($networkDistance) && preg_match('/(\d+)/', $networkDistance, $matches)) {
+            return (int)$matches[1];
+        }
+
+        return null;
     }
 }
 

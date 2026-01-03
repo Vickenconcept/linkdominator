@@ -21,6 +21,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Exception;
 
 class ChromeApiController extends Controller
@@ -171,7 +172,8 @@ class ChromeApiController extends Controller
             ]);
 
             Log::info('Audience created successfully', [
-                'audience_id' => $audience->id,
+                'id' => $audience->id,
+                'audience_id' => $audience->audience_id,
                 'user_id' => $user->id,
                 'audience_name' => $request->audienceName
             ]);
@@ -201,46 +203,102 @@ class ChromeApiController extends Controller
 
     public function getAudienceList(Request $request)
     {
-        $audience_id = $request->query('audienceId');
-        $total_count = $request->query('totalCount');
+        try {
+            $audience_id = $request->query('audienceId');
+            $total_count = $request->query('totalCount');
 
-        Log::info('Fetching audience list', [
-            'audience_id' => $audience_id,
-            'total_count' => $total_count,
-            'linkedin_id' => $request->header('lk-id')
-        ]);
+            // Validate audience_id is provided
+            if (!$audience_id) {
+                Log::warning('getAudienceList called without audienceId', [
+                    'query_params' => $request->query(),
+                    'linkedin_id' => $request->header('lk-id')
+                ]);
+                return response()->json([
+                    'audience' => [],
+                    'error' => 'audienceId parameter is required'
+                ], 400);
+            }
 
-        // Use parameterized query to prevent SQL injection and handle type correctly
-        if (isset($total_count)) {
-            $audience_list = DB::select("
-                SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
-                con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
+            // Ensure audience_id is cast to integer for consistent comparison
+            $audience_id = is_numeric($audience_id) ? (int)$audience_id : $audience_id;
+
+            Log::info('Fetching audience list', [
+                'audience_id' => $audience_id,
+                'audience_id_type' => gettype($audience_id),
+                'total_count' => $total_count,
+                'linkedin_id' => $request->header('lk-id'),
+                'query_params' => $request->query()
+            ]);
+
+            // Debug: Check what audience_id values exist in audience_lists for this audience_id
+            $debug_check = DB::select("
+                SELECT DISTINCT audience_id, COUNT(*) as count 
                 FROM audience_lists 
                 WHERE audience_id = ? 
-                ORDER BY DATE(created_at) DESC 
-                LIMIT ?
-            ", [$audience_id, (int)$total_count]);
-        } else {
-            $audience_list = DB::select("
-                SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
-                con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
-                FROM audience_lists 
-                WHERE audience_id = ? 
-                ORDER BY DATE(created_at) DESC
+                GROUP BY audience_id
             ", [$audience_id]);
+            
+            // Also check with CAST to ensure type matching
+            $debug_check_cast = DB::select("
+                SELECT DISTINCT CAST(audience_id AS CHAR) as audience_id_str, COUNT(*) as count 
+                FROM audience_lists 
+                WHERE CAST(audience_id AS CHAR) = ? 
+                GROUP BY audience_id_str
+            ", [(string)$audience_id]);
+            
+            Log::info('Debug: Checking audience_id matches', [
+                'requested_audience_id' => $audience_id,
+                'requested_type' => gettype($audience_id),
+                'found_matches_int' => $debug_check,
+                'found_matches_str' => $debug_check_cast,
+                'sample_audience_ids_in_table' => DB::select("SELECT DISTINCT audience_id FROM audience_lists ORDER BY audience_id DESC LIMIT 5")
+            ]);
+
+            // Use parameterized query to prevent SQL injection and handle type correctly
+            if (isset($total_count)) {
+                $audience_list = DB::select("
+                    SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
+                    con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
+                    FROM audience_lists 
+                    WHERE audience_id = ? 
+                    ORDER BY DATE(created_at) DESC 
+                    LIMIT ?
+                ", [$audience_id, (int)$total_count]);
+            } else {
+                $audience_list = DB::select("
+                    SELECT id, con_first_name, con_last_name, con_job_title, con_location, con_distance, 
+                    con_public_identifier, con_id, con_member_urn, con_tracking_id, created_at
+                    FROM audience_lists 
+                    WHERE audience_id = ? 
+                    ORDER BY DATE(created_at) DESC
+                ", [$audience_id]);
+            }
+
+            Log::info('Audience list fetched', [
+                'audience_id' => $audience_id,
+                'audience_id_type' => gettype($audience_id),
+                'count' => count($audience_list),
+                'sample_ids' => array_slice(array_column($audience_list, 'id'), 0, 3),
+                'sample_connection_ids' => array_slice(array_column($audience_list, 'con_id'), 0, 3)
+            ]);
+
+            return response()->json([
+                'audience' => $audience_list
+            ])->header('Content-Type', 'application/json');
+
+        } catch (Exception $e) {
+            Log::error('Failed to get audience list: ' . $e->getMessage(), [
+                'audience_id' => $request->query('audienceId'),
+                'linkedin_id' => $request->header('lk-id'),
+                'query_params' => $request->query(),
+                'exception' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'audience' => [],
+                'error' => 'Failed to retrieve audience list: ' . $e->getMessage()
+            ], 500)->header('Content-Type', 'application/json');
         }
-
-        Log::info('Audience list fetched', [
-            'audience_id' => $audience_id,
-            'audience_id_type' => gettype($audience_id),
-            'count' => count($audience_list),
-            'sample_ids' => array_slice(array_column($audience_list, 'id'), 0, 3),
-            'sample_connection_ids' => array_slice(array_column($audience_list, 'con_id'), 0, 3)
-        ]);
-
-        return response()->json([
-            'audience' => $audience_list
-        ]);
     }
 
     public function storeAudienceList(Request $request)
@@ -253,7 +311,8 @@ class ChromeApiController extends Controller
                 'connection_id' => $request->connectionId
             ]);
 
-            $audience_id = $request->audienceId;
+            // Ensure audience_id is cast to integer for consistent comparison with bigInteger column
+            $audience_id = is_numeric($request->audienceId) ? (int)$request->audienceId : $request->audienceId;
             $first_name = $request->firstName;
             $last_name = $request->lastName;
             $email = $request->email;
@@ -263,17 +322,68 @@ class ChromeApiController extends Controller
             if ($request->has('title')) {
                 $title = $request->title;
             }
-            if ($request->has('locationName')) {
+            // Check both locationName and location (frontend might send either)
+            if ($request->has('locationName') && !empty($request->locationName)) {
                 $locationName = $request->locationName;
+            } elseif ($request->has('location') && !empty($request->location)) {
+                $locationName = $request->location;
             }
 
             $public_identifier = $request->publicIdentifier;
             $connection_id = $request->connectionId;
             $tracking_id = $request->trackingId;
             $member_urn = $request->memberUrn;
+            
+            // Extract network distance from request and convert to string format
+            $network_distance = null;
+            // Use input() instead of has() to properly handle 0 values
+            if ($request->input('networkDistance') !== null) {
+                $rawDistance = $request->input('networkDistance');
+                // Convert to string format: "DISTANCE_1", "DISTANCE_2", "DISTANCE_3"
+                if (is_numeric($rawDistance)) {
+                    $network_distance = 'DISTANCE_' . (int)$rawDistance;
+                } elseif (is_string($rawDistance) && $rawDistance !== '') {
+                    // If already in format like "2nd", "3rd", extract number
+                    if (preg_match('/(\d+)/', $rawDistance, $matches)) {
+                        $network_distance = 'DISTANCE_' . $matches[1];
+                    } elseif (str_starts_with(strtoupper($rawDistance), 'DISTANCE_')) {
+                        $network_distance = strtoupper($rawDistance);
+                    } else {
+                        $network_distance = $rawDistance; // Use as-is
+                    }
+                }
+            } elseif ($request->input('distance') !== null) {
+                $rawDistance = $request->input('distance');
+                if (is_numeric($rawDistance)) {
+                    $network_distance = 'DISTANCE_' . (int)$rawDistance;
+                } elseif (is_string($rawDistance) && $rawDistance !== '') {
+                    $network_distance = $rawDistance;
+                }
+            } elseif ($request->input('connectionDegree') !== null) {
+                $rawDistance = $request->input('connectionDegree');
+                if (is_numeric($rawDistance)) {
+                    $network_distance = 'DISTANCE_' . (int)$rawDistance;
+                } elseif (is_string($rawDistance) && $rawDistance !== '') {
+                    $network_distance = $rawDistance;
+                }
+            }
+
+            // Log all received data including network distance
+            Log::info('📊 POST-SCRAPING AUDIENCE: Received data from frontend/PhantomJS', [
+                'audience_id' => $audience_id,
+                'connection_id' => $connection_id,
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'public_identifier' => $public_identifier,
+                'networkDistance' => $network_distance,
+                'networkDistance_source' => $request->has('networkDistance') ? 'networkDistance' : ($request->has('distance') ? 'distance' : ($request->has('connectionDegree') ? 'connectionDegree' : 'not_provided')),
+                'all_request_keys' => array_keys($request->all()),
+                'full_request_data' => $request->all()
+            ]);
 
             Log::info('Checking for existing audience list item', [
                 'audience_id' => $audience_id,
+                'audience_id_type' => gettype($audience_id),
                 'connection_id' => $connection_id
             ]);
 
@@ -289,7 +399,8 @@ class ChromeApiController extends Controller
                     'connection_id' => $connection_id
                 ]);
 
-                $audienceListItem = AudienceList::create([
+                // Prepare data array for creation
+                $createData = [
                     'audience_id' => $audience_id,
                     'con_first_name' => $first_name,
                     'con_last_name' => $last_name,
@@ -299,7 +410,57 @@ class ChromeApiController extends Controller
                     'con_public_identifier' => $public_identifier,
                     'con_id' => $connection_id,
                     'con_tracking_id' => $tracking_id,
-                    'con_member_urn' => $member_urn
+                    'con_member_urn' => $member_urn,
+                ];
+                
+                // Only add con_distance if it's not null
+                if ($network_distance !== null) {
+                    $createData['con_distance'] = (string)$network_distance; // Ensure it's a string
+                }
+                
+                // Log what we're about to save
+                Log::info('💾 POST-SCRAPING AUDIENCE: About to save to database', [
+                    'create_data' => $createData,
+                    'network_distance_raw' => $network_distance,
+                    'network_distance_type' => gettype($network_distance),
+                    'locationName' => $locationName,
+                    'locationName_type' => gettype($locationName),
+                ]);
+
+                $audienceListItem = AudienceList::create($createData);
+                
+                // Refresh from database to ensure we have the actual saved values
+                $audienceListItem->refresh();
+
+                // Verify what's actually in the database with a direct query
+                $dbRecord = \DB::table('audience_lists')
+                    ->where('id', $audienceListItem->id)
+                    ->first(['id', 'con_distance', 'con_location', 'con_first_name', 'con_last_name']);
+
+                // Log what was actually saved to database
+                Log::info('💾 POST-SCRAPING AUDIENCE: Saved to audience_lists table', [
+                    'id' => $audienceListItem->id,
+                    'audience_id' => $audience_id,
+                    'connection_id' => $connection_id,
+                    'con_distance_input' => $network_distance,
+                    'con_distance_input_type' => gettype($network_distance),
+                    'con_distance_from_model' => $audienceListItem->con_distance,
+                    'con_distance_from_db_query' => $dbRecord->con_distance ?? 'NOT_FOUND',
+                    'con_location_input' => $locationName,
+                    'con_location_from_model' => $audienceListItem->con_location,
+                    'con_location_from_db_query' => $dbRecord->con_location ?? 'NOT_FOUND',
+                    'all_saved_fields' => [
+                        'con_first_name' => $audienceListItem->con_first_name,
+                        'con_last_name' => $audienceListItem->con_last_name,
+                        'con_public_identifier' => $audienceListItem->con_public_identifier,
+                        'con_id' => $audienceListItem->con_id,
+                        'con_distance' => $audienceListItem->con_distance,
+                        'con_location' => $audienceListItem->con_location
+                    ],
+                    'database_record' => [
+                        'con_distance' => $dbRecord->con_distance ?? null,
+                        'con_location' => $dbRecord->con_location ?? null,
+                    ]
                 ]);
 
                 Log::info('Audience list item created successfully', [
@@ -343,13 +504,31 @@ class ChromeApiController extends Controller
         $jobSeeker = $request->jobSeeker;
         $companyUrl = $request->companyUrl;
 
-        $data = [
-            'con_distance' => $ndistance,
-            'con_premium' => $premium,
-            'con_influencer' => $influencer,
-            'con_jobseeker' => $jobSeeker,
-            'con_company_url' => $companyUrl
-        ];
+        $data = [];
+        
+        // Only update con_distance if it's provided and not null
+        if ($ndistance !== null) {
+            // Convert to string format
+            if (is_numeric($ndistance)) {
+                $data['con_distance'] = 'DISTANCE_' . (int)$ndistance;
+            } else {
+                $data['con_distance'] = (string)$ndistance;
+            }
+        }
+        
+        // Only add other fields if they're provided
+        if ($premium !== null) {
+            $data['con_premium'] = $premium;
+        }
+        if ($influencer !== null) {
+            $data['con_influencer'] = $influencer;
+        }
+        if ($jobSeeker !== null) {
+            $data['con_jobseeker'] = $jobSeeker;
+        }
+        if ($companyUrl !== null) {
+            $data['con_company_url'] = $companyUrl;
+        }
 
         $lead = AudienceList::where('audience_id', $audience_id)
             ->where('con_id', $connection_id);
@@ -634,11 +813,62 @@ class ChromeApiController extends Controller
 
     public function langFilter(Request $request)
     {
-        $lang = $request->query('lang');
+        $lang = $request->query('lang', '');
+        $searchTerm = strtolower(trim($lang));
+        
+        // LinkedIn's supported profile languages
+        $allLanguages = [
+            ['language_code' => 'en', 'name' => 'English'],
+            ['language_code' => 'es', 'name' => 'Spanish'],
+            ['language_code' => 'fr', 'name' => 'French'],
+            ['language_code' => 'de', 'name' => 'German'],
+            ['language_code' => 'pt', 'name' => 'Portuguese'],
+            ['language_code' => 'it', 'name' => 'Italian'],
+            ['language_code' => 'nl', 'name' => 'Dutch'],
+            ['language_code' => 'pl', 'name' => 'Polish'],
+            ['language_code' => 'ru', 'name' => 'Russian'],
+            ['language_code' => 'ja', 'name' => 'Japanese'],
+            ['language_code' => 'ko', 'name' => 'Korean'],
+            ['language_code' => 'zh', 'name' => 'Chinese'],
+            ['language_code' => 'ar', 'name' => 'Arabic'],
+            ['language_code' => 'hi', 'name' => 'Hindi'],
+            ['language_code' => 'tr', 'name' => 'Turkish'],
+            ['language_code' => 'sv', 'name' => 'Swedish'],
+            ['language_code' => 'da', 'name' => 'Danish'],
+            ['language_code' => 'no', 'name' => 'Norwegian'],
+            ['language_code' => 'fi', 'name' => 'Finnish'],
+            ['language_code' => 'cs', 'name' => 'Czech'],
+            ['language_code' => 'hu', 'name' => 'Hungarian'],
+            ['language_code' => 'ro', 'name' => 'Romanian'],
+            ['language_code' => 'th', 'name' => 'Thai'],
+            ['language_code' => 'vi', 'name' => 'Vietnamese'],
+            ['language_code' => 'id', 'name' => 'Indonesian'],
+            ['language_code' => 'ms', 'name' => 'Malay'],
+            ['language_code' => 'he', 'name' => 'Hebrew'],
+            ['language_code' => 'uk', 'name' => 'Ukrainian'],
+            ['language_code' => 'el', 'name' => 'Greek'],
+            ['language_code' => 'bg', 'name' => 'Bulgarian'],
+            ['language_code' => 'hr', 'name' => 'Croatian'],
+            ['language_code' => 'sk', 'name' => 'Slovak'],
+            ['language_code' => 'sl', 'name' => 'Slovenian'],
+            ['language_code' => 'sr', 'name' => 'Serbian'],
+            ['language_code' => 'et', 'name' => 'Estonian'],
+            ['language_code' => 'lv', 'name' => 'Latvian'],
+            ['language_code' => 'lt', 'name' => 'Lithuanian'],
+        ];
+        
         $languages = [];
-
-        if (isset($lang)) {
-            $languages = DB::select("SELECT * from lkd_languages where name like '%$lang%'");
+        
+        if (!empty($searchTerm)) {
+            // Filter languages by search term (case-insensitive)
+            $languages = array_filter($allLanguages, function($langItem) use ($searchTerm) {
+                return stripos(strtolower($langItem['name']), $searchTerm) !== false ||
+                       stripos(strtolower($langItem['language_code']), $searchTerm) !== false;
+            });
+            $languages = array_values($languages); // Re-index array
+        } else {
+            // Return all languages if no search term
+            $languages = $allLanguages;
         }
 
         return response()->json([
@@ -731,11 +961,27 @@ class ChromeApiController extends Controller
                 $integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')
             );
 
-            Log::info('Post likers received from PhantomBuster', [
-                'total_from_phantom' => count($likers),
-                'requested_limit' => $validated['limit'] ?? 'not set',
-                'post_url' => $validated['post_url'],
-            ]);
+            // Log sample of raw PhantomBuster response to see what fields are available
+            if (count($likers) > 0) {
+                $sampleProfile = $likers[0];
+                Log::info('📊 POST-SCRAPING AUDIENCE: PhantomBuster raw response sample', [
+                    'total_from_phantom' => count($likers),
+                    'requested_limit' => $validated['limit'] ?? 'not set',
+                    'post_url' => $validated['post_url'],
+                    'sample_profile_keys' => array_keys($sampleProfile),
+                    'sample_profile_data' => $sampleProfile,
+                    'has_connectionDegree' => isset($sampleProfile['connectionDegree']),
+                    'has_connection_degree' => isset($sampleProfile['connection_degree']),
+                    'has_degree' => isset($sampleProfile['degree']),
+                    'has_networkDistance' => isset($sampleProfile['networkDistance']),
+                ]);
+            } else {
+                Log::info('Post likers received from PhantomBuster', [
+                    'total_from_phantom' => 0,
+                    'requested_limit' => $validated['limit'] ?? 'not set',
+                    'post_url' => $validated['post_url'],
+                ]);
+            }
 
             $likersBeforeLimit = count($likers);
             if (isset($validated['limit'])) {
@@ -755,6 +1001,20 @@ class ChromeApiController extends Controller
             
             foreach ($likers as $index => $profile) {
                 try {
+                    // Log what PhantomBuster returned for this profile
+                    if ($index < 3) { // Log first 3 profiles in detail
+                        Log::info('📊 POST-SCRAPING AUDIENCE: PhantomBuster raw profile data', [
+                            'index' => $index,
+                            'profile_keys' => array_keys($profile),
+                            'profile_data' => $profile,
+                            'has_connectionDegree' => isset($profile['connectionDegree']),
+                            'has_connection_degree' => isset($profile['connection_degree']),
+                            'has_degree' => isset($profile['degree']),
+                            'has_networkDistance' => isset($profile['networkDistance']),
+                            'connectionDegree_value' => $profile['connectionDegree'] ?? $profile['connection_degree'] ?? $profile['degree'] ?? $profile['networkDistance'] ?? 'not_found',
+                        ]);
+                    }
+                    
                     // Skip company entries (they have companyUrl but no profileLink)
                     if (isset($profile['companyUrl']) && !isset($profile['profileLink'])) {
                         $skippedCompanies++;
@@ -776,6 +1036,20 @@ class ChromeApiController extends Controller
                         continue;
                     }
                     $transformed = $this->transformPhantomProfile($profile);
+                    
+                    // Log what was transformed
+                    if ($index < 3) { // Log first 3 transformed profiles
+                        Log::info('🔄 POST-SCRAPING AUDIENCE: Transformed profile data', [
+                            'index' => $index,
+                            'original_connectionDegree' => $profile['connectionDegree'] ?? $profile['connection_degree'] ?? $profile['degree'] ?? 'not_found',
+                            'transformed_connectionDegree' => $transformed['connectionDegree'] ?? 'not_found',
+                            'transformed_connectionDegreeValue' => $transformed['connectionDegreeValue'] ?? 'not_found',
+                            'transformed_publicIdentifier' => $transformed['publicIdentifier'] ?? 'not_found',
+                            'transformed_connectionId' => $transformed['connectionId'] ?? 'not_found',
+                            'fullName' => $transformed['fullName'] ?? 'not_found',
+                        ]);
+                    }
+                    
                     if (empty($transformed['publicIdentifier']) && empty($transformed['connectionId'])) {
                         Log::warning('Transformed profile missing identifiers', [
                             'index' => $index,
@@ -841,6 +1115,292 @@ class ChromeApiController extends Controller
 
             return $this->errorResponse('Failed to fetch post likers: ' . $th->getMessage(), 500);
         }
+    }
+
+    /**
+     * Fetch LinkedIn search results via PhantomBuster (Search Export) to avoid deprecated Voyager search.
+     */
+    public function fetchSearchResultsFromPhantom(Request $request)
+    {
+        try {
+            $user = $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => $th->getMessage(),
+                'status' => 401
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'search_url' => ['nullable', 'url'],
+            'keywords' => ['nullable', 'string'],
+            'category' => ['nullable', 'string'],
+            'connection_degrees' => ['nullable', 'array'],
+            'connection_degrees.*' => ['string'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'identities' => ['nullable', 'array'],
+            'identities.*.identityId' => ['nullable', 'string'],
+            'identities.*.sessionCookie' => ['required_with:identities', 'string'],
+            'identities.*.userAgent' => ['nullable', 'string'],
+            'use_identities_format' => ['nullable', 'boolean']
+        ]);
+
+        $keywords = isset($validated['keywords']) ? trim((string)$validated['keywords']) : '';
+        $searchUrl = isset($validated['search_url']) ? trim((string)$validated['search_url']) : '';
+
+        if ($searchUrl === '' && $keywords === '') {
+            return $this->errorResponse('Provide either a search_url or keywords', 422);
+        }
+
+        $integration = Integration::where('user_id', $user->id)
+            ->where('oauth_provider', 'linkedin')
+            ->whereNotNull('linkedin_session_cookie')
+            ->latest('linkedin_session_verified_at')
+            ->first();
+
+        if (!$integration) {
+            return $this->errorResponse(
+                'LinkedIn session cookie not found. Please update it from the Social Accounts page.',
+                422
+            );
+        }
+
+        try {
+            $service = new PhantomBusterService();
+            
+            // Default to using identities format (can be disabled with use_identities_format=false)
+            $useIdentitiesFormat = $validated['use_identities_format'] ?? true;
+            $identities = null;
+            
+            if ($useIdentitiesFormat || !empty($validated['identities'])) {
+                // Use identities array format
+                if (!empty($validated['identities'])) {
+                    // Use provided identities from request
+                    $identities = $validated['identities'];
+                    Log::info('Chrome API: Using identities from request', [
+                        'identities_count' => count($identities),
+                        'has_identityId' => !empty($identities[0]['identityId'] ?? null)
+                    ]);
+                } else {
+                    // Build identities array from integration data
+                    $identities = [[
+                        'sessionCookie' => $integration->linkedin_session_cookie,
+                        'userAgent' => $integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')
+                    ]];
+                    
+                    // Add identityId if available in integration
+                    if (isset($integration->linkedin_identity_id) && !empty($integration->linkedin_identity_id)) {
+                        $identities[0]['identityId'] = $integration->linkedin_identity_id;
+                    }
+                    
+                }
+            }
+            
+            // Normalize category to ensure it's capitalized (PhantomBuster requires "People" not "people")
+            $category = isset($validated['category']) ? ucfirst(strtolower(trim($validated['category']))) : 'People';
+            
+            // If searchUrl is provided and contains filters, use it (it will include keywords if present)
+            // Otherwise, use keywords only (backend will build minimal URL)
+            // Priority: searchUrl with filters > keywords only
+            $finalSearchUrl = null;
+            $finalKeywords = null;
+            
+            if (!empty($searchUrl) && filter_var($searchUrl, FILTER_VALIDATE_URL)) {
+                // Complete URL provided (includes all filters) - use it
+                $finalSearchUrl = $searchUrl;
+                // Extract keywords from URL if needed, but PhantomBuster will use the URL
+                $finalKeywords = $keywords ?: null;
+            } elseif (!empty($keywords)) {
+                // Only keywords provided - backend will build minimal URL
+                $finalSearchUrl = null;
+                $finalKeywords = $keywords;
+            } else {
+                return $this->errorResponse('Provide either a search_url or keywords', 422);
+            }
+            
+            $profiles = $service->fetchSearchExportResults(
+                $finalSearchUrl,
+                600,
+                15,
+                $useIdentitiesFormat ? null : $integration->linkedin_session_cookie,
+                $useIdentitiesFormat ? null : ($integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')),
+                $finalKeywords,
+                $validated['connection_degrees'] ?? [],
+                $category,
+                $validated['limit'] ?? null,
+                $identities
+            );
+
+            // Handle empty profiles gracefully (for pagination - return empty structure instead of error)
+            // This matches post likers behavior - always return success response with empty array if no results
+            $normalized = [];
+            if (!empty($profiles)) {
+                $normalized = $this->transformSearchExportProfiles($profiles, $validated['limit'] ?? null);
+            }
+
+            $included = [];
+            if (!empty($normalized)) {
+                $included = array_map(function ($profile) {
+                    $trackingId = Str::uuid()->toString();
+                    $publicId = $profile['publicIdentifier'] ?? null;
+                    $entityUrn = $publicId
+                        ? "urn:li:fsd_entityResultViewModel:(urn:li:fsd_profile:{$publicId},SEARCH_SRP,DEFAULT)"
+                        : null;
+                    $navigationUrl = $profile['profileUrl'] ?? ($publicId ? "https://www.linkedin.com/in/{$publicId}/" : null);
+                    $distanceValue = $profile['connectionDegree'] ?? $profile['networkDistance'] ?? null;
+                    $distanceValue = is_numeric($distanceValue) ? (int) $distanceValue : $distanceValue;
+                    $memberDistance = $distanceValue ? "DISTANCE_{$distanceValue}" : 'DISTANCE_3';
+
+                    return [
+                        'title' => ['text' => $profile['fullName'] ?? 'LinkedIn Member'],
+                        'primarySubtitle' => ['text' => $profile['occupation'] ?? ''],
+                        'secondarySubtitle' => ['text' => $profile['location'] ?? ''],
+                        'entityUrn' => $entityUrn,
+                        'trackingId' => $trackingId,
+                        'trackingUrn' => $profile['memberUrn'] ?? ($publicId ? "urn:li:member:{$publicId}" : null),
+                        'entityCustomTrackingInfo' => [
+                            'memberDistance' => $memberDistance
+                        ],
+                        'navigationUrl' => $navigationUrl,
+                        // Include PhantomBuster data for client-side filtering
+                        'phantomData' => [
+                            'company' => $profile['company'] ?? null,
+                            'companyId' => $profile['companyId'] ?? null,
+                            'company2' => $profile['company2'] ?? null,
+                            'industry' => $profile['industry'] ?? null,
+                            'school' => $profile['school'] ?? null,
+                            'school2' => $profile['school2'] ?? null,
+                            'location' => $profile['location'] ?? null,
+                        ]
+                    ];
+                }, $normalized);
+            }
+
+            // Return in LinkedIn API format that frontend expects
+            // Frontend expects: res['data'].data.elements and res['data'].included
+            // successResponse wraps in 'data', so we need: data.data.elements
+            $response = [
+                'data' => [
+                    'elements' => [
+                        [
+                            'items' => $included
+                        ]
+                    ],
+                    'metadata' => [
+                        'totalResultCount' => count($included)
+                    ]
+                ],
+                'included' => $included
+            ];
+
+            Log::info('Chrome API: Returning search results response', [
+                'items_count' => count($included),
+                'totalResultCount' => count($included),
+                'response_structure' => [
+                    'has_data' => isset($response['data']),
+                    'has_elements' => isset($response['data']['elements']),
+                    'elements_count' => isset($response['data']['elements']) ? count($response['data']['elements']) : 0,
+                    'has_items' => isset($response['data']['elements'][0]['items']),
+                    'items_count_in_response' => isset($response['data']['elements'][0]['items']) ? count($response['data']['elements'][0]['items']) : 0,
+                    'has_included' => isset($response['included']),
+                    'included_count' => isset($response['included']) ? count($response['included']) : 0,
+                    'final_path' => 'res.data.data.elements[0].items (after successResponse wraps)',
+                    'final_included_path' => 'res.data.included (after successResponse wraps)'
+                ]
+            ]);
+
+            return $this->successResponse($response, 'Fetched search results successfully');
+        } catch (\Throwable $th) {
+            Log::error('Chrome API: Failed to fetch search export results', [
+                'user_id' => $user->id,
+                'search_url' => $validated['search_url'],
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+
+            return $this->errorResponse('Failed to fetch search results: ' . $th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Normalize PhantomBuster search export profiles into a consistent shape for the extension.
+     */
+    protected function transformSearchExportProfiles(array $profiles, ?int $limit = null): array
+    {
+        $normalized = [];
+        $count = 0;
+
+        foreach ($profiles as $profile) {
+            if ($limit && $count >= $limit) {
+                break;
+            }
+
+            if (!is_array($profile)) {
+                continue;
+            }
+
+            // Skip error objects - PhantomBuster sometimes returns error objects instead of profiles
+            if (isset($profile['error']) && empty($profile['fullName']) && empty($profile['profileUrl']) && empty($profile['firstName'])) {
+                Log::debug('Chrome API: Skipping error object from PhantomBuster', [
+                    'error' => $profile['error'] ?? null,
+                    'query' => $profile['query'] ?? null
+                ]);
+                continue;
+            }
+
+            $fullName = $profile['fullName']
+                ?? $profile['name']
+                ?? trim(($profile['firstName'] ?? '') . ' ' . ($profile['lastName'] ?? ''));
+
+            $occupation = $profile['occupation'] ?? $profile['headline'] ?? null;
+            $location = $profile['location'] ?? $profile['locationName'] ?? null;
+
+            $profileUrl = $profile['profileUrl']
+                ?? $profile['profileLink']
+                ?? $profile['profile_link']
+                ?? $profile['linkedinUrl']
+                ?? $profile['linkedin_url']
+                ?? null;
+
+            $publicId = $profile['publicIdentifier']
+                ?? $profile['public_identifier']
+                ?? $profile['memberId']
+                ?? null;
+
+            if (!$publicId && $profileUrl) {
+                if (preg_match('/linkedin\.com\/in\/([^\/\?]+)/', $profileUrl, $matches)) {
+                    $publicId = $matches[1];
+                }
+            }
+
+            $connectionDegree = $profile['connectionDegree']
+                ?? $profile['connection_degree']
+                ?? $profile['degree']
+                ?? $profile['networkDistance']
+                ?? $profile['network_distance']
+                ?? null;
+
+            $normalized[] = [
+                'fullName' => $fullName ?: 'LinkedIn Member',
+                'occupation' => $occupation,
+                'location' => $location,
+                'publicIdentifier' => $publicId,
+                'profileUrl' => $profileUrl,
+                'connectionDegree' => $connectionDegree,
+                'memberUrn' => $profile['memberUrn'] ?? null,
+                // Preserve PhantomBuster data for client-side filtering
+                'company' => $profile['company'] ?? null,
+                'companyId' => $profile['companyId'] ?? null,
+                'company2' => $profile['company2'] ?? null,
+                'industry' => $profile['industry'] ?? null,
+                'school' => $profile['school'] ?? null,
+                'school2' => $profile['school2'] ?? null,
+            ];
+
+            $count++;
+        }
+
+        return $normalized;
     }
 
     public function storeSnLeads(Request $request)
@@ -1019,12 +1579,52 @@ class ChromeApiController extends Controller
             ?? $profileUrl
             ?? uniqid('lnk_', true);
 
-        // PhantomBuster doesn't provide connectionDegree for post likers
-        // Set to null so filtering logic knows it's unknown
+        // Extract connection degree from PhantomBuster response
+        // PhantomBuster may provide this in different field names
         $connectionDegree = $profile['connectionDegree']
             ?? $profile['connection_degree']
             ?? $profile['degree']
+            ?? $profile['networkDistance']
+            ?? $profile['network_distance']
             ?? null;
+        
+        // Extract memberUrn - PhantomBuster typically doesn't provide this directly
+        // Try multiple field names that PhantomBuster might use
+        $memberUrn = $profile['memberUrn']
+            ?? $profile['member_urn']
+            ?? $profile['objectUrn']
+            ?? $profile['object_urn']
+            ?? $profile['trackingUrn']
+            ?? $profile['tracking_urn']
+            ?? null;
+        
+        // Log extraction for debugging (only for first few profiles to avoid spam)
+        static $logCount = 0;
+        if ($logCount < 3) {
+            Log::info('🔄 POST-SCRAPING AUDIENCE: transformPhantomProfile extracting data', [
+                'profile_name' => $name ?? 'unknown',
+                'connectionDegree_found' => $connectionDegree !== null,
+                'connectionDegree_value' => $connectionDegree,
+                'connectionDegree_source' => isset($profile['connectionDegree']) ? 'connectionDegree' :
+                                 (isset($profile['connection_degree']) ? 'connection_degree' :
+                                 (isset($profile['degree']) ? 'degree' :
+                                 (isset($profile['networkDistance']) ? 'networkDistance' :
+                                 (isset($profile['network_distance']) ? 'network_distance' : 'not_found')))),
+                'memberUrn_found' => $memberUrn !== null,
+                'memberUrn_value' => $memberUrn,
+                'memberUrn_source' => isset($profile['memberUrn']) ? 'memberUrn' :
+                                     (isset($profile['member_urn']) ? 'member_urn' :
+                                     (isset($profile['objectUrn']) ? 'objectUrn' :
+                                     (isset($profile['object_urn']) ? 'object_urn' :
+                                     (isset($profile['trackingUrn']) ? 'trackingUrn' :
+                                     (isset($profile['tracking_urn']) ? 'tracking_urn' : 'not_found'))))),
+                'connectionId' => $connectionId,
+                'publicIdentifier' => $publicIdentifier,
+                'all_profile_keys' => array_keys($profile),
+                'note' => 'memberUrn is typically NOT provided by PhantomBuster - profile views will use connectionId as fallback'
+            ]);
+            $logCount++;
+        }
 
         return [
             'firstName' => $firstName,
@@ -1041,10 +1641,7 @@ class ChromeApiController extends Controller
             'publicIdentifier' => $publicIdentifier,
             'profileUrl' => $profileUrl,
             'connectionId' => $connectionId,
-            'memberUrn' => $profile['memberUrn']
-                ?? $profile['member_urn']
-                ?? $profile['objectUrn']
-                ?? null,
+            'memberUrn' => $memberUrn,
             'trackingId' => $profile['trackingId']
                 ?? $profile['tracking_id']
                 ?? null,

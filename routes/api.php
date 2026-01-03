@@ -91,6 +91,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::get('lang', 'langFilter');
     Route::post('conf', 'LinkedInConfig');
     Route::post('audience/post-likers', 'fetchPostLikersFromPhantom');
+    Route::post('audience/search-export', 'fetchSearchResultsFromPhantom');
     Route::post('snleads/store', 'storeSnLeads');
     Route::get('snleads/lists', 'getSnLeadList');
     Route::post('snleads/list/store', 'storeSnLeadList');

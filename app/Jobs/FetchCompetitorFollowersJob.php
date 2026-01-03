@@ -65,7 +65,7 @@ class FetchCompetitorFollowersJob implements ShouldQueue
                 'company_url' => $this->companyUrl
             ]);
             
-            // Fetch company post engagers (people who liked/commented on company posts)
+            // Fetch company post engagers (people who liked company posts)
             // This doesn't require admin access and works for any company
             // Pass scraped post URLs to skip them
             $result = $service->fetchCompanyPostEngagers(
@@ -221,10 +221,50 @@ class FetchCompetitorFollowersJob implements ShouldQueue
         $connectionDegree = $follower['connectionDegree'] 
             ?? $follower['connection_degree'] 
             ?? $follower['degree'] 
+            ?? $follower['networkDistance']
+            ?? $follower['network_distance']
             ?? null;
 
+        // Log what PhantomBuster returned
+        Log::info('📊 POST-SCRAPING AUDIENCE: PhantomBuster response data', [
+            'public_id' => $publicId,
+            'full_name' => $fullName,
+            'connectionDegree' => $connectionDegree,
+            'connectionDegree_source' => isset($follower['connectionDegree']) ? 'connectionDegree' : 
+                                        (isset($follower['connection_degree']) ? 'connection_degree' : 
+                                        (isset($follower['degree']) ? 'degree' : 
+                                        (isset($follower['networkDistance']) ? 'networkDistance' : 
+                                        (isset($follower['network_distance']) ? 'network_distance' : 'not_found')))),
+            'all_follower_keys' => array_keys($follower),
+            'sample_follower_data' => [
+                'firstName' => $first,
+                'lastName' => $last,
+                'jobTitle' => $jobTitle,
+                'company' => $companyName,
+                'location' => $location
+            ]
+        ]);
+
+        // Convert connection degree to distance format (1, 2, 3 or DISTANCE_1, DISTANCE_2, DISTANCE_3)
+        $con_distance = null;
+        if ($connectionDegree !== null) {
+            // Handle different formats: "1", "1st", "DISTANCE_1", 1, etc.
+            if (is_numeric($connectionDegree)) {
+                $con_distance = 'DISTANCE_' . (int)$connectionDegree;
+            } elseif (is_string($connectionDegree)) {
+                // Extract number from strings like "1st", "2nd", "3rd", "DISTANCE_1"
+                if (preg_match('/(\d+)/', $connectionDegree, $matches)) {
+                    $con_distance = 'DISTANCE_' . $matches[1];
+                } elseif (str_starts_with(strtoupper($connectionDegree), 'DISTANCE_')) {
+                    $con_distance = strtoupper($connectionDegree);
+                } else {
+                    $con_distance = $connectionDegree; // Use as-is if can't parse
+                }
+            }
+        }
+
         // Store in audience_lists
-        AudienceList::updateOrCreate(
+        $savedItem = AudienceList::updateOrCreate(
             [
                 'audience_id' => $audience->audience_id,
                 'con_public_identifier' => $publicId,
@@ -236,22 +276,32 @@ class FetchCompetitorFollowersJob implements ShouldQueue
                 'con_company_name' => $companyName,
                 'con_location' => $location,
                 'con_profile_url' => $profileUrl,
+                'con_distance' => $con_distance, // Save network distance
                 'con_last_activity' => now(), // Use current time as last activity
-                // Note: If audience_lists table has a connection_degree column, add it here
-                // 'con_connection_degree' => $connectionDegree,
             ]
         );
+
+        // Log what was saved to database
+        Log::info('💾 POST-SCRAPING AUDIENCE: Saved to audience_lists table from PhantomBuster', [
+            'id' => $savedItem->id,
+            'audience_id' => $audience->audience_id,
+            'public_id' => $publicId,
+            'name' => $fullName,
+            'connectionDegree_received' => $connectionDegree,
+            'con_distance_saved' => $savedItem->con_distance,
+            'con_distance_was_null' => $savedItem->con_distance === null,
+            'all_saved_fields' => [
+                'con_first_name' => $savedItem->con_first_name,
+                'con_last_name' => $savedItem->con_last_name,
+                'con_public_identifier' => $savedItem->con_public_identifier,
+                'con_distance' => $savedItem->con_distance
+            ]
+        ]);
 
         if ($publicId) {
             $seen[$publicId] = true;
         }
         $created++;
-
-        Log::debug('FetchCompetitorFollowersJob: Stored follower', [
-            'public_id' => $publicId,
-            'name' => $fullName,
-            'connection_degree' => $connectionDegree
-        ]);
     }
 }
 

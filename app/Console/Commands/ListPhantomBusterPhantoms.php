@@ -39,17 +39,6 @@ class ListPhantomBusterPhantoms extends Command
             } else {
                 $this->warn("❌ No LinkedIn Post Likers Export phantom found.");
             }
-
-            // Look for post commenters phantom
-            $this->info("\nSearching for LinkedIn Post Commenters Export phantom...");
-            $commentersId = $service->findPhantomByName('linkedin post commenters');
-            if ($commentersId) {
-                $this->info("✅ Found LinkedIn Post Commenters Export phantom ID: {$commentersId}");
-                $this->info("Add this to your .env:");
-                $this->line("PHANTOMBUSTER_LINKEDIN_POST_COMMENTERS_PHANTOM_ID={$commentersId}");
-            } else {
-                $this->warn("❌ No LinkedIn Post Commenters Export phantom found.");
-            }
             
             $this->info("\nNote: Company posts are fetched using RapidAPI, not PhantomBuster.");
 

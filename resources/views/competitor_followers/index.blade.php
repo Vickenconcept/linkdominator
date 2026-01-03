@@ -24,15 +24,6 @@
                 <p class="mt-1">Visit the Social Accounts page, open your connected LinkedIn profile, and paste your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie + user agent. We'll auto-fill it for every competitor fetch.</p>
             </div>
         @endif
-        <div class="rounded border border-blue-200 bg-blue-50 text-blue-900 px-4 py-3 text-sm">
-            <p class="font-medium">ℹ️ How it works</p>
-            <ul class="mt-2 space-y-1 text-xs list-disc list-inside">
-                <li>We scrape people who <strong>liked or commented</strong> on recent company posts (not all followers)</li>
-                <li>By default, we process <strong>3-5 recent posts</strong> to keep API costs low</li>
-                <li>If you see "No comments found" from PhantomBuster, that's normal - not all posts have comments</li>
-                <li>To get more people, increase the <code class="font-mono bg-white/60 px-1 py-0.5 rounded">COMPETITOR_POSTS_LIMIT</code> in your .env file</li>
-            </ul>
-        </div>
         <form method="POST" action="{{ route('competitor-followers.fetch') }}" class="grid grid-cols-1 gap-4">
             @csrf
             <div>

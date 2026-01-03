@@ -79,27 +79,43 @@ trait CampaignHelper
     protected function leadResource($data)
     {
         return array_map(function($item) {
-            if($item->source == 'aud'){
-                $item->networkDistance = explode('_', $item->networkDistance)[1];
+            // Safely handle networkDistance parsing - convert DISTANCE_X format to number for ALL sources
+            $networkDistance = null;
+            if (isset($item->networkDistance) && $item->networkDistance !== null) {
+                $rawDistance = $item->networkDistance;
+                // Handle DISTANCE_X format (e.g., "DISTANCE_1", "DISTANCE_2", "DISTANCE_3")
+                if (is_string($rawDistance) && strpos($rawDistance, '_') !== false) {
+                    $networkParts = explode('_', $rawDistance);
+                    $networkDistance = isset($networkParts[1]) ? (int)$networkParts[1] : null;
+                } elseif (is_numeric($rawDistance)) {
+                    $networkDistance = (int)$rawDistance;
+                } else {
+                    $networkDistance = null;
+                }
             }
+
+            // Safely handle name splitting
+            $nameParts = explode(' ', $item->name ?? '', 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
 
             $leads = [
                 'id' => $item->id,
-                'name' => $item->name,
-                'firstName' => explode(' ', $item->name)[0],
-                'lastName' => explode(' ', $item->name)[1],
-                'headline' => $item->headline,
-                'email' => $item->email,
-                'location' => $item->location,
-                'connectionId' => $item->profileid,
-                'conId' => $item->conId ?? $item->profileid, // Add conId field for endorsement
+                'name' => $item->name ?? '',
+                'firstName' => $firstName,
+                'lastName' => $lastName,
+                'headline' => $item->headline ?? null,
+                'email' => $item->email ?? null,
+                'location' => $item->location ?? null,
+                'connectionId' => $item->profileid ?? null,
+                'conId' => $item->conId ?? $item->profileid ?? null, // Add conId field for endorsement
                 'publicIdentifier' => $item->publicIdentifier ?? null, // Add publicIdentifier for endorsement
-                'source' => $item->source,
-                'listId' => $item->list_hash,
-                'memberUrn' => $item->member_urn,
-                'trackingId' => $item->trackingId,
-                'networkDistance' => (int)$item->networkDistance,
-                'createdAt' => $item->created_at,
+                'source' => $item->source ?? null,
+                'listId' => $item->list_hash ?? null,
+                'memberUrn' => $item->member_urn ?? null,
+                'trackingId' => $item->trackingId ?? null,
+                'networkDistance' => $networkDistance, // PAlready converted to integer
+                'createdAt' => $item->created_at ?? null,
             ];
             
             if(property_exists($item, 'current_node_key')){

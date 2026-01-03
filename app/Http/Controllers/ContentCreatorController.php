@@ -68,7 +68,7 @@ class ContentCreatorController extends Controller
             'post_type' => 'required|in:text,image,video',
             'scheduled_at' => 'nullable|date|after:now',
             'hashtags' => 'nullable|string|max:500',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // For multiple images
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240', // For multiple images (PNG, JPG, WEBP only)
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400' // 100MB max for video
         ]);
 
@@ -127,6 +127,16 @@ class ContentCreatorController extends Controller
             'content_length' => strlen($request->content)
         ]);
 
+        // Truncate hashtags if too long (safety measure, but column should now be TEXT)
+        $hashtags = $request->hashtags;
+        if ($hashtags && strlen($hashtags) > 65535) {
+            $hashtags = substr($hashtags, 0, 65535);
+            \Log::warning('⚠️ Hashtags truncated due to length', [
+                'original_length' => strlen($request->hashtags),
+                'truncated_length' => strlen($hashtags)
+            ]);
+        }
+
         $post = LinkedInPost::create([
             'user_id' => auth()->id(),
             'content' => $request->content,
@@ -135,7 +145,7 @@ class ContentCreatorController extends Controller
             'post_type' => $request->post_type,
             'status' => $status,
             'scheduled_at' => $scheduledAt,
-            'hashtags' => $request->hashtags,
+            'hashtags' => $hashtags,
             'word_count' => str_word_count($request->content)
         ]);
 

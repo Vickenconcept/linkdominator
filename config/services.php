@@ -69,10 +69,8 @@ return [
         'api_url' => env('PHANTOMBUSTER_API_URL', 'https://api.phantombuster.com/api/v1'),
         // LinkedIn Post Likers Export - extracts users who liked a specific post (requires post URL)
         'linkedin_post_likers_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID'),
-        // LinkedIn Post Commenters Export - extracts users who commented on a specific post (requires post URL)
-        'linkedin_post_commenters_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_COMMENTERS_PHANTOM_ID'),
         // Limit how many company posts we process per run
-        // Each post = 2 phantom calls (likers + commenters), so 5 posts = 10 calls
+        // Each post = 1 phantom call (likers only)
         // Lower = less PhantomBuster credits used, Higher = more data scraped
         'company_posts_limit' => env('COMPETITOR_POSTS_LIMIT', 15),
         
@@ -85,5 +83,7 @@ return [
         // Optional: Custom user agent (defaults to Chrome on Windows if not set)
         // To get: Open DevTools > Console > type: navigator.userAgent
         'linkedin_user_agent' => env('PHANTOMBUSTER_LINKEDIN_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'),
+        // LinkedIn Search Export - exports search results from a LinkedIn search URL
+        'linkedin_search_export_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_SEARCH_EXPORT_PHANTOM_ID'),
     ]
 ];

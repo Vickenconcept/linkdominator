@@ -101,7 +101,7 @@
                         <input type="checkbox" id="multipleDrafts" 
                                class="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500">
                         <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                            Generate 3 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
+                            Generate 2 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
                         </span>
                     </label>
                 </div>
@@ -381,12 +381,12 @@
                             <i class="fas fa-images mr-1 text-orange-500"></i>Upload Images (1-10 images)
                         </label>
                         <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
-                            <input type="file" id="imageUpload" name="images[]" multiple accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml" class="hidden">
+                            <input type="file" id="imageUpload" name="images[]" multiple accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden">
                             <button type="button" onclick="document.getElementById('imageUpload').click()" 
                                     class="text-orange-600 hover:text-orange-700">
                                 <i class="fas fa-images text-3xl mb-2"></i>
                                 <div class="text-sm font-medium">Click to upload image(s)</div>
-                                <div class="text-xs text-gray-500 mt-1">Select 1 or more images (max 10 images, 10MB each)</div>
+                                <div class="text-xs text-gray-500 mt-1">Select 1 or more images (PNG, JPG, WEBP only - max 10 images, 10MB each)</div>
                             </button>
                         </div>
                         @error('images.*')
@@ -1065,6 +1065,17 @@ document.getElementById('imageUpload').addEventListener('change', function(e) {
     selectedFiles = Array.from(e.target.files);
     
     if (selectedFiles.length === 0) return;
+    
+    // Validate file types (PNG, JPG, WEBP only)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const invalidFiles = selectedFiles.filter(file => !allowedTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+        alert('Please select only PNG, JPG, or WEBP images. Other file types are not allowed.');
+        this.value = '';
+        selectedFiles = [];
+        return;
+    }
     
     // Validate number of images (1-10)
     if (selectedFiles.length > 10) {

@@ -116,8 +116,32 @@
     </style>
 </head>
 <body class="antialiased">
+    <!-- Social Account Credentials Reminder Toast -->
+    <div id="socialAccountReminderToast" class="hidden fixed top-0 left-0 right-0 z-[9999] bg-orange-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-3 flex-shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <p class="text-sm sm:text-base font-medium flex-1">
+                        <span class="hidden sm:inline">Don't forget to add your LinkedIn credentials to connect your social account. </span>
+                        <span class="sm:hidden">Add your LinkedIn credentials. </span>
+                        <a href="{{ route('social-account.index') }}" class="underline font-semibold hover:text-orange-200 ml-1">Go to Social Accounts →</a>
+                    </p>
+                </div>
+                <button type="button" id="dismissSocialAccountReminder" class="ml-4 flex-shrink-0 text-white hover:text-orange-200 focus:outline-none focus:text-orange-200">
+                    <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span class="sr-only">Close</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ========== HEADER ========== -->
-    <header class="sticky top-0 inset-x-0 flex flex-wrap md:justify-start md:flex-nowrap z-48 w-full bg-white border-b border-gray-200 text-sm py-2.5 lg:ps-65 dark:bg-neutral-800 dark:border-neutral-700">
+    <header id="mainHeader" class="sticky top-0 inset-x-0 flex flex-wrap md:justify-start md:flex-nowrap z-48 w-full bg-white border-b border-gray-200 text-sm py-2.5 lg:ps-65 dark:bg-neutral-800 dark:border-neutral-700 transition-all duration-300">
     <nav class="px-4 sm:px-6 flex basis-full items-center w-full mx-auto">
         <!-- 🔥 NEW: Sidebar Toggle Button -->
         <button type="button" 
@@ -521,6 +545,83 @@
     @notifyJs
 
     <script>
+    // 🔥 Social Account Credentials Reminder Toast
+    (function() {
+        const TOAST_STORAGE_KEY = 'socialAccountReminderLastShown';
+        const TOAST_DISMISSED_KEY = 'socialAccountReminderDismissed';
+        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+        const toast = document.getElementById('socialAccountReminderToast');
+        const dismissBtn = document.getElementById('dismissSocialAccountReminder');
+        
+        if (!toast) return;
+        
+        function shouldShowToast() {
+            // Check if user is already on the social account page
+            const currentPath = window.location.pathname;
+            if (currentPath === '/social-account' || currentPath.startsWith('/social-account/')) {
+                return false;
+            }
+            
+            // Check if permanently dismissed
+            const dismissed = localStorage.getItem(TOAST_DISMISSED_KEY);
+            if (dismissed === 'true') {
+                return false;
+            }
+            
+            // Check if 4 hours have passed since last shown
+            const lastShown = localStorage.getItem(TOAST_STORAGE_KEY);
+            if (!lastShown) {
+                return true; // First time, show it
+            }
+            
+            const timeSinceLastShown = Date.now() - parseInt(lastShown, 10);
+            return timeSinceLastShown >= FOUR_HOURS_MS;
+        }
+        
+        function showToast() {
+            if (shouldShowToast()) {
+                toast.classList.remove('hidden');
+                // Adjust header position to account for toast
+                const header = document.getElementById('mainHeader');
+                if (header) {
+                    header.style.top = '48px'; // Approximate height of toast
+                }
+                localStorage.setItem(TOAST_STORAGE_KEY, Date.now().toString());
+            }
+        }
+        
+        function hideToast() {
+            toast.classList.add('hidden');
+            // Reset header position
+            const header = document.getElementById('mainHeader');
+            if (header) {
+                header.style.top = '0';
+            }
+        }
+        
+        function dismissToast() {
+            hideToast();
+            localStorage.setItem(TOAST_STORAGE_KEY, Date.now().toString());
+        }
+        
+        function permanentlyDismissToast() {
+            hideToast();
+            localStorage.setItem(TOAST_DISMISSED_KEY, 'true');
+        }
+        
+        // Show toast on page load if conditions are met
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showToast);
+        } else {
+            showToast();
+        }
+        
+        // Dismiss button handler
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', permanentlyDismissToast);
+        }
+    })();
+    
     // 🔥 Sidebar Toggle Function
     function toggleSidebar() {
         const sidebar = document.getElementById('hs-application-sidebar');
