@@ -390,34 +390,37 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {{ $post->word_count }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex space-x-2">
+                <td class="px-6 py-4 text-sm font-medium">
+                    <div class="flex flex-wrap gap-2">
                         @if($post->status === 'draft')
                         <button onclick="publishPost({{ $post->id }})" 
-                                class="text-green-600 hover:text-green-900" title="Publish Now">
-                            <i class="fas fa-paper-plane"></i>
+                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors whitespace-nowrap">
+                            <i class="fas fa-paper-plane mr-1"></i>Publish Now
                         </button>
                         <button onclick="schedulePost({{ $post->id }})" 
-                                class="text-[#0077b5] hover:text-[#005885]" title="Schedule">
-                            <i class="fas fa-clock"></i>
+                                class="px-3 py-1 text-white text-xs rounded-md transition-all whitespace-nowrap" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
+                            <i class="fas fa-clock mr-1"></i>Schedule
                         </button>
                         @endif
+                        
                         @if($post->status === 'scheduled')
                         <button onclick="editSchedule({{ $post->id }})" 
-                                class="text-[#0077b5] hover:text-[#005885]" title="Edit Schedule">
-                            <i class="fas fa-edit"></i>
+                                class="px-3 py-1 text-white text-xs rounded-md transition-all whitespace-nowrap" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
+                            <i class="fas fa-edit mr-1"></i>Edit Schedule
                         </button>
                         @endif
+                        
                         @if($post->status === 'published')
                         <button onclick="viewAnalytics({{ $post->id }})" 
-                                class="text-purple-600 hover:text-purple-900" title="Analytics">
-                            <i class="fas fa-chart-line"></i>
+                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors whitespace-nowrap">
+                            <i class="fas fa-chart-line mr-1"></i>Analytics
                         </button>
                         @endif
+                        
                         @if($post->status !== 'published')
                         <button onclick="deletePost({{ $post->id }})" 
-                                class="text-red-600 hover:text-red-900" title="Delete">
-                            <i class="fas fa-trash"></i>
+                                class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors whitespace-nowrap">
+                            <i class="fas fa-trash mr-1"></i>Delete
                         </button>
                         @endif
                     </div>
