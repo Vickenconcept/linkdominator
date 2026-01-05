@@ -1,30 +1,6 @@
 @extends('layout.auth')
 
 @section('content')
-<style>
-.view-toggle-btn.active {
-    background: linear-gradient(135deg, #0077b5 0%, #005885 100%);
-    color: white;
-}
-.view-toggle-btn:not(.active) {
-    background: white;
-    color: #374151;
-}
-.view-toggle-btn:not(.active):hover {
-    background: #f3f4f6;
-}
-.view-toggle-btn {
-    border: none;
-    outline: none;
-    cursor: pointer;
-}
-.post-checkbox {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    accent-color: #0077b5;
-}
-</style>
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-gray-900">Content Creator</h2>
     <a href="{{ route('content-creator.create') }}" 
@@ -86,7 +62,7 @@
 
 <!-- Filter Tabs -->
 <div class="mb-6">
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex justify-between items-center">
         <div class="border-b border-gray-200 flex-1">
             <nav class="-mb-px flex space-x-8">
                 <a href="{{ route('content-creator.index', ['status' => 'all']) }}" 
@@ -107,59 +83,69 @@
                 </a>
             </nav>
         </div>
-        <div class="flex items-center space-x-3 ml-4">
-            <!-- Bulk Delete Button (hidden by default) -->
-            <button id="bulkDeleteBtn" onclick="bulkDeletePosts()" 
-                    class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors">
-                <i class="fas fa-trash mr-2"></i>Delete Selected
+        <!-- View Toggle Buttons -->
+        <div class="flex items-center gap-2 ml-4 bg-gray-100 rounded-lg p-1">
+            <button onclick="setViewMode('grid')" id="gridViewBtn" class="px-4 py-2 rounded-md transition-all font-medium text-sm view-toggle-btn active flex items-center gap-2" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%); color: white; box-shadow: 0 2px 4px rgba(0, 119, 181, 0.2);">
+                <i class="fas fa-th"></i>
+                <span>Cards</span>
             </button>
-            <!-- View Toggle -->
-            <div class="flex border border-gray-300 rounded-lg overflow-hidden">
-                <button id="gridViewBtn" onclick="switchView('grid')" 
-                        class="px-3 py-2 text-sm font-medium transition-colors view-toggle-btn active">
-                    <i class="fas fa-th"></i>
-                </button>
-                <button id="tableViewBtn" onclick="switchView('table')" 
-                        class="px-3 py-2 text-sm font-medium transition-colors view-toggle-btn border-l border-gray-300">
-                    <i class="fas fa-list"></i>
-                </button>
-            </div>
+            <button onclick="setViewMode('table')" id="tableViewBtn" class="px-4 py-2 rounded-md transition-all font-medium text-sm view-toggle-btn flex items-center gap-2 text-gray-600 hover:text-[#0077b5] hover:bg-gray-50">
+                <i class="fas fa-table"></i>
+                <span>Table</span>
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Bulk Actions Bar -->
+<div id="bulkActionsBar" class="hidden mb-4 bg-blue-50 border border-[#0077b5] rounded-lg p-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+        <span class="text-sm font-medium text-gray-700">
+            <span id="selectedCount">0</span> post(s) selected
+        </span>
+        <button onclick="selectAllPosts()" class="text-sm text-[#0077b5] hover:underline">
+            Select All
+        </button>
+        <button onclick="clearSelection()" class="text-sm text-gray-600 hover:underline">
+            Clear
+        </button>
+    </div>
+    <button onclick="bulkDeletePosts()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md transition-colors">
+        <i class="fas fa-trash mr-2"></i>Delete Selected
+    </button>
+</div>
+
 <!-- Posts Grid View -->
-<div id="gridView" class="view-container">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @forelse($posts as $post)
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-            <div class="p-6">
-                <!-- Checkbox for bulk selection -->
-                <div class="flex items-start justify-between mb-4">
-                    <input type="checkbox" class="post-checkbox mt-1" 
-                           value="{{ $post->id }}" 
-                           data-status="{{ $post->status }}"
-                           onchange="updateBulkDeleteButton()">
-                    <div class="flex items-center justify-between ml-3 flex-1">
-                        <div class="flex items-center space-x-2">
-                            <span class="px-2 py-1 text-xs font-medium rounded-full
-                                @if($post->status === 'draft') bg-yellow-100 text-yellow-800
-                                @elseif($post->status === 'scheduled') bg-blue-50 text-[#0077b5] border border-[#0077b5]
-                                @elseif($post->status === 'published') bg-green-100 text-green-800
-                                @else bg-red-100 text-red-800 @endif">
-                                {{ ucfirst($post->status) }}
-                            </span>
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                {{ ucfirst($post->post_type) }}
-                            </span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-500">
-                                {{ $post->word_count }} words
-                            </span>
-                        </div>
-                    </div>
+<div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @forelse($posts as $post)
+    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative">
+        <div class="absolute top-3 left-3 z-10">
+            <input type="checkbox" class="post-checkbox w-5 h-5 rounded border-gray-300 text-[#0077b5] focus:ring-[#0077b5]" 
+                   value="{{ $post->id }}" 
+                   onchange="handleCheckboxChange(this)"
+                   data-status="{{ $post->status }}">
+        </div>
+        <div class="p-6">
+            <!-- Post Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        @if($post->status === 'draft') bg-yellow-100 text-yellow-800
+                        @elseif($post->status === 'scheduled') bg-blue-50 text-[#0077b5] border border-[#0077b5]
+                        @elseif($post->status === 'published') bg-green-100 text-green-800
+                        @else bg-red-100 text-red-800 @endif">
+                        {{ ucfirst($post->status) }}
+                    </span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                        {{ ucfirst($post->post_type) }}
+                    </span>
                 </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500">
+                        {{ $post->word_count }} words
+                    </span>
+                </div>
+            </div>
 
             <!-- Post Content Preview -->
             <div class="mb-4">
@@ -321,129 +307,139 @@
                 </div>
             </div>
         </div>
-            </div>
-        </div>
-        @empty
-        <div class="col-span-full text-center py-12">
-            <div class="text-gray-400 mb-4">
-                <i class="fas fa-file-alt text-6xl"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
-            <p class="text-gray-500 mb-6">Get started by creating your first LinkedIn post.</p>
-            <a href="{{ route('content-creator.create') }}" 
-               class="text-white px-6 py-3 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
-                Create Your First Post
-            </a>
-        </div>
-        @endforelse
     </div>
+    @empty
+    <div class="col-span-full text-center py-12">
+        <div class="text-gray-400 mb-4">
+            <i class="fas fa-file-alt text-6xl"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
+        <p class="text-gray-500 mb-6">Get started by creating your first LinkedIn post.</p>
+        <a href="{{ route('content-creator.create') }}" 
+           class="text-white px-6 py-3 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
+            Create Your First Post
+        </a>
+    </div>
+    @endforelse
 </div>
 
 <!-- Posts Table View -->
-<div id="tableView" class="view-container hidden">
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="rounded">
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Content
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                @forelse($posts as $post)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <input type="checkbox" class="post-checkbox rounded" 
-                               value="{{ $post->id }}" 
-                               data-status="{{ $post->status }}"
-                               onchange="updateBulkDeleteButton()">
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="text-sm text-gray-900 max-w-md">
-                            <p class="line-clamp-2">{{ Str::limit($post->content, 150) }}</p>
-                            @if($post->word_count)
-                            <p class="text-xs text-gray-500 mt-1">{{ $post->word_count }} words</p>
-                            @endif
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded-full
-                            @if($post->status === 'draft') bg-yellow-100 text-yellow-800
-                            @elseif($post->status === 'scheduled') bg-blue-50 text-[#0077b5] border border-[#0077b5]
-                            @elseif($post->status === 'published') bg-green-100 text-green-800
-                            @else bg-red-100 text-red-800 @endif">
-                            {{ ucfirst($post->status) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                            {{ ucfirst($post->post_type) }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ $post->created_at->format('M j, Y') }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div class="flex space-x-2">
-                            @if($post->status === 'draft')
-                            <button onclick="publishPost({{ $post->id }})" 
-                                    class="text-green-600 hover:text-green-900">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                            <button onclick="schedulePost({{ $post->id }})" 
-                                    class="text-[#0077b5] hover:text-[#005885]">
-                                <i class="fas fa-clock"></i>
-                            </button>
-                            @endif
-                            @if($post->status === 'scheduled')
-                            <button onclick="editSchedule({{ $post->id }})" 
-                                    class="text-[#0077b5] hover:text-[#005885]">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            @endif
-                            @if($post->status !== 'published')
-                            <button onclick="deletePost({{ $post->id }})" 
-                                    class="text-red-600 hover:text-red-900">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            @endif
-                        </div>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="6" class="px-6 py-12 text-center">
-                        <div class="text-gray-400 mb-4">
-                            <i class="fas fa-file-alt text-6xl"></i>
-                        </div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
-                        <p class="text-gray-500 mb-6">Get started by creating your first LinkedIn post.</p>
-                        <a href="{{ route('content-creator.create') }}" 
-                           class="text-white px-6 py-3 rounded-lg font-medium transition-all inline-block" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
-                            Create Your First Post
-                        </a>
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+<div id="tableView" class="hidden overflow-x-auto bg-white rounded-lg shadow-md">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input type="checkbox" id="selectAllTable" class="w-4 h-4 rounded border-gray-300 text-[#0077b5] focus:ring-[#0077b5]" onchange="toggleSelectAllTable(this)">
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Words</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            @forelse($posts as $post)
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <input type="checkbox" class="post-checkbox w-4 h-4 rounded border-gray-300 text-[#0077b5] focus:ring-[#0077b5]" 
+                           value="{{ $post->id }}" 
+                           onchange="handleCheckboxChange(this)"
+                           data-status="{{ $post->status }}">
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900 max-w-md">
+                        {{ Str::limit($post->content, 100) }}
+                    </div>
+                    @if($post->image_url || $post->video_url || $post->carousel_images)
+                    <div class="text-xs text-gray-500 mt-1">
+                        @if($post->image_url)
+                            <i class="fas fa-image mr-1"></i>
+                            @php
+                                $imageUrls = $post->image_url;
+                                $imgCount = is_array($imageUrls) ? count($imageUrls) : 1;
+                            @endphp
+                            {{ $imgCount }} image(s)
+                        @elseif($post->video_url)
+                            <i class="fas fa-video mr-1"></i>Video
+                        @elseif($post->carousel_images)
+                            <i class="fas fa-file-powerpoint mr-1"></i>Carousel
+                        @endif
+                    </div>
+                    @endif
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        @if($post->status === 'draft') bg-yellow-100 text-yellow-800
+                        @elseif($post->status === 'scheduled') bg-blue-50 text-[#0077b5] border border-[#0077b5]
+                        @elseif($post->status === 'published') bg-green-100 text-green-800
+                        @else bg-red-100 text-red-800 @endif">
+                        {{ ucfirst($post->status) }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ ucfirst($post->post_type) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $post->created_at->format('M j, Y') }}
+                    @if($post->scheduled_at)
+                    <div class="text-xs text-gray-400">Scheduled: {{ $post->scheduled_at->format('M j, g:i A') }}</div>
+                    @endif
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $post->word_count }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex space-x-2">
+                        @if($post->status === 'draft')
+                        <button onclick="publishPost({{ $post->id }})" 
+                                class="text-green-600 hover:text-green-900" title="Publish Now">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                        <button onclick="schedulePost({{ $post->id }})" 
+                                class="text-[#0077b5] hover:text-[#005885]" title="Schedule">
+                            <i class="fas fa-clock"></i>
+                        </button>
+                        @endif
+                        @if($post->status === 'scheduled')
+                        <button onclick="editSchedule({{ $post->id }})" 
+                                class="text-[#0077b5] hover:text-[#005885]" title="Edit Schedule">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        @endif
+                        @if($post->status === 'published')
+                        <button onclick="viewAnalytics({{ $post->id }})" 
+                                class="text-purple-600 hover:text-purple-900" title="Analytics">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                        @endif
+                        @if($post->status !== 'published')
+                        <button onclick="deletePost({{ $post->id }})" 
+                                class="text-red-600 hover:text-red-900" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        @endif
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="7" class="px-6 py-12 text-center">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-file-alt text-6xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
+                    <p class="text-gray-500 mb-6">Get started by creating your first LinkedIn post.</p>
+                    <a href="{{ route('content-creator.create') }}" 
+                       class="text-white px-6 py-3 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
+                        Create Your First Post
+                    </a>
+                </td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
 </div>
 
 <!-- Pagination -->
@@ -489,119 +485,200 @@
 // CSRF token from Blade
 const csrfToken = '{{ csrf_token() }}';
 let currentPostId = null;
-let currentView = 'grid'; // Default view
 
-// View switching
-function switchView(view) {
-    currentView = view;
+// Shared selection state - stores selected post IDs
+let selectedPostIds = new Set();
+
+// View Mode Management
+function initViewMode() {
+    const savedView = localStorage.getItem('contentCreatorViewMode') || 'grid';
+    setViewMode(savedView);
+    syncCheckboxesFromState();
+}
+
+function setViewMode(mode) {
+    // Save current selections before switching
+    saveCurrentSelections();
+    
     const gridView = document.getElementById('gridView');
     const tableView = document.getElementById('tableView');
     const gridBtn = document.getElementById('gridViewBtn');
     const tableBtn = document.getElementById('tableViewBtn');
     
-    if (view === 'grid') {
-        gridView.classList.remove('hidden');
-        tableView.classList.add('hidden');
-        gridBtn.classList.add('bg-[#0077b5]', 'text-white');
-        gridBtn.classList.remove('text-gray-700', 'hover:bg-gray-100');
-        tableBtn.classList.remove('bg-[#0077b5]', 'text-white');
-        tableBtn.classList.add('text-gray-700', 'hover:bg-gray-100');
-        // Save preference
-        localStorage.setItem('contentCreatorView', 'grid');
-    } else {
+    if (mode === 'table') {
         gridView.classList.add('hidden');
         tableView.classList.remove('hidden');
-        tableBtn.classList.add('bg-[#0077b5]', 'text-white');
-        tableBtn.classList.remove('text-gray-700', 'hover:bg-gray-100');
-        gridBtn.classList.remove('bg-[#0077b5]', 'text-white');
-        gridBtn.classList.add('text-gray-700', 'hover:bg-gray-100');
-        // Save preference
-        localStorage.setItem('contentCreatorView', 'table');
-    }
-    updateBulkDeleteButton();
-}
-
-// Load saved view preference
-document.addEventListener('DOMContentLoaded', function() {
-    const savedView = localStorage.getItem('contentCreatorView');
-    if (savedView) {
-        switchView(savedView);
-    }
-});
-
-// Toggle select all
-function toggleSelectAll() {
-    const selectAll = document.getElementById('selectAll');
-    const checkboxes = document.querySelectorAll('.post-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAll.checked;
-    });
-    updateBulkDeleteButton();
-}
-
-// Update bulk delete button visibility
-function updateBulkDeleteButton() {
-    const checkboxes = document.querySelectorAll('.post-checkbox:checked');
-    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-    
-    if (checkboxes.length > 0) {
-        bulkDeleteBtn.classList.remove('hidden');
-        bulkDeleteBtn.innerHTML = `<i class="fas fa-trash mr-2"></i>Delete Selected (${checkboxes.length})`;
+        // Update button styles
+        gridBtn.classList.remove('active');
+        gridBtn.style.background = 'transparent';
+        gridBtn.style.color = '#4B5563';
+        gridBtn.style.boxShadow = 'none';
+        tableBtn.classList.add('active');
+        tableBtn.style.background = 'linear-gradient(135deg, #0077b5 0%, #005885 100%)';
+        tableBtn.style.color = 'white';
+        tableBtn.style.boxShadow = '0 2px 4px rgba(0, 119, 181, 0.2)';
+        localStorage.setItem('contentCreatorViewMode', 'table');
     } else {
-        bulkDeleteBtn.classList.add('hidden');
+        gridView.classList.remove('hidden');
+        tableView.classList.add('hidden');
+        // Update button styles
+        tableBtn.classList.remove('active');
+        tableBtn.style.background = 'transparent';
+        tableBtn.style.color = '#4B5563';
+        tableBtn.style.boxShadow = 'none';
+        gridBtn.classList.add('active');
+        gridBtn.style.background = 'linear-gradient(135deg, #0077b5 0%, #005885 100%)';
+        gridBtn.style.color = 'white';
+        gridBtn.style.boxShadow = '0 2px 4px rgba(0, 119, 181, 0.2)';
+        localStorage.setItem('contentCreatorViewMode', 'grid');
     }
     
-    // Update select all checkbox in table view
-    const allCheckboxes = document.querySelectorAll('.post-checkbox');
-    const selectAll = document.getElementById('selectAll');
-    if (selectAll) {
-        selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    // Sync checkboxes after view switch
+    syncCheckboxesFromState();
+    updateBulkActionsBar();
+}
+
+// Save current checkbox states to shared state
+function saveCurrentSelections() {
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    selectedPostIds.clear();
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            selectedPostIds.add(parseInt(cb.value));
+        }
+    });
+}
+
+// Sync all checkboxes from shared state
+function syncCheckboxesFromState() {
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    checkboxes.forEach(cb => {
+        const postId = parseInt(cb.value);
+        cb.checked = selectedPostIds.has(postId);
+    });
+}
+
+// Bulk Selection Functions
+function updateBulkActionsBar() {
+    // Update state from current checkboxes
+    saveCurrentSelections();
+    
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (selectedPostIds.size > 0) {
+        bulkBar.classList.remove('hidden');
+        selectedCount.textContent = selectedPostIds.size;
+    } else {
+        bulkBar.classList.add('hidden');
     }
 }
 
-// Bulk delete posts
-function bulkDeletePosts() {
-    const selectedCheckboxes = document.querySelectorAll('.post-checkbox:checked');
-    const postIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+function selectAllPosts() {
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    checkboxes.forEach(cb => {
+        if (cb.dataset.status !== 'published') {
+            const postId = parseInt(cb.value);
+            selectedPostIds.add(postId);
+            cb.checked = true;
+        }
+    });
+    updateBulkActionsBar();
+}
+
+function clearSelection() {
+    selectedPostIds.clear();
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateBulkActionsBar();
+}
+
+function toggleSelectAllTable(checkbox) {
+    const allCheckboxes = document.querySelectorAll('.post-checkbox');
+    const checkboxes = document.querySelectorAll('#tableView .post-checkbox');
     
-    if (postIds.length === 0) {
+    if (checkbox.checked) {
+        // Select all (excluding published)
+        checkboxes.forEach(cb => {
+            if (cb.dataset.status !== 'published') {
+                const postId = parseInt(cb.value);
+                selectedPostIds.add(postId);
+            }
+        });
+    } else {
+        // Deselect all
+        checkboxes.forEach(cb => {
+            const postId = parseInt(cb.value);
+            selectedPostIds.delete(postId);
+        });
+    }
+    
+    // Sync all checkboxes from state
+    syncCheckboxesFromState();
+    updateBulkActionsBar();
+}
+
+// Handle checkbox change - sync both views
+function handleCheckboxChange(checkbox) {
+    const postId = parseInt(checkbox.value);
+    
+    if (checkbox.checked) {
+        selectedPostIds.add(postId);
+    } else {
+        selectedPostIds.delete(postId);
+    }
+    
+    // Sync the other view's checkbox
+    const allCheckboxes = document.querySelectorAll('.post-checkbox');
+    allCheckboxes.forEach(cb => {
+        if (parseInt(cb.value) === postId && cb !== checkbox) {
+            cb.checked = checkbox.checked;
+        }
+    });
+    
+    updateBulkActionsBar();
+}
+
+// Bulk Delete Function
+function bulkDeletePosts() {
+    if (selectedPostIds.size === 0) {
         alert('Please select at least one post to delete.');
         return;
     }
     
-    // Check if any published posts are selected
-    const publishedPosts = Array.from(selectedCheckboxes).filter(cb => cb.dataset.status === 'published');
-    if (publishedPosts.length > 0) {
-        alert('Cannot delete published posts. Please unselect published posts and try again.');
+    const postIds = Array.from(selectedPostIds);
+    
+    if (!confirm(`Are you sure you want to delete ${postIds.length} selected post(s)? This action cannot be undone.`)) {
         return;
     }
     
-    if (confirm(`Are you sure you want to delete ${postIds.length} post(s)? This action cannot be undone.`)) {
-        fetch('/content-creator/bulk-delete', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                post_ids: postIds
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message || `${data.deleted_count} post(s) deleted successfully!`);
-                location.reload();
-            } else {
-                alert('Error: ' + (data.message || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the posts.');
-        });
-    }
+    fetch('/content-creator/bulk-delete', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ post_ids: postIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting posts.');
+    });
 }
+
+// Initialize view mode on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initViewMode();
+});
 
 function publishPost(postId) {
     if (confirm('Are you sure you want to publish this post immediately?')) {

@@ -504,24 +504,22 @@ class ContentCreatorController extends Controller
             'post_ids.*' => 'required|integer|exists:linkedin_posts,id'
         ]);
 
+        $userId = auth()->id();
         $postIds = $request->post_ids;
         
-        // Only delete posts that belong to the authenticated user and are not published
-        $posts = LinkedInPost::where('user_id', auth()->id())
+        // Only delete posts that belong to the user and are not published
+        $deletedCount = LinkedInPost::where('user_id', $userId)
             ->whereIn('id', $postIds)
             ->where('status', '!=', 'published')
-            ->get();
+            ->delete();
 
-        $deletedCount = 0;
-        foreach ($posts as $post) {
-            $post->delete();
-            $deletedCount++;
-        }
-
+        $skippedCount = count($postIds) - $deletedCount;
+        
         return response()->json([
             'success' => true,
-            'message' => "{$deletedCount} post(s) deleted successfully!",
-            'deleted_count' => $deletedCount
+            'message' => "Successfully deleted {$deletedCount} post(s)." . ($skippedCount > 0 ? " {$skippedCount} published post(s) were skipped." : ''),
+            'deleted_count' => $deletedCount,
+            'skipped_count' => $skippedCount
         ]);
     }
 
