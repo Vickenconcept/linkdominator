@@ -230,14 +230,17 @@ class ContentCreatorController extends Controller
         } catch (\Exception $e) {
             // Check if it's a rate limit error (OpenAI specific)
             $message = $e->getMessage();
-            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
-                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            $isRateLimit = str_contains(strtolower($message), 'rate limit') 
+                        || str_contains(strtolower($message), 'rate_limit_exceeded')
+                        || str_contains($message, '429')
+                        || str_contains(strtolower($message), 'too many requests');
             
             if ($isRateLimit) {
                 \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
+                $draftMessage = $request->multiple_drafts ? ' This was a single API call requesting 2 drafts.' : '';
                 return response()->json([
                     'success' => false,
-                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.' . $draftMessage
                 ], 429);
             }
             
@@ -488,6 +491,37 @@ class ContentCreatorController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Post deleted successfully!'
+        ]);
+    }
+
+    /**
+     * Bulk delete posts
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'post_ids' => 'required|array',
+            'post_ids.*' => 'required|integer|exists:linkedin_posts,id'
+        ]);
+
+        $postIds = $request->post_ids;
+        
+        // Only delete posts that belong to the authenticated user and are not published
+        $posts = LinkedInPost::where('user_id', auth()->id())
+            ->whereIn('id', $postIds)
+            ->where('status', '!=', 'published')
+            ->get();
+
+        $deletedCount = 0;
+        foreach ($posts as $post) {
+            $post->delete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deletedCount} post(s) deleted successfully!",
+            'deleted_count' => $deletedCount
         ]);
     }
 

@@ -515,8 +515,7 @@ EOD;
         // Build prompt based on style and length
         $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
 
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
 
         // Generate content with higher token limit for LinkedIn posts
         $result = $this->generateLinkedInContent($prompt);
@@ -549,8 +548,7 @@ EOD;
 
         $prompt = $instructions . "\n\nOriginal Content:\n" . $content . "\n\nReturn only the improved post text, ready for LinkedIn.";
 
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
 
         // Generate content
         $result = $this->generateContent($prompt);
@@ -752,10 +750,26 @@ EOD;
                 'choices_count' => count($response['choices'] ?? [])
             ]);
         } catch (\Throwable $th) {
+            $errorMessage = $th->getMessage();
+            
+            // Check if it's a rate limit error
+            $isRateLimit = str_contains(strtolower($errorMessage), 'rate limit') 
+                        || str_contains(strtolower($errorMessage), 'rate_limit_exceeded')
+                        || str_contains($errorMessage, '429')
+                        || str_contains(strtolower($errorMessage), 'too many requests');
+            
+            if ($isRateLimit) {
+                Log::warning('⚠️ ChatGPT Rate Limit Hit - Single API call attempted', [
+                    'topic' => $topic,
+                    'error' => substr($errorMessage, 0, 200)
+                ]);
+            } else {
             Log::error('❌ ChatGPT Multiple Drafts API call failed', [
-                'error' => $th->getMessage(),
+                    'error' => $errorMessage,
                 'trace' => $th->getTraceAsString()
             ]);
+            }
+            
             throw $th;
         }
 
@@ -824,8 +838,7 @@ EOD;
 
         $prompt = $prompts[$action] ?? $prompts['add_hook'];
         
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
         
         // Generate improved content
         $result = $this->generateContent($prompt);

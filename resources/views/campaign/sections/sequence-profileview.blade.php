@@ -63,7 +63,7 @@
     </div>
 </div>
 <div class="flex justify-center gap-3 mt-4">
-        <a href="{{route('campaign.create', ['step' => 'sequence', 'cid' => $cid])}}"
+    <a href="{{route('campaign.create', ['step' => 'sequence', 'cid' => $cid])}}"
         class="block px-10 py-3 text-sm font-medium leading-2 
         text-white transition-colors duration-150 bg-gray-400 
         border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-600
@@ -72,8 +72,8 @@
             Back
         </span>
     </a>
-        <button type="button" onclick="saveSequence()"
-            class="block px-10 py-3 text-sm font-medium leading-2 
+    <button type="button" onclick="saveSequence()"
+        class="block px-10 py-3 text-sm font-medium leading-2 
             text-white transition-all duration-150 
             border border-transparent rounded-tr-lg rounded-bl-lg focus:outline-none submit-profileview-sequence" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
         <span class=" flex gap-1">

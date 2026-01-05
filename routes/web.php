@@ -221,6 +221,7 @@ Route::middleware(['auth'])->group(function(){
         Route::post('/content-creator/schedule/{id}', 'schedule')->name('content-creator.schedule');
         Route::post('/content-creator/publish/{id}', 'publish')->name('content-creator.publish');
         Route::delete('/content-creator/delete/{id}', 'destroy')->name('content-creator.delete');
+        Route::post('/content-creator/bulk-delete', 'bulkDelete')->name('content-creator.bulk-delete');
         Route::get('/content-creator/analytics/{id}', 'analytics')->name('content-creator.analytics');
     });
 

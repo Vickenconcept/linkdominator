@@ -17,7 +17,7 @@
                     </div>
                     <div class="flex-1">
                         <h3 class="section-btn font-semibold text-gray-700 group-hover:text-[#0077b5] transition-colors" id="cold-mail">
-                            First cold email
+                    First cold email
                         </h3>
                         <p class="text-xs text-gray-500 mt-1">Create professional first-contact emails</p>
                     </div>
@@ -32,7 +32,7 @@
                     </div>
                     <div class="flex-1">
                         <h3 class="section-btn font-semibold text-gray-700 group-hover:text-[#0077b5] transition-colors" id="linkedin">
-                            LinkedIn connection message
+                    LinkedIn connection message
                         </h3>
                         <p class="text-xs text-gray-500 mt-1">Personalized LinkedIn connection requests</p>
                     </div>
@@ -48,7 +48,7 @@
                     </div>
                     <div class="flex-1">
                         <h3 class="section-btn font-semibold text-gray-700 group-hover:text-[#0077b5] transition-colors" id="ice-breaker">
-                            Personalized ice-breaker
+                    Personalized ice-breaker
                         </h3>
                         <p class="text-xs text-gray-500 mt-1">Engaging conversation starters</p>
                     </div>
