@@ -1677,6 +1677,55 @@ class ChromeApiController extends Controller
     }
 
     /**
+     * Generate comment for LinkedIn post (Extension API)
+     */
+    public function generatePostComment(Request $request)
+    {
+        try {
+            $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return $this->errorResponse($th->getMessage(), 401);
+        }
+
+        $request->validate([
+            'post_content' => 'required|string|max:5000',
+            'tone' => 'nullable|string|in:professional,casual,engaging,thoughtful'
+        ]);
+
+        try {
+            $postContent = $request->post_content;
+            $tone = $request->tone ?? 'professional';
+
+            $prompt = "Generate a thoughtful, engaging LinkedIn comment for the following post. The comment should be {$tone} in tone, add value to the conversation, and encourage engagement. Keep it concise (2-3 sentences maximum). Here is the LinkedIn post:\n\n{$postContent}";
+
+            $chatGPT = new \App\Services\ChatGPT();
+            $chatGPT->checkModeration($prompt);
+            $result = $chatGPT->generateContent($prompt);
+
+            return $this->successResponse([
+                'comment' => $result['content'] ?? '',
+                'word_count' => $result['words'] ?? 0
+            ], 'Comment generated successfully');
+
+        } catch (\Throwable $th) {
+            Log::error('Failed to generate comment: ' . $th->getMessage(), [
+                'linkedin_id' => $request->header('lk-id'),
+                'post_length' => strlen($request->post_content ?? '')
+            ]);
+
+            // Check for rate limit
+            $message = $th->getMessage();
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit') || str_contains($message, '429');
+            
+            if ($isRateLimit) {
+                return $this->errorResponse('AI rate limit reached. Please wait a moment and try again.', 429);
+            }
+
+            return $this->errorResponse('Failed to generate comment: ' . $message, 500);
+        }
+    }
+
+    /**
      * Standardized error response
      */
     protected function errorResponse($message = 'Error occurred', $status = 400, $errors = null)

@@ -3,27 +3,28 @@
 @section('content')
 
 <div class="flex justify-between">
-    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">
+    <h2 class="text-2xl font-semibold text-gray-900">
         Manage users
     </h2>
     <div class="flex gap-2">
         <form action="" method="get">
             <label class="block text-sm">
-                <div class="relative text-gray-500 focus-within:text-indigo-600">
+                <div class="relative text-gray-500 focus-within:text-[#0077b5]">
                     <input class="block w-full pr-20 mt-1 text-sm text-black 
-                    dark:text-gray-300 dark:border-gray-600 dark:bg-gray-700 
-                    focus:border-indigo-400 focus:outline-none rounded-md
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray 
+                    focus:border-[#0077b5] focus:outline-none rounded-md
+                    focus:ring-2 focus:ring-[#0077b5] 
                     form-input border-gray-300"
                     placeholder="Search email"
                     name="email" value="{{request()->query('email')}}"/>
                     <button 
                     type="submit"
                     class="absolute inset-y-0 right-0 px-4 text-sm 
-                    font-medium leading-5 text-white transition-colors 
-                    duration-150 bg-indigo-600 border border-transparent 
-                    rounded-r-md active:bg-indigo-600 hover:bg-indigo-700 
-                    focus:outline-none focus:shadow-outline-indigo">
+                    font-medium leading-5 text-white transition-all 
+                    duration-150 border border-transparent 
+                    rounded-r-md"
+                    style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);"
+                    onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';"
+                    onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
                             <path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clip-rule="evenodd" />
                         </svg>
@@ -34,10 +35,11 @@
         <button 
         type="button"
         class="block px-4 py-2 text-sm font-medium leading-2 
-        text-white transition-colors duration-150 bg-indigo-600 
-        border border-transparent rounded-lg active:bg-indigo-600 
-        hover:bg-indigo-700 focus:outline-none focus:shadow-outline-indigo
-        flex open-new-user-modal"
+        text-white transition-all duration-150 
+        border border-transparent rounded-lg flex open-new-user-modal"
+        style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);"
+        onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';"
+        onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';"
         aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-scale-animation-modal-newuser" data-hs-overlay="#hs-scale-animation-modal-newuser">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
                 <path fill-rule="evenodd" d="M12 5.25a.75.75 0 01.75.75v5.25H18a.75.75 0 010 1.5h-5.25V18a.75.75 0 01-1.5 0v-5.25H6a.75.75 0 010-1.5h5.25V6a.75.75 0 01.75-.75z" clip-rule="evenodd" />
@@ -54,8 +56,7 @@
                 <thead>
                     <tr class="text-xs font-semibold tracking-wide 
                     text-left text-gray-500 uppercase border-b 
-                    dark:border-gray-700 bg-gray-50 dark:text-gray-400 
-                    dark:bg-gray-800">
+                    bg-gray-50">
                         <th class="px-4 py-3">Name</th>
                         <th class="px-4 py-3">Email</th>
                         <th class="px-4 py-3">LinkedIn ID</th>
@@ -63,9 +64,9 @@
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-400 dark:divide-gray-700 dark:bg-gray-800">
+                <tbody class="bg-white divide-y divide-gray-200">
                     @foreach($users as $user)
-                    <tr class="text-gray-700 dark:text-gray-400 user-list-{{$user->id}} text-sm">
+                    <tr class="text-gray-700 user-list-{{$user->id}} text-sm">
                         <td class="px-4 py-3">{{ $user->name }}</td>
                         <td class="px-4 py-3">{{ $user->email }}</td>
                         <td class="px-4 py-3">{{ $user->linkedin_id }}</td>
@@ -75,7 +76,7 @@
                                 <!-- update -->
                                 <button
                                 type="button"
-                                class="open-update-user-modal text-indigo-600"
+                                class="open-update-user-modal text-[#0077b5] hover:text-[#005885] transition-colors"
                                 data-userid="{{$user->id}}" 
                                 data-name="{{$user->name}}" 
                                 data-email="{{$user->email}}"
@@ -89,7 +90,7 @@
                                 <!-- Assign permission -->
                                 <button 
                                 type="button"
-                                class="assign-permission text-indigo-600"
+                                class="assign-permission text-[#0077b5] hover:text-[#005885] transition-colors"
                                 data-userid="{{$user->id}}" 
                                 data-name="{{$user->name}}"
                                 aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-scale-animation-modal-permission" data-hs-overlay="#hs-scale-animation-modal-permission">
@@ -103,7 +104,7 @@
                                     @method('DELETE')
                                     <button 
                                     type="submit"
-                                    class="open-delete-user-modal text-indigo-600" 
+                                    class="open-delete-user-modal text-red-600 hover:text-red-700 transition-colors" 
                                     data-userid="{{$user->id}}" 
                                     data-name="{{$user->name}}">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
@@ -127,12 +128,12 @@
 <!-- New user -->
 <div id="hs-scale-animation-modal-newuser" class="hs-overlay hidden size-full fixed top-0 start-0 z-80 overflow-x-hidden overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-scale-animation-modal-label-newuser">
     <div class="hs-overlay-animation-target hs-overlay-open:scale-100 hs-overlay-open:opacity-100 scale-95 opacity-0 ease-in-out transition-all duration-200 sm:max-w-lg sm:w-full m-3 sm:mx-auto min-h-[calc(100%-56px)] flex items-center">
-        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-            <h3 id="hs-scale-animation-modal-label-newuser" class="font-bold text-gray-800 dark:text-white">
+        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto">
+        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+            <h3 id="hs-scale-animation-modal-label-newuser" class="font-bold text-gray-800">
             New user
             </h3>
-            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-newuser">
+            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-newuser">
             <span class="sr-only">Close</span>
             <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18"></path>
@@ -145,13 +146,11 @@
             <div class="p-4 overflow-y-auto">
                 <div class="w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Name</span>
+                        <span class="text-gray-700">Name</span>
                         <input
                         type="text"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="John Doe"
                         id="name" name="name" value="{{ old('name') }}"
                         required
@@ -160,13 +159,11 @@
                 </div>
                 <div class="mt-4 w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Email</span>
+                        <span class="text-gray-700">Email</span>
                         <input
                         type="email"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="john@example.com"
                         id="email" name="email" value="{{ old('email') }}"
                         required
@@ -175,24 +172,22 @@
                 </div>
                 <div class="mt-4 w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Password</span>
+                        <span class="text-gray-700">Password</span>
                         <input
                         type="password"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="************"
                         id="password" name="password"
                         required />
                     </label>
                 </div>
             </div>
-            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-scale-animation-modal-newuser">
+            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-scale-animation-modal-newuser">
                 Close
                 </button>
-                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-hidden focus:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none">
+                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white transition-all disabled:opacity-50 disabled:pointer-events-none" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Save
                 </button>
             </div>
@@ -204,12 +199,12 @@
 <!-- Update user -->
 <div id="hs-scale-animation-modal-updateuser" class="hs-overlay hidden size-full fixed top-0 start-0 z-80 overflow-x-hidden overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-scale-animation-modal-label-updateuser">
     <div class="hs-overlay-animation-target hs-overlay-open:scale-100 hs-overlay-open:opacity-100 scale-95 opacity-0 ease-in-out transition-all duration-200 sm:max-w-lg sm:w-full m-3 sm:mx-auto min-h-[calc(100%-56px)] flex items-center">
-        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-            <h3 id="hs-scale-animation-modal-label-updateuser" class="font-bold text-gray-800 dark:text-white">
+        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto">
+        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+            <h3 id="hs-scale-animation-modal-label-updateuser" class="font-bold text-gray-800">
             Update user
             </h3>
-            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-updateuser">
+            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-updateuser">
             <span class="sr-only">Close</span>
             <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18"></path>
@@ -223,13 +218,11 @@
             <div class="p-4 overflow-y-auto">
                 <div class="w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Name</span>
+                        <span class="text-gray-700">Name</span>
                         <input
                         type="text"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="John Doe"
                         id="update-name" name="name" value="{{ old('name') }}"
                         required
@@ -238,13 +231,11 @@
                 </div>
                 <div class="mt-4 w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Email</span>
+                        <span class="text-gray-700">Email</span>
                         <input
                         type="email"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="john@example.com"
                         id="update-email" name="email" value="{{ old('email') }}"
                         required
@@ -253,36 +244,32 @@
                 </div>
                 <div class="mt-4 w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">LinkedIn ID</span>
+                        <span class="text-gray-700">LinkedIn ID</span>
                         <input
                         type="text"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         id="update-linkedin" name="linkedin_id" placeholder="Linkedin ID"
                         />
                     </label>
                 </div>
                 <div class="mt-4 w-full">
                     <label class="block text-sm w-full">
-                        <span class="text-gray-700 dark:text-gray-400">Password</span>
+                        <span class="text-gray-700">Password</span>
                         <input
                         type="password"
-                        class="block w-full mt-1 text-sm dark:border-gray-600 
-                        dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                        focus:shadow-outline-indigo dark:text-gray-300 
-                        dark:focus:shadow-outline-gray form-input rounded-md"
+                        class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
+                        focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                         placeholder="************"
                         id="update-pass" name="password" />
                     </label>
                 </div>
             </div>
-            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-scale-animation-modal-updateuser">
+            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-scale-animation-modal-updateuser">
                 Close
                 </button>
-                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-hidden focus:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none">
+                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white transition-all disabled:opacity-50 disabled:pointer-events-none" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Save
                 </button>
             </div>
@@ -294,12 +281,12 @@
 <!-- Assign permission -->
 <div id="hs-scale-animation-modal-permission" class="hs-overlay hidden size-full fixed top-0 start-0 z-80 overflow-x-hidden overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-scale-animation-modal-label-permission">
     <div class="hs-overlay-animation-target hs-overlay-open:scale-100 hs-overlay-open:opacity-100 scale-95 opacity-0 ease-in-out transition-all duration-200 sm:max-w-lg sm:w-full m-3 sm:mx-auto min-h-[calc(100%-56px)] flex items-center">
-        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-            <h3 id="hs-scale-animation-modal-label-permission" class="font-bold text-gray-800 dark:text-white">
+        <div class="w-full flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto">
+        <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+            <h3 id="hs-scale-animation-modal-label-permission" class="font-bold text-gray-800">
             Assign permission
             </h3>
-            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-permission">
+            <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-scale-animation-modal-permission">
             <span class="sr-only">Close</span>
             <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18"></path>
@@ -315,11 +302,11 @@
                 <span class="notice mt-8"></span>
                 <input type="hidden" id="perm-user-id" name="userId">
             </div>
-            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-scale-animation-modal-permission">
+            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-scale-animation-modal-permission">
                 Close
                 </button>
-                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-hidden focus:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none confirm-assign-perm">
+                <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white transition-all disabled:opacity-50 disabled:pointer-events-none confirm-assign-perm" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Assign
                 </button>
             </div>

@@ -99,4 +99,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     
     // Call management routes
     Route::get('calls/check-existing', 'checkExistingCall');
+    
+    // Post comment generation
+    Route::post('post/generate-comment', 'generatePostComment');
 }); 

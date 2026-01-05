@@ -3,7 +3,7 @@
 @section('content')
 <div class="p-4 sm:p-6">
     @if (session('status'))
-        <div class="mb-4 rounded border border-orange-200 bg-orange-50 text-orange-800 px-4 py-3">
+        <div class="mb-4 rounded border border-[#0077b5] bg-blue-50 text-[#0077b5] px-4 py-3">
             {{ session('status') }}
         </div>
     @endif
@@ -11,7 +11,7 @@
     <div class="bg-white rounded-lg shadow p-4 sm:p-6 space-y-4">
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900">{{ __('competitor_followers.title') }}</h2>
-            <a href="{{ route('social-account.index') }}" class="text-sm text-orange-600 hover:text-orange-800 font-medium">Manage LinkedIn session →</a>
+            <a href="{{ route('social-account.index') }}" class="text-sm text-[#0077b5] hover:text-[#005885] font-medium">Manage LinkedIn session →</a>
         </div>
         @if (session('error'))
             <div class="rounded border border-red-200 bg-red-50 text-red-800 px-4 py-3 text-sm">
@@ -19,7 +19,7 @@
             </div>
         @endif
         @if (!$hasLinkedInSession)
-            <div class="rounded border border-orange-200 bg-orange-50 text-orange-900 px-4 py-3 text-sm">
+            <div class="rounded border border-[#0077b5] bg-blue-50 text-[#005885] px-4 py-3 text-sm">
                 <p class="font-medium">Add your LinkedIn session cookie first</p>
                 <p class="mt-1">Visit the Social Accounts page, open your connected LinkedIn profile, and paste your <code class="font-mono bg-white/60 px-1 py-0.5 rounded">li_at</code> cookie + user agent. We'll auto-fill it for every competitor fetch.</p>
             </div>
@@ -28,13 +28,13 @@
             @csrf
             <div>
                 <label class="block text-sm text-gray-700 mb-1">{{ __('competitor_followers.company_url_label') }}</label>
-                <input name="company_url" type="url" required placeholder="https://www.linkedin.com/company/..." class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                <input name="company_url" type="url" required placeholder="https://www.linkedin.com/company/..." class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0077b5]" />
                 @error('company_url')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div class="flex items-end">
-                <button type="submit" class="inline-flex items-center justify-center rounded bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 w-full md:w-auto">{{ __('competitor_followers.fetch_button') }}</button>
+                <button type="submit" class="inline-flex items-center justify-center rounded text-white px-4 py-2 w-full md:w-auto transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">{{ __('competitor_followers.fetch_button') }}</button>
             </div>
         </form>
     </div>
@@ -66,7 +66,7 @@
                             </td>
                             <td class="py-2 pr-4 text-gray-700">{{ $aud->created_at->format('Y-m-d H:i') }}</td>
                             <td class="py-2 pr-4">
-                                <a href="{{ route('competitor-followers.show', $aud->id) }}" class="text-orange-600 hover:underline mr-3">{{ __('competitor_followers.view') }}</a>
+                                <a href="{{ route('competitor-followers.show', $aud->id) }}" class="text-[#0077b5] hover:text-[#005885] hover:underline mr-3">{{ __('competitor_followers.view') }}</a>
                                 <a href="{{ route('competitor-followers.export', $aud->id) }}" class="text-gray-700 hover:underline">{{ __('competitor_followers.export') }}</a>
                             </td>
                         </tr>

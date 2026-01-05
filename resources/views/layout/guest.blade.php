@@ -22,7 +22,7 @@
     </style>
 </head>
 <body class="antialiased">
-    <div class="bg-gray-100 flex h-screen items-center py-10 dark:bg-neutral-800">
+    <div class="bg-gray-100 flex h-screen items-center py-10">
         <div class="w-full max-w-md mx-auto p-6">
             <div class="flex justify-center">
                 <x-app-logo/>

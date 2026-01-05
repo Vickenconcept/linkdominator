@@ -20,7 +20,7 @@
         <p class="text-sm text-gray-500 mt-1">Discover viral LinkedIn posts and use them as inspiration</p>
     </div>
     <a href="{{ route('content-creator.create') }}" 
-       class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+       class="text-white px-4 py-2 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
         <i class="fas fa-plus mr-2"></i>Create New Post
     </a>
 </div>
@@ -29,8 +29,8 @@
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center">
-            <div class="p-2 bg-orange-100 rounded-lg">
-                <i class="fas fa-bookmark text-orange-600"></i>
+            <div class="p-2 bg-blue-50 rounded-lg">
+                <i class="fas fa-bookmark text-[#0077b5]"></i>
             </div>
             <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">Saved Posts</p>
@@ -79,15 +79,20 @@
 <!-- Content Preferences (Collapsible) -->
 <div class="bg-white rounded-lg shadow mb-8">
     <button onclick="togglePreferences()" 
-            class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer">
         <div class="flex items-center">
-            <i class="fas fa-sliders-h text-orange-600 mr-3"></i>
+            <i class="fas fa-sliders-h text-[#0077b5] mr-3"></i>
             <div class="text-left">
                 <h3 class="text-lg font-semibold text-gray-900">Content Preferences</h3>
                 <p class="text-sm text-gray-500">Customize what viral posts you want to see</p>
             </div>
         </div>
-        <i id="preferences-icon" class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+        <div class="flex items-center space-x-2">
+            <span class="text-xs text-gray-500 hidden sm:inline" id="preferences-text">Click to expand</span>
+            <div class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-[#0077b5] hover:bg-blue-50 transition-all">
+                <i id="preferences-icon" class="fas fa-chevron-down text-gray-600 transition-transform duration-300"></i>
+            </div>
+        </div>
     </button>
     
     <div id="preferences-section" class="px-6 pb-6 hidden">
@@ -123,13 +128,13 @@
                     @endphp
                     
                     @foreach($industries as $industry)
-                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-orange-50 hover:border-orange-500 transition-colors
-                        {{ in_array($industry, $userIndustries) ? 'bg-orange-50 border-orange-500' : 'border-gray-200' }}">
+                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 hover:border-[#0077b5] transition-colors
+                        {{ in_array($industry, $userIndustries) ? 'bg-blue-50 border-[#0077b5]' : 'border-gray-200' }}">
                         <input type="checkbox" 
                                name="industries[]" 
                                value="{{ $industry }}"
                                {{ in_array($industry, $userIndustries) ? 'checked' : '' }}
-                               class="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                               class="w-4 h-4 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                         <span class="ml-2 text-sm text-gray-700">{{ $industry }}</span>
                     </label>
                     @endforeach
@@ -160,10 +165,10 @@
                     <input type="text" 
                            id="new-topic" 
                            placeholder="e.g., AI, productivity, real estate tips"
-                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <button type="button" 
                             onclick="addTopic()"
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                            class="px-4 py-2 text-white rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                         <i class="fas fa-plus mr-1"></i>Add
                     </button>
                 </div>
@@ -175,7 +180,7 @@
                     <i class="fas fa-calendar mr-1 text-gray-400"></i>Post Age (Older posts have more time to accumulate likes)
                 </label>
                 <select name="date_range" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="past-week" {{ ($preferences->date_range ?? 'past-month') == 'past-week' ? 'selected' : '' }}>
                         Past Week (Latest, but lower engagement)
                     </option>
@@ -211,7 +216,7 @@
                            step="50" 
                            value="{{ $preferences->min_engagement ?? 100 }}"
                            class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                    <span id="engagement-value" class="text-2xl font-bold text-orange-600 min-w-[100px] text-right">
+                    <span id="engagement-value" class="text-2xl font-bold text-[#0077b5] min-w-[100px] text-right">
                         {{ $preferences->min_engagement ?? 100 }}+ likes
                     </span>
                 </div>
@@ -227,7 +232,7 @@
             <!-- Save Button -->
             <div class="flex justify-end pt-4 border-t">
                 <button type="submit" 
-                        class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors font-medium">
+                        class="px-6 py-2 text-white rounded-md transition-all font-medium" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                     <i class="fas fa-save mr-2"></i>Save Preferences
                 </button>
             </div>
@@ -251,12 +256,12 @@
                    name="search" 
                    value="{{ request('search') }}"
                    placeholder="Search posts, authors, keywords..." 
-                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
         </div>
         
         <!-- Category Filter -->
         <select name="category" 
-                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
             <option value="">All Categories</option>
             <option value="marketing" {{ request('category') == 'marketing' ? 'selected' : '' }}>Marketing</option>
             <option value="sales" {{ request('category') == 'sales' ? 'selected' : '' }}>Sales</option>
@@ -268,7 +273,7 @@
         
         <!-- Engagement Filter -->
         <select name="engagement" 
-                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
             <option value="">All Engagement</option>
             <option value="10" {{ request('engagement') == '10' ? 'selected' : '' }}>🔥 10%+ (Viral)</option>
             <option value="5" {{ request('engagement') == '5' ? 'selected' : '' }}>⚡ 5%+ (High)</option>
@@ -277,7 +282,7 @@
         
         <!-- Date Filter -->
         <select name="days" 
-                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
             <option value="">All Time</option>
             <option value="7" {{ request('days') == '7' ? 'selected' : '' }}>Last 7 days</option>
             <option value="30" {{ request('days') == '30' ? 'selected' : '' }}>Last 30 days</option>
@@ -290,7 +295,7 @@
                        name="favorite" 
                        value="1"
                        {{ request('favorite') ? 'checked' : '' }}
-                       class="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500">
+                       class="w-4 h-4 bg-gray-100 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                 <span class="ml-2 text-sm text-gray-700">
                     <i class="fas fa-star text-yellow-500"></i> Favorites only
                 </span>
@@ -298,7 +303,7 @@
             
             <div class="flex space-x-2">
                 <button type="submit" 
-                        class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 text-white rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                     <i class="fas fa-search mr-1"></i>Filter
                 </button>
                 <a href="{{ route('inspiration.index') }}" 
@@ -312,16 +317,16 @@
 
 <!-- How to Use Guide (Show only if no posts yet) -->
 @if($stats['total_posts'] == 0)
-<div class="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-6 mb-8">
+<div class="bg-gradient-to-r from-blue-50 to-blue-50 border border-[#0077b5] rounded-lg p-6 mb-8">
     <div class="flex items-start">
         <div class="flex-shrink-0">
-            <i class="fas fa-lightbulb text-orange-500 text-2xl"></i>
+            <i class="fas fa-lightbulb text-[#0077b5] text-2xl"></i>
         </div>
         <div class="ml-4">
             <h3 class="text-lg font-semibold text-gray-900 mb-2">How to Build Your Inspiration Library</h3>
             <div class="space-y-2 text-sm text-gray-700">
                 <p><strong>Step 1:</strong> Browse LinkedIn feed and find high-engagement posts</p>
-                <p><strong>Step 2:</strong> Click the <span class="px-2 py-1 bg-orange-500 text-white rounded text-xs">Save to LinkDominator</span> button (from Chrome extension)</p>
+                <p><strong>Step 2:</strong> Click the <span class="px-2 py-1 text-white rounded text-xs" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">Save to LinkDominator</span> button (from Chrome extension)</p>
                 <p><strong>Step 3:</strong> Posts appear here with engagement metrics</p>
                 <p><strong>Step 4:</strong> Click "Use as Inspiration" to remix them in your voice</p>
             </div>
@@ -336,133 +341,105 @@
 <!-- Viral Posts Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @forelse($posts as $post)
-    <div class="bg-white rounded-lg shadow hover:shadow-xl transition-all relative overflow-hidden">
+    <div class="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all relative overflow-hidden" style="max-width: 100%;">
         <!-- Engagement Badge -->
-        <div class="absolute top-3 right-3 z-10">
-            <span class="px-3 py-1 rounded-full text-xs font-bold shadow-lg
-                @if($post->engagement_rate >= 10) bg-gradient-to-r from-red-500 to-pink-500 text-white
-                @elseif($post->engagement_rate >= 5) bg-gradient-to-r from-orange-500 to-yellow-500 text-white
-                @else bg-gradient-to-r from-blue-500 to-cyan-500 text-white @endif">
+        <div class="absolute top-2 right-2 z-10">
+            <span class="px-2 py-0.5 rounded text-xs font-semibold shadow-sm text-white @if($post->engagement_rate >= 10) bg-red-500 @endif" @if($post->engagement_rate < 10) style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" @endif>
                 @if($post->engagement_rate >= 10) 🔥 @elseif($post->engagement_rate >= 5) ⚡ @else ✨ @endif
                 {{ number_format($post->engagement_rate, 1) }}%
             </span>
         </div>
 
         <!-- Favorite Star -->
-        <div class="absolute top-3 left-3 z-10">
+        <div class="absolute top-2 left-2 z-10">
             <button onclick="toggleFavorite({{ $post->id }})" 
-                    class="p-2 bg-white rounded-full shadow-md hover:scale-110 transition-transform">
-                <i class="fas fa-star {{ $post->is_favorite ? 'text-yellow-500' : 'text-gray-300' }}"></i>
+                    class="p-1.5 bg-white rounded-full shadow-sm hover:shadow-md transition-all">
+                <i class="fas fa-star text-xs {{ $post->is_favorite ? 'text-yellow-500' : 'text-gray-300' }}"></i>
             </button>
         </div>
 
-        <div class="p-6 pt-14">
-            <!-- Author Info -->
-            <div class="flex items-center mb-4">
+        <div class="p-4">
+            <!-- Author Info - LinkedIn Style -->
+            <div class="flex items-center mb-3">
                 @if($post->author_image_url)
                 <img src="{{ $post->author_image_url }}" 
                      alt="{{ $post->author_name }}" 
-                     class="w-10 h-10 rounded-full border-2 border-gray-200">
+                     class="w-10 h-10 rounded-full object-cover">
                 @else
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-400 flex items-center justify-center text-white font-bold">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#0077b5] to-[#005885] flex items-center justify-center text-white font-semibold text-sm">
                     {{ substr($post->author_name, 0, 1) }}
                 </div>
                 @endif
-                <div class="ml-3 flex-1">
-                    <div class="text-sm font-semibold text-gray-900">{{ $post->author_name }}</div>
+                <div class="ml-2 flex-1 min-w-0">
+                    <div class="text-sm font-semibold text-gray-900 truncate">{{ $post->author_name }}</div>
                     @if($post->author_headline)
-                    <div class="text-xs text-gray-500">{{ Str::limit($post->author_headline, 40) }}</div>
+                    <div class="text-xs text-gray-500 truncate">{{ Str::limit($post->author_headline, 35) }}</div>
                     @endif
+                    <div class="text-xs text-gray-400 mt-0.5">{{ $post->saved_at->diffForHumans() }}</div>
                 </div>
             </div>
 
-            <!-- Post Content Preview -->
-            <div class="mb-4">
-                <p class="text-sm text-gray-700 line-clamp-5">{{ $post->content }}</p>
+            <!-- Post Content Preview - LinkedIn Style -->
+            <div class="mb-3">
+                <p class="text-sm text-gray-900 leading-relaxed line-clamp-4 whitespace-pre-wrap">{{ $post->content }}</p>
             </div>
 
-            <!-- Post Media -->
+            <!-- Post Media - LinkedIn Style -->
             @if($post->post_type === 'image' && $post->images && count($post->images) > 0)
-            <div class="mb-4">
-                <img src="{{ $post->images[0] }}" alt="Post image" class="w-full h-40 object-cover rounded-lg">
+            <div class="mb-3 -mx-4">
+                <img src="{{ $post->images[0] }}" alt="Post image" class="w-full max-h-64 object-cover">
             </div>
             @endif
             
             @if($post->post_type === 'carousel' && $post->images && count($post->images) > 0)
-            <div class="mb-4">
-                <div class="grid grid-cols-3 gap-2">
+            <div class="mb-3 -mx-4">
+                <div class="grid grid-cols-3 gap-0">
                     @foreach(array_slice($post->images, 0, 3) as $image)
-                    <img src="{{ $image }}" alt="Carousel image" class="w-full h-20 object-cover rounded">
+                    <img src="{{ $image }}" alt="Carousel image" class="w-full h-24 object-cover">
                     @endforeach
                 </div>
                 @if(count($post->images) > 3)
-                <div class="text-xs text-gray-500 mt-1">
-                    +{{ count($post->images) - 3 }} more images
+                <div class="text-xs text-gray-500 mt-1 px-2">
+                    +{{ count($post->images) - 3 }} more
                 </div>
                 @endif
             </div>
             @endif
 
-            <!-- Engagement Metrics -->
-            <div class="grid grid-cols-4 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-                <div class="text-center">
-                    <div class="text-lg font-bold text-gray-900">{{ number_format($post->likes) }}</div>
-                    <div class="text-xs text-gray-500">Likes</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-lg font-bold text-gray-900">{{ number_format($post->comments) }}</div>
-                    <div class="text-xs text-gray-500">Comments</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-lg font-bold text-gray-900">{{ number_format($post->shares) }}</div>
-                    <div class="text-xs text-gray-500">Shares</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-lg font-bold text-gray-900">{{ number_format($post->views) }}</div>
-                    <div class="text-xs text-gray-500">Views</div>
+            <!-- Engagement Metrics - LinkedIn Style (Small) -->
+            <div class="flex items-center justify-between py-2 mb-2 text-xs text-gray-500 border-t border-gray-100">
+                <div class="flex items-center space-x-4">
+                    <span class="flex items-center">
+                        <i class="far fa-thumbs-up mr-1"></i>{{ $post->likes > 0 ? number_format($post->likes) : '' }}
+                    </span>
+                    <span>{{ $post->comments > 0 ? number_format($post->comments) . ' comments' : '' }}</span>
+                    <span>{{ $post->shares > 0 ? number_format($post->shares) . ' shares' : '' }}</span>
                 </div>
             </div>
 
-            <!-- Post Meta -->
-            <div class="flex items-center justify-between mb-4 text-xs text-gray-500">
-                <div class="flex items-center space-x-2">
-                    @if($post->category)
-                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                        {{ ucfirst($post->category) }}
-                    </span>
-                    @endif
-                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                        {{ ucfirst($post->post_type) }}
-                    </span>
-                </div>
-                <span>{{ $post->saved_at->diffForHumans() }}</span>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="space-y-2">
+            <!-- Action Buttons - Simplified & LinkedIn Style -->
+            <div class="flex items-center justify-between pt-2 border-t border-gray-100 space-x-1">
                 <button onclick="useAsInspiration({{ $post->id }})" 
-                        class="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all flex items-center justify-center font-medium">
-                    <i class="fas fa-lightbulb mr-2"></i>Use as Inspiration
+                        class="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-lightbulb mr-1 text-[#0077b5]"></i>Use
                 </button>
                 
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="remixPost({{ $post->id }})" 
-                            class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                        <i class="fas fa-magic mr-1"></i>AI Remix
-                    </button>
-                    
-                    @if($post->post_url)
-                    <a href="{{ $post->post_url }}" 
-                       target="_blank"
-                       class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors text-center">
-                        <i class="fab fa-linkedin mr-1"></i>View
-                    </a>
-                    @endif
-                </div>
+                <button onclick="remixPost({{ $post->id }})" 
+                        class="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-magic mr-1 text-[#0077b5]"></i>Remix
+                </button>
+                
+                @if($post->post_url)
+                <a href="{{ $post->post_url }}" 
+                   target="_blank"
+                   class="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors text-center">
+                    <i class="fab fa-linkedin mr-1 text-[#0077b5]"></i>View
+                </a>
+                @endif
                 
                 <button onclick="deletePost({{ $post->id }})" 
-                        class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md transition-colors">
-                    <i class="fas fa-trash mr-1"></i>Remove
+                        class="px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 rounded transition-colors">
+                    <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>
@@ -478,19 +455,19 @@
             <h4 class="font-semibold text-gray-900 mb-3">How to save viral posts:</h4>
             <ol class="space-y-2 text-sm text-gray-700">
                 <li class="flex items-start">
-                    <span class="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                    <span class="flex-shrink-0 w-6 h-6 text-white rounded-full flex items-center justify-center text-xs mr-2" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">1</span>
                     <span>Install LinkDominator Chrome Extension</span>
                 </li>
                 <li class="flex items-start">
-                    <span class="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                    <span class="flex-shrink-0 w-6 h-6 text-white rounded-full flex items-center justify-center text-xs mr-2" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">2</span>
                     <span>Browse LinkedIn feed</span>
                 </li>
                 <li class="flex items-start">
-                    <span class="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                    <span class="flex-shrink-0 w-6 h-6 text-white rounded-full flex items-center justify-center text-xs mr-2" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">3</span>
                     <span>Click "Save to LinkDominator" on posts with high engagement</span>
                 </li>
                 <li class="flex items-start">
-                    <span class="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
+                    <span class="flex-shrink-0 w-6 h-6 text-white rounded-full flex items-center justify-center text-xs mr-2" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">4</span>
                     <span>Posts appear here instantly!</span>
                 </li>
             </ol>
@@ -523,7 +500,7 @@
                         Rewrite in your voice:
                     </label>
                     <select id="remixTone" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                         <option value="professional">Professional</option>
                         <option value="casual">Casual</option>
                         <option value="motivational">Motivational</option>
@@ -547,7 +524,7 @@
                     </label>
                     <textarea id="remixedContent" 
                               rows="8" 
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]"
                               readonly></textarea>
                 </div>
                 
@@ -558,7 +535,7 @@
                     </button>
                     <button onclick="generateRemix()" 
                             id="generateRemixBtn"
-                            class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
+                            class="px-4 py-2 text-white rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                         <span id="generateRemixText">
                             <i class="fas fa-magic mr-2"></i>Generate Remix
                         </span>
@@ -585,13 +562,16 @@ let currentRemixPostId = null;
 function togglePreferences() {
     const section = document.getElementById('preferences-section');
     const icon = document.getElementById('preferences-icon');
+    const text = document.getElementById('preferences-text');
     
     if (section.classList.contains('hidden')) {
         section.classList.remove('hidden');
         icon.classList.add('rotate-180');
+        if (text) text.textContent = 'Click to collapse';
     } else {
         section.classList.add('hidden');
         icon.classList.remove('rotate-180');
+        if (text) text.textContent = 'Click to expand';
     }
 }
 

@@ -2,25 +2,25 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Create New Post</h2>
+    <h2 class="text-2xl font-bold text-gray-900">Create New Post</h2>
     <a href="{{ route('content-creator.index') }}" 
-       class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+       class="text-gray-600 hover:text-[#0077b5]">
         <i class="fas fa-arrow-left mr-2"></i>Back to Posts
     </a>
 </div>
 
 <!-- Error Messages -->
 @if ($errors->any())
-<div class="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+<div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
     <div class="flex">
         <div class="flex-shrink-0">
             <i class="fas fa-exclamation-triangle text-red-400"></i>
         </div>
         <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+            <h3 class="text-sm font-medium text-red-800">
                 Please fix the following errors:
             </h3>
-            <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+            <div class="mt-2 text-sm text-red-700">
                 <ul class="list-disc list-inside space-y-1">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -34,13 +34,13 @@
 
 <!-- Success Messages -->
 @if (session('success'))
-<div class="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+<div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
     <div class="flex">
         <div class="flex-shrink-0">
             <i class="fas fa-check-circle text-green-400"></i>
         </div>
         <div class="ml-3">
-            <p class="text-sm text-green-800 dark:text-green-200">
+            <p class="text-sm text-green-800">
                 {{ session('success') }}
             </p>
         </div>
@@ -51,29 +51,29 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <!-- Left Sidebar - Templates & AI Tools -->
     <div class="lg:col-span-1">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Assistant</h3>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">AI Assistant</h3>
             
             <!-- AI Generation Form -->
             <form id="aiGenerateForm" class="space-y-4">
                 @csrf
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         Topic or Idea
                     </label>
                     <textarea id="aiTopic" 
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]"
                               rows="3" 
                               placeholder="What do you want to write about?"></textarea>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Style
                         </label>
                         <select id="aiStyle" 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                             <option value="professional">Professional</option>
                             <option value="casual">Casual</option>
                             <option value="motivational">Motivational</option>
@@ -83,11 +83,11 @@
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Length
                         </label>
                         <select id="aiLength" 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                             <option value="short">Short</option>
                             <option value="medium" selected>Medium</option>
                             <option value="long">Long</option>
@@ -99,8 +99,8 @@
                 <div class="mb-4">
                     <label class="flex items-center cursor-pointer">
                         <input type="checkbox" id="multipleDrafts" 
-                               class="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500">
-                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                               class="w-4 h-4 bg-gray-100 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                        <span class="ml-2 text-sm text-gray-700">
                             Generate 2 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
                         </span>
                     </label>
@@ -108,7 +108,7 @@
                 
                 <button type="submit" 
                         id="generateBtn"
-                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="w-full text-white py-2 px-4 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                     <span id="generateText">
                         <i class="fas fa-magic mr-2"></i>Generate with AI
                     </span>
@@ -120,8 +120,8 @@
             
             <!-- 🔥 NEW: Multiple Drafts Selection -->
             <div id="draftsContainer" class="mt-4 hidden">
-                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    <i class="fas fa-copy mr-1 text-orange-500"></i>Choose Your Favorite Draft
+                <h4 class="text-sm font-medium text-gray-700 mb-3">
+                    <i class="fas fa-copy mr-1 text-[#0077b5]"></i>Choose Your Favorite Draft
                 </h4>
                 <div id="draftsList" class="space-y-3 max-h-96 overflow-y-auto">
                     <!-- Drafts will be inserted here -->
@@ -130,10 +130,10 @@
         </div>
 
         <!-- Templates Section -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Templates</h3>
-                <span id="templateCount" class="text-xs text-gray-500 dark:text-gray-400">
+                <h3 class="text-lg font-semibold text-gray-900">Templates</h3>
+                <span id="templateCount" class="text-xs text-gray-500">
                     {{ count($templates) }} templates
                 </span>
             </div>
@@ -145,13 +145,13 @@
                     <input type="text" 
                            id="templateSearch" 
                            placeholder="Search templates..." 
-                           class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                           class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
                 </div>
                 
                 <!-- Category Filter -->
                 <select id="templateCategory" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Categories</option>
                     @foreach($categories as $key => $name)
                     <option value="{{ $key }}">{{ $name }}</option>
@@ -160,7 +160,7 @@
                 
                 <!-- Industry Filter -->
                 <select id="templateIndustry" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Industries</option>
                     @foreach($industries as $key => $name)
                     <option value="{{ $key }}">{{ $name }}</option>
@@ -169,7 +169,7 @@
                 
                 <!-- Engagement Score Filter -->
                 <select id="templateEngagement" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Engagement</option>
                     <option value="90">🔥 90%+ (Viral)</option>
                     <option value="85">⚡ 85%+ (High)</option>
@@ -179,7 +179,7 @@
                 <!-- Clear Filters Button -->
                 <button type="button" 
                         id="clearFilters"
-                        class="w-full px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors">
+                        class="w-full px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors">
                     <i class="fas fa-redo mr-1"></i>Clear Filters
                 </button>
             </div>
@@ -187,7 +187,7 @@
             <!-- Templates List -->
             <div id="templatesList" class="space-y-3 max-h-64 overflow-y-auto">
                 @foreach($templates as $template)
-                <div class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer template-item"
+                <div class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer template-item"
                      data-template-id="{{ $template->id }}"
                      data-category="{{ $template->category }}"
                      data-industry="{{ $template->industry }}"
@@ -195,26 +195,26 @@
                      data-title="{{ strtolower($template->title) }}"
                      data-description="{{ strtolower($template->description ?? '') }}">
                     <div class="flex items-start justify-between mb-1">
-                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                        <div class="text-sm font-medium text-gray-900">
                             {{ $template->title }}
                         </div>
                         <!-- Engagement Badge -->
                         <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded
-                            @if($template->engagement_score >= 90) bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200
-                            @elseif($template->engagement_score >= 85) bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200
-                            @else bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 @endif">
+                            @if($template->engagement_score >= 90) bg-red-100 text-red-700
+                            @elseif($template->engagement_score >= 85) bg-blue-50 text-[#0077b5] border border-[#0077b5]
+                            @else bg-blue-100 text-blue-700 @endif">
                             {{ $template->engagement_score }}%
                         </span>
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <div class="text-xs text-gray-500 mb-2">
                         {{ Str::limit($template->description ?? $template->content, 60) }}
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2">
-                            <span class="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 rounded">
+                            <span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
                                 {{ ucfirst($template->category) }}
                             </span>
-                            <span class="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
+                            <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                                 {{ ucfirst($template->industry) }}
                             </span>
                         </div>
@@ -225,10 +225,10 @@
             
             <!-- No Results Message -->
             <div id="noTemplatesMessage" class="hidden text-center py-8">
-                <i class="fas fa-search text-4xl text-gray-300 dark:text-gray-600 mb-2"></i>
-                <p class="text-sm text-gray-500 dark:text-gray-400">No templates found</p>
+                <i class="fas fa-search text-4xl text-gray-300 mb-2"></i>
+                <p class="text-sm text-gray-500">No templates found</p>
                 <button type="button" onclick="clearAllFilters()" 
-                        class="mt-2 text-xs text-orange-600 hover:text-orange-700">
+                        class="mt-2 text-xs text-[#0077b5] hover:text-[#005885]">
                     Clear filters
                 </button>
             </div>
@@ -237,84 +237,84 @@
 
     <!-- Main Content Area -->
     <div class="lg:col-span-2">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="bg-white rounded-lg shadow-md">
             <div class="p-6">
                 <form id="postForm" action="{{ route('content-creator.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     
                     <!-- Post Type Selection -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
                             Post Type
                         </label>
                         <div class="grid grid-cols-3 gap-4 @error('post_type') border border-red-500 rounded-lg p-2 @enderror">
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="text" 
                                        {{ old('post_type', 'text') == 'text' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Text</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Text only</div>
+                                    <div class="text-sm font-medium text-gray-900">Text</div>
+                                    <div class="text-xs text-gray-500">Text only</div>
                                 </div>
                             </label>
                             
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="image" 
                                        {{ old('post_type') == 'image' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Image</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">1-10 images</div>
+                                    <div class="text-sm font-medium text-gray-900">Image</div>
+                                    <div class="text-xs text-gray-500">1-10 images</div>
                                 </div>
                             </label>
                             
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="video" 
                                        {{ old('post_type') == 'video' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Video</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Video content</div>
+                                    <div class="text-sm font-medium text-gray-900">Video</div>
+                                    <div class="text-xs text-gray-500">Video content</div>
                                 </div>
                             </label>
                         </div>
                         
                         <!-- Info note about multiple images -->
-                        <div class="mt-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                            <p class="text-xs text-blue-800 dark:text-blue-200">
+                        <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-800">
                                 <i class="fas fa-info-circle mr-1"></i>
                                 <strong>Tip:</strong> Image posts support multiple images (1-10) - perfect for photo collections and galleries!
                             </p>
                         </div>
                         @error('post_type')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <!-- Content Editor -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Post Content
                         </label>
                         <textarea id="postContent" 
                                   name="content" 
                                   rows="8" 
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('content') border-red-500 @enderror"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('content') border-red-500 @enderror"
                                   placeholder="Write your LinkedIn post here...">{{ old('content') }}</textarea>
                         @error('content')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div class="mt-2 flex justify-between items-center">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                            <div class="text-sm text-gray-500">
                                 <span id="wordCount">0</span> words
                             </div>
                         </div>
                         
                         <!-- 🔥 NEW: Improve Post Action Buttons (Taplio-style) -->
-                        <div id="improveActions" class="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hidden">
+                        <div id="improveActions" class="mt-3 p-3 bg-gray-50 rounded-lg hidden">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <i class="fas fa-magic text-orange-500 mr-1"></i>Improve Your Post
+                                <span class="text-sm font-medium text-gray-700">
+                                    <i class="fas fa-magic text-[#0077b5] mr-1"></i>Improve Your Post
                                 </span>
                                 <button type="button" onclick="toggleImproveActions()" 
                                         class="text-xs text-gray-500 hover:text-gray-700">
@@ -335,7 +335,7 @@
                                     <i class="fas fa-expand-arrows-alt mr-1"></i>Expand
                                 </button>
                                 <button type="button" onclick="improvePost('make_viral')" 
-                                        class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                        class="px-3 py-1.5 text-white text-xs rounded-md transition-all flex items-center" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                                     <i class="fas fa-fire mr-1"></i>Make Viral
                                 </button>
                                 <button type="button" onclick="improvePost('add_data')" 
@@ -363,34 +363,34 @@
                                     <i class="fas fa-compress mr-1"></i>Make Concise
                                 </button>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            <p class="text-xs text-gray-500 mt-2">
                                 💡 Click any action to enhance your content with AI
                             </p>
                         </div>
                         
                         <!-- Show improve actions button -->
                         <button type="button" id="showImproveBtn" onclick="toggleImproveActions()" 
-                                class="mt-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm rounded-md transition-all flex items-center">
+                                class="mt-2 px-4 py-2 text-white text-sm rounded-md transition-all flex items-center" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                             <i class="fas fa-magic mr-2"></i>Improve This Post
                         </button>
                     </div>
 
                     <!-- Image Upload (for image posts - supports 1-10 images) -->
                     <div id="imageUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            <i class="fas fa-images mr-1 text-orange-500"></i>Upload Images (1-10 images)
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-images mr-1 text-[#0077b5]"></i>Upload Images (1-10 images)
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
                             <input type="file" id="imageUpload" name="images[]" multiple accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden">
                             <button type="button" onclick="document.getElementById('imageUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
+                                    class="text-[#0077b5] hover:text-[#005885]">
                                 <i class="fas fa-images text-3xl mb-2"></i>
                                 <div class="text-sm font-medium">Click to upload image(s)</div>
                                 <div class="text-xs text-gray-500 mt-1">Select 1 or more images (PNG, JPG, WEBP only - max 10 images, 10MB each)</div>
                             </button>
                         </div>
                         @error('images.*')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div id="imagePreview" class="mt-4 hidden">
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="imagePreviewGrid">
@@ -401,19 +401,19 @@
 
                     <!-- Video Upload (for video posts) -->
                     <div id="videoUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Upload Video
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('video') border-red-500 @enderror">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center @error('video') border-red-500 @enderror">
                             <input type="file" id="videoUpload" name="video" accept="video/*" class="hidden">
                             <button type="button" onclick="document.getElementById('videoUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
+                                    class="text-[#0077b5] hover:text-[#005885]">
                                 <i class="fas fa-video text-3xl mb-2"></i>
                                 <div class="text-sm">Click to upload video</div>
                             </button>
                         </div>
                         @error('video')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div id="videoPreview" class="mt-4 hidden">
                             <div class="relative group">
@@ -431,45 +431,45 @@
 
                     <!-- Hashtags -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Hashtags
                         </label>
                         <input type="text" 
                                name="hashtags" 
                                id="hashtags"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('hashtags') border-red-500 @enderror"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('hashtags') border-red-500 @enderror"
                                placeholder="#marketing #business #growth"
                                value="{{ old('hashtags') }}">
                         @error('hashtags')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
-                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <div class="mt-1 text-sm text-gray-500">
                             Separate hashtags with spaces. Use 3-5 hashtags for best results.
                         </div>
                     </div>
 
                     <!-- Scheduling -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Publishing Options
                         </label>
                         <div class="space-y-3">
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="draft" checked 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Save as Draft</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Save as Draft</span>
                             </label>
                             
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="now" 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Publish Now</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Publish Now</span>
                             </label>
                             
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="schedule" 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Schedule for Later</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Schedule for Later</span>
                             </label>
                         </div>
                         
@@ -477,11 +477,11 @@
                             <input type="datetime-local" 
                                    name="scheduled_at" 
                                    id="scheduledAt"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('scheduled_at') border-red-500 @enderror"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('scheduled_at') border-red-500 @enderror"
                                    min="{{ now()->format('Y-m-d\TH:i') }}"
                                    value="{{ old('scheduled_at') }}">
                             @error('scheduled_at')
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
                     </div>
@@ -489,12 +489,12 @@
                     <!-- Action Buttons -->
                     <div class="flex justify-end space-x-4">
                         <a href="{{ route('content-creator.index') }}" 
-                           class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                           class="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
                             Cancel
                         </a>
                         <button type="submit" 
                                 id="savePostBtn"
-                                class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="px-6 py-2 text-white rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                             <span id="savePostText">
                                 <i class="fas fa-save mr-2"></i>Save Post
                             </span>
@@ -512,9 +512,9 @@
 <!-- Loading Overlay -->
 <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-            <p class="text-gray-900 dark:text-white">Generating content...</p>
+        <div class="bg-white rounded-lg p-6 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0077b5] mx-auto mb-4"></div>
+            <p class="text-gray-900">Generating content...</p>
         </div>
     </div>
 </div>
@@ -852,31 +852,31 @@ function displayMultipleDrafts(drafts) {
     // Create draft cards
     drafts.forEach((draft, index) => {
         const draftCard = document.createElement('div');
-        draftCard.className = 'p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 transition-all';
+        draftCard.className = 'p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#0077b5] hover:bg-blue-50 transition-all';
         draftCard.onclick = () => selectDraft(draft);
         
         draftCard.innerHTML = `
             <div class="flex items-start justify-between mb-2">
                 <div class="flex items-center">
-                    <span class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 rounded-full text-xs font-bold mr-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-50 text-[#0077b5] border border-[#0077b5] rounded-full text-xs font-bold mr-2">
                         ${index + 1}
                     </span>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">
+                    <span class="text-sm font-medium text-gray-900">
                         Draft ${index + 1}
                     </span>
                 </div>
-                <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="text-xs text-gray-500">
                     ${draft.word_count} words
                 </span>
             </div>
-            <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-2">
+            <p class="text-sm text-gray-700 line-clamp-3 mb-2">
                 ${draft.content.substring(0, 150)}${draft.content.length > 150 ? '...' : ''}
             </p>
             <div class="flex items-center justify-between">
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-xs text-gray-500">
                     ${draft.hashtags || 'No hashtags'}
                 </div>
-                <button class="text-xs text-orange-600 hover:text-orange-700 font-medium">
+                <button class="text-xs text-[#0077b5] hover:text-[#005885] font-medium">
                     Use this draft →
                 </button>
             </div>
@@ -1112,7 +1112,7 @@ function updateImagePreviews() {
             imgContainer.className = 'relative group';
             imgContainer.innerHTML = `
                 <img src="${e.target.result}" alt="Image ${index + 1}" 
-                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-600">
+                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200">
                 <button type="button" onclick="removeImage(${index})" 
                         class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                     <i class="fas fa-times text-xs"></i>

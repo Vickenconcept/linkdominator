@@ -9,7 +9,7 @@
                 <p class="text-sm text-gray-600">{{ optional(json_decode($audience->source_meta))->company_url }}</p>
             </div>
             <div>
-                <a href="{{ route('competitor-followers.export', $audience->id) }}" class="inline-flex items-center justify-center rounded bg-orange-500 hover:bg-orange-600 text-white px-4 py-2">{{ __('competitor_followers.export') }}</a>
+                <a href="{{ route('competitor-followers.export', $audience->id) }}" class="inline-flex items-center justify-center rounded text-white px-4 py-2 transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">{{ __('competitor_followers.export') }}</a>
             </div>
         </div>
     </div>
@@ -36,7 +36,7 @@
                             <td class="py-2 pr-4 text-gray-700">{{ $row->con_location }}</td>
                             <td class="py-2 pr-4">
                                 @if ($row->con_profile_url)
-                                    <a href="{{ $row->con_profile_url }}" target="_blank" class="text-orange-600 hover:underline">{{ __('competitor_followers.view_profile') }}</a>
+                                    <a href="{{ $row->con_profile_url }}" target="_blank" class="text-[#0077b5] hover:text-[#005885] hover:underline">{{ __('competitor_followers.view_profile') }}</a>
                                 @endif
                             </td>
                             <td class="py-2 pr-4 text-gray-700">{{ optional($row->con_last_activity)->format('Y-m-d') }}</td>

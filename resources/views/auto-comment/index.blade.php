@@ -37,7 +37,7 @@
         </div>
         <div>
             <p class="text-sm font-medium text-gray-600">Scheduled</p>
-            <p class="text-2xl font-bold text-blue-600">{{ $posts->where('status', 'scheduled')->count() }}</p>
+            <p class="text-2xl font-bold text-[#0077b5]">{{ $posts->where('status', 'scheduled')->count() }}</p>
         </div>
         <div>
             <p class="text-sm font-medium text-gray-600">Posted</p>
@@ -54,7 +54,7 @@
             <p class="text-sm text-yellow-700 mt-1">Configure your preferences to start auto-commenting</p>
         </div>
         <a href="{{ route('auto-comment.preferences') }}" 
-           class="ml-auto bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+           class="ml-auto text-white px-4 py-2 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
             Setup Now
         </a>
     </div>
@@ -109,7 +109,7 @@
                                 Posted
                             </span>
                         @elseif($post->status == 'scheduled')
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-[#0077b5]">
                                 Scheduled
                             </span>
                             @if($post->scheduled_at)
@@ -134,7 +134,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         @if($post->post_url)
                             <a href="{{ $post->post_url }}" target="_blank" 
-                               class="text-orange-600 hover:text-orange-900 mr-3">
+                               class="text-[#0077b5] hover:text-[#005885] mr-3">
                                 <i class="fas fa-external-link-alt"></i>
                             </a>
                         @endif
@@ -163,7 +163,7 @@
         <p class="text-gray-500">No posts found yet. Posts will appear here once the system finds matches.</p>
         @if(!$preference)
             <a href="{{ route('auto-comment.preferences') }}" 
-               class="mt-4 inline-block bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+               class="mt-4 inline-block text-white px-4 py-2 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Setup Preferences
             </a>
         @endif

@@ -721,8 +721,8 @@ EOD;
         }
 
         // Generate 2 drafts in ONE API call using n=2 parameter
-        $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
-        
+            $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
+            
         Log::info('🤖 ChatGPT generateMultipleDrafts - Single API call for 2 drafts', [
             'topic' => $topic,
             'style' => $style,
@@ -766,8 +766,8 @@ EOD;
                 if (!empty($text)) {
                     $content = trim($text);
                     $content = $this->cleanJsonResponse($content);
-                    
-                    $drafts[] = [
+            
+            $drafts[] = [
                         'content' => $content,
                         'hashtags' => $this->extractHashtags($content),
                         'word_count' => str_word_count($content)

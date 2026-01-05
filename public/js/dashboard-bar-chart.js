@@ -1,7 +1,11 @@
 let barOptions = {
     chart: {
-      	type: 'bar'
+      	type: 'bar',
+        toolbar: {
+            show: false
+        }
     },
+    colors: ['#0077b5', '#005885', '#004d6f', '#003d59', '#002d44'],
 	dataLabels: {
 		enabled: false
 	},
@@ -29,6 +33,9 @@ let barOptions = {
     ],
 	xaxis: {
         categories: []
+    },
+    legend: {
+        position: 'top'
     }
 }
 

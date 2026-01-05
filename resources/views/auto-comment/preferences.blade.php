@@ -21,7 +21,7 @@
                     <input type="checkbox" name="is_active" value="1" 
                            {{ old('is_active', $preference ? $preference->is_active : false) ? 'checked' : '' }}
                            class="sr-only peer">
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0077b5]"></div>
                 </label>
             </div>
         </div>
@@ -38,7 +38,7 @@
                 <input type="text" name="keywords" 
                        value="{{ old('keywords', $preference && $preference->keywords ? implode(', ', $preference->keywords) : '') }}"
                        placeholder="e.g., artificial intelligence, marketing, entrepreneurship"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                 <p class="text-xs text-gray-500 mt-1">Posts containing these keywords will be considered</p>
             </div>
 
@@ -49,7 +49,7 @@
                 </label>
                 <textarea name="followed_accounts" rows="4"
                           placeholder="urn:li:person:ABC123&#10;urn:li:person:XYZ456&#10;https://linkedin.com/in/username"
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">{{ old('followed_accounts', $preference && $preference->followed_accounts ? implode("\n", $preference->followed_accounts) : '') }}</textarea>
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">{{ old('followed_accounts', $preference && $preference->followed_accounts ? implode("\n", $preference->followed_accounts) : '') }}</textarea>
                 <p class="text-xs text-gray-500 mt-1">Posts from these accounts will be monitored</p>
             </div>
 
@@ -61,7 +61,7 @@
                 <input type="text" name="industries" 
                        value="{{ old('industries', $preference && $preference->industries ? implode(', ', $preference->industries) : '') }}"
                        placeholder="e.g., Technology, Healthcare, Finance"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
             </div>
 
             <!-- Minimum Engagement -->
@@ -72,7 +72,7 @@
                 <input type="number" name="min_engagement" 
                        value="{{ old('min_engagement', $preference ? $preference->min_engagement : 50) }}"
                        min="0"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                 <p class="text-xs text-gray-500 mt-1">Only posts with at least this much engagement will be considered</p>
             </div>
         </div>
@@ -85,7 +85,7 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Comment Style</label>
                 <select name="comment_style" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                     <option value="professional" {{ old('comment_style', $preference ? $preference->comment_style : 'professional') == 'professional' ? 'selected' : '' }}>Professional</option>
                     <option value="casual" {{ old('comment_style', $preference ? $preference->comment_style : '') == 'casual' ? 'selected' : '' }}>Casual</option>
                     <option value="friendly" {{ old('comment_style', $preference ? $preference->comment_style : '') == 'friendly' ? 'selected' : '' }}>Friendly</option>
@@ -97,7 +97,7 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Comment Tone</label>
                 <select name="comment_tone" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                     <option value="helpful" {{ old('comment_tone', $preference ? $preference->comment_tone : 'helpful') == 'helpful' ? 'selected' : '' }}>Helpful</option>
                     <option value="engaging" {{ old('comment_tone', $preference ? $preference->comment_tone : '') == 'engaging' ? 'selected' : '' }}>Engaging</option>
                     <option value="supportive" {{ old('comment_tone', $preference ? $preference->comment_tone : '') == 'supportive' ? 'selected' : '' }}>Supportive</option>
@@ -112,7 +112,7 @@
                 </label>
                 <textarea name="comment_instructions" rows="3"
                           placeholder="e.g., Always include a question, Keep comments under 100 words, Reference specific points from the post"
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">{{ old('comment_instructions', $preference ? $preference->comment_instructions : '') }}</textarea>
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">{{ old('comment_instructions', $preference ? $preference->comment_instructions : '') }}</textarea>
             </div>
 
             <!-- Avoid Topics -->
@@ -122,7 +122,7 @@
                 </label>
                 <textarea name="avoid_topics" rows="2"
                           placeholder="e.g., politics, religion, controversial topics"
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">{{ old('avoid_topics', $preference ? $preference->avoid_topics : '') }}</textarea>
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">{{ old('avoid_topics', $preference ? $preference->avoid_topics : '') }}</textarea>
             </div>
         </div>
 
@@ -138,7 +138,7 @@
                 <input type="text" name="posting_times" 
                        value="{{ old('posting_times', $preference && $preference->posting_times ? implode(',', $preference->posting_times) : '9,14,18') }}"
                        placeholder="9,14,18"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                 <p class="text-xs text-gray-500 mt-1">Comments will be posted at these hours (24-hour format)</p>
             </div>
 
@@ -146,7 +146,7 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
                 <select name="timezone" 
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
                     <option value="UTC" {{ old('timezone', $preference ? $preference->timezone : 'UTC') == 'UTC' ? 'selected' : '' }}>UTC</option>
                     <option value="America/New_York" {{ old('timezone', $preference ? $preference->timezone : '') == 'America/New_York' ? 'selected' : '' }}>Eastern Time</option>
                     <option value="America/Chicago" {{ old('timezone', $preference ? $preference->timezone : '') == 'America/Chicago' ? 'selected' : '' }}>Central Time</option>
@@ -163,7 +163,7 @@
                 <input type="number" name="max_comments_per_day" 
                        value="{{ old('max_comments_per_day', $preference ? $preference->max_comments_per_day : 10) }}"
                        min="1" max="100"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
             </div>
 
             <!-- Min Time Between Comments -->
@@ -174,7 +174,7 @@
                 <input type="number" name="min_time_between_comments" 
                        value="{{ old('min_time_between_comments', $preference ? $preference->min_time_between_comments : 60) }}"
                        min="0"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
             </div>
         </div>
 
@@ -190,7 +190,7 @@
                 </div>
                 <input type="checkbox" name="skip_already_commented" value="1" 
                        {{ old('skip_already_commented', $preference ? $preference->skip_already_commented : true) ? 'checked' : '' }}
-                       class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                       class="h-4 w-4 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
             </div>
 
             <!-- Only Fresh Posts -->
@@ -201,7 +201,7 @@
                 </div>
                 <input type="checkbox" name="only_fresh_posts" value="1" 
                        {{ old('only_fresh_posts', $preference ? $preference->only_fresh_posts : true) ? 'checked' : '' }}
-                       class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                       class="h-4 w-4 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
             </div>
 
             <!-- Skip Posts Older Than -->
@@ -212,7 +212,7 @@
                 <input type="number" name="skip_posts_older_than_days" 
                        value="{{ old('skip_posts_older_than_days', $preference ? $preference->skip_posts_older_than_days : 7) }}"
                        min="0"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#0077b5] focus:border-[#0077b5]">
             </div>
         </div>
 
@@ -223,7 +223,7 @@
                 Cancel
             </a>
             <button type="submit" 
-                    class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors">
+                    class="px-6 py-2 text-white rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Save Preferences
             </button>
         </div>

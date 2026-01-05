@@ -1,4 +1,4 @@
-<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300 flex gap-3" role="alert">    
+<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 flex gap-3" role="alert">    
     <span>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
@@ -15,45 +15,38 @@
         <h4 class="font-semibold">Actions:</h4>
         <div class="mt-3"> 
             <button id="send-invite-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Send an invite
             </button>
             <button id="message-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Message
             </button>
             <button id="profile-view-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 View profile
             </button>
             <button id="endorse-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Endorse skills
             </button>
             <button id="follow-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Follow
             </button>
             <button id="like-post-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Like a post
             </button>
             <button id="book-call-action-btn" class="block w-full py-2 text-xs font-medium leading-2 
-            text-white transition-colors duration-150 bg-gray-400 mb-3
-            border border-transparent rounded-tr-lg rounded-bl-lg active:bg-gray-500
-            hover:bg-gray-400 focus:outline-none focus:shadow-outline-gray action-btn" disabled>
+            text-white transition-all duration-150 bg-gray-400 mb-3
+            border border-transparent rounded-lg focus:outline-none action-btn" disabled>
                 Book a call
             </button>
         </div>
@@ -66,24 +59,23 @@
     <!-- Apply action -->
     <div class="pt-3">
         <button type="button" id="applyAction" class="block px-10 py-2 text-sm font-medium leading-2 
-        text-white transition-colors duration-150 bg-indigo-500 w-80
-        border border-transparent rounded active:bg-indigo-600
-        hover:bg-indigo-600 focus:outline-none focus:shadow-outline-indigo"
+        text-white transition-all duration-150 w-80
+        border border-transparent rounded focus:outline-none" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';"
         style="display: none;">
             Apply
         </button>
     </div>
-    <button type="button" style="display: none" class="custom-modal-btn py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-hidden focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-custom-modal" data-hs-overlay="#hs-custom-modal">
+    <button type="button" style="display: none" class="custom-modal-btn py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white focus:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-custom-modal" data-hs-overlay="#hs-custom-modal">
         Toggle modal
     </button>
     <div id="hs-custom-modal" class="hs-overlay hidden size-full fixed top-0 start-0 z-80 overflow-x-hidden overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-custom-modal-label">
         <div class="hs-overlay-open:mt-7 hs-overlay-open:opacity-100 hs-overlay-open:duration-500 mt-0 opacity-0 ease-out transition-all md:max-w-2xl md:w-full m-3 md:mx-auto">
-            <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-                <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-                    <h3 id="hs-custom-modal-label" class="font-bold text-gray-800 dark:text-white modal-title">
+            <div class="flex flex-col bg-white border border-gray-200 shadow-md rounded-xl pointer-events-auto">
+                <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+                    <h3 id="hs-custom-modal-label" class="font-bold text-gray-800 modal-title">
                         Profile view
                     </h3>
-                    <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-custom-modal">
+                    <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-custom-modal">
                         <span class="sr-only">Close</span>
                         <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 6 6 18"></path>
@@ -98,7 +90,7 @@
                         </label>
                         <div class="grid grid-cols-6 gap-3 pt-2">
                             <div class="col-span-6">
-                                <input type="number" id="total-endorse-skill" class="border border-gray-300 text-gray-900 rounded focus:ring-indigo-600 focus:border-indigo-600 block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
+                                <input type="number" id="total-endorse-skill" class="border border-gray-300 text-gray-900 rounded focus:ring-[#0077b5] focus:border-[#0077b5] block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
                             </div>
                         </div>
                     </div>
@@ -110,10 +102,10 @@
                         </label>
                         <div class="grid grid-cols-6 gap-3 pt-2">
                             <div class="col-span-2">
-                                <input type="number" id="time-number" class="border border-gray-300 text-gray-900 rounded focus:ring-indigo-600 focus:border-indigo-600 block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
+                                <input type="number" id="time-number" class="border border-gray-300 text-gray-900 rounded focus:ring-[#0077b5] focus:border-[#0077b5] block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
                             </div>
                             <div class="col-span-3">
-                                <select id="time-type" class="px-4 pe-9 block py-2 w-full border-gray-300 rounded focus:border-indigo-600 focus:ring-indigo-600 disabled:opacity-50 disabled:pointer-events-none">
+                                <select id="time-type" class="px-4 pe-9 block py-2 w-full border-gray-300 rounded focus:border-[#0077b5] focus:ring-[#0077b5] disabled:opacity-50 disabled:pointer-events-none">
                                     <option value="days">days</option>
                                     <option value="hours">hours</option>
                                 </select>
@@ -125,56 +117,53 @@
                     <div id="send-message-fields" class="custom-sequence-fields" style="display: none;">
                         <div class="flex gap-1 mt-2">
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@firstName')">
                                     First name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@lastName')">
                                     Last name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@name')">
                                     Full name
                                 </button>
                             </div>
                             <div>
-                                <button class="px-4 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-4 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@position')">
                                     Position
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@company')">
                                     Company
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@location')">
                                     Location
                                 </button>
                             </div>
                         </div>
                         <div class="mt-2">
-                            <textarea id="send-message" name="send_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"></textarea>
+                            <textarea id="send-message" name="send_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#0077b5] sm:text-sm sm:leading-6"></textarea>
                         </div>
                     </div>
 
@@ -182,61 +171,58 @@
                     <div id="send-invites-fields" class="custom-sequence-fields" style="display: none;">
                         <div class="flex gap-2">
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';"                                 onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                invite-variables"
                                 onclick="addVariableToMessage('@firstName')" disabled>
                                     First name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';"                                 onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                invite-variables"
                                 onclick="addVariableToMessage('@lastName')" disabled>
                                     Last name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';"                                 onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                invite-variables"
                                 onclick="addVariableToMessage('@name')" disabled>
                                     Full name
                                 </button>
                             </div>
                             <div>
-                                <button class="px-4 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-4 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all invite-variables" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="if(!this.disabled) { this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; }" onmouseout="if(!this.disabled) { this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; }"
                                 onclick="addVariableToMessage('@position')" disabled>
                                     Position
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all invite-variables" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="if(!this.disabled) { this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; }" onmouseout="if(!this.disabled) { this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; }"
                                 onclick="addVariableToMessage('@company')" disabled>
                                     Company
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo invite-variables"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all invite-variables" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="if(!this.disabled) { this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; }" onmouseout="if(!this.disabled) { this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; }"
                                 onclick="addVariableToMessage('@location')" disabled>
                                     Location
                                 </button>
                             </div>
                         </div>
                         <div class="mt-2">
-                            <textarea id="invite-message" name="invite_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" disabled></textarea>
+                            <textarea id="invite-message" name="invite_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#0077b5] sm:text-sm sm:leading-6" disabled></textarea>
                         </div>
                         <div class="mt-4 space-y-6">
                             <div class="relative flex gap-x-4">
                                 <div class="flex h-6 items-center">
-                                    <input id="invite-note" name="invite_note" value="on" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked>
+                                    <input id="invite-note" name="invite_note" value="on" type="checkbox" class="h-4 w-4 rounded border-gray-300 focus:ring-[#0077b5]" style="accent-color: #0077b5;" checked>
                                 </div>
                                 <div class="text-sm leading-6">
                                     <label for="invite-note" class="font-medium text-gray-900">
@@ -251,49 +237,46 @@
                     <div id="book-call-fields" class="custom-sequence-fields" style="display: none;">
                         <div class="flex gap-2">
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@firstName')">
                                     First name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@lastName')">
                                     Last name
                                 </button>
                             </div>
                             <div class="">
-                                <button class="px-2 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-2 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';" 
+                                "
                                 onclick="addVariableToMessage('@name')">
                                     Full name
                                 </button>
                             </div>
                             <div>
-                                <button class="px-4 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-4 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@position')">
                                     Position
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@company')">
                                     Company
                                 </button>
                             </div>
                             <div>
-                                <button class="px-3 py-2 text-sm font-medium bg-indigo-500 border border-transparent
-                                text-white rounded active:bg-indigo-600 hover:bg-indigo-600 focus:outline-none 
-                                focus:shadow-outline-indigo"
+                                <button class="px-3 py-2 text-sm font-medium border border-transparent
+                                text-white rounded focus:outline-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';"
                                 onclick="addVariableToMessage('@location')">
                                     Location
                                 </button>
@@ -301,8 +284,8 @@
                         </div>
                         <div class="mt-2 call-message-space" style="display: none;">
                             <div class="mb-3">
-                                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <input type="checkbox" id="use-ai-paraphrase" name="use_ai_paraphrase" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                <label class="flex items-center gap-2 text-sm text-gray-800">
+                                    <input type="checkbox" id="use-ai-paraphrase" name="use_ai_paraphrase" class="rounded border-gray-300 shadow-sm focus:border-[#0077b5] focus:ring focus:ring-[#0077b5] focus:ring-opacity-30"">
                                     <span>Use AI (paraphrase my message)</span>
                                 </label>
                                 <p class="text-xs text-gray-500 mt-1">If checked, AI will improve and paraphrase your message. If unchecked, your exact message will be sent.</p>
@@ -310,14 +293,14 @@
                             
                             <!-- AI Mode Selection -->
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">AI Mode</label>
+                                <label class="block text-sm font-medium text-gray-800 mb-2">AI Mode</label>
                                 <div class="space-y-2">
-                                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                        <input type="radio" id="ai-mode-auto" name="ai_mode" value="auto" class="text-indigo-600 focus:ring-indigo-500" checked>
+                                    <label class="flex items-center gap-2 text-sm text-gray-800">
+                                        <input type="radio" id="ai-mode-auto" name="ai_mode" value="auto" class="focus:ring-[#0077b5]" style="accent-color: #0077b5;" checked>
                                         <span>AI Mode (Auto Send)</span>
                                     </label>
-                                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                        <input type="radio" id="ai-mode-review" name="ai_mode" value="review" class="text-indigo-600 focus:ring-indigo-500">
+                                    <label class="flex items-center gap-2 text-sm text-gray-800">
+                                        <input type="radio" id="ai-mode-review" name="ai_mode" value="review" class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                         <span>Review Mode (Hold for Review)</span>
                                     </label>
                                 </div>
@@ -325,20 +308,20 @@
                             
                             <!-- Review Time Input (shown when review mode is selected) -->
                             <div id="review-time-container" class="mb-3" style="display: none;">
-                                <label for="review-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Review Time (minutes)</label>
-                                <input type="number" id="review-time" name="review_time" min="1" max="1440" value="30" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" placeholder="Enter review time in minutes">
+                                <label for="review-time" class="block text-sm font-medium text-gray-800 mb-1">Review Time (minutes)</label>
+                                <input type="number" id="review-time" name="review_time" min="1" max="1440" value="30" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#0077b5] sm:text-sm sm:leading-6" placeholder="Enter review time in minutes">
                                 <p class="text-xs text-gray-500 mt-1">Messages will be held for review and sent after this time period.</p>
                             </div>
                             
-                            <textarea id="call-message" name="call_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6" placeholder="Enter your call message here..."></textarea>
+                            <textarea id="call-message" name="call_message" rows="6" class="text-xs block w-full rounded-md border-0 px-2 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#0077b5] sm:text-sm sm:leading-6" placeholder="Enter your call message here..."></textarea>
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                    <button type="button" id="close-apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-custom-modal">
+                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                    <button type="button" id="close-apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-custom-modal">
                     Close
                     </button>
-                    <button type="button" id="apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-hidden focus:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none">
+                    <button type="button" id="apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white focus:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                     Save changes
                     </button>
                 </div>
@@ -358,9 +341,8 @@
     </a>
     <button type="button" onclick="saveSequence()"
         class="block px-10 py-3 text-sm font-medium leading-2 
-        text-white transition-colors duration-150 bg-indigo-500 
-        border border-transparent rounded-tr-lg rounded-bl-lg active:bg-indigo-600
-        hover:bg-indigo-600 focus:outline-none focus:shadow-outline-indigo submit-custom-sequence">
+        text-white transition-all duration-150 
+        border border-transparent rounded-lg focus:outline-none submit-custom-sequence" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
         <span class=" flex gap-1">
             <span class="pt-1">Next</span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -1921,12 +1903,10 @@ const init = () => {
                     'hover:bg-gray-400',
                     'focus:shadow-outline-gray'
                 )
-                addActionSide[i].classList.add(
-                    'bg-indigo-600',
-                    'hover:bg-indigo-700',
-                    'active:bg-indigo-600',
-                    'focus:shadow-outline-indigo'
-                )
+                addActionSide[i].style.background = 'linear-gradient(135deg, #0077b5 0%, #005885 100%)';
+                addActionSide[i].style.borderColor = '#0077b5';
+                addActionSide[i].onmouseover = function() { this.style.background = 'linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.3)'; };
+                addActionSide[i].onmouseout = function() { this.style.background = 'linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow = 'none'; };
             }
         }else {
             for(let i of idxs){
@@ -1937,12 +1917,10 @@ const init = () => {
                     'hover:bg-gray-400',
                     'focus:shadow-outline-gray'
                 )
-                addActionSide[i].classList.remove(
-                    'bg-indigo-600',
-                    'hover:bg-indigo-700',
-                    'active:bg-indigo-600',
-                    'focus:shadow-outline-indigo'
-                )
+                addActionSide[i].style.background = '';
+                addActionSide[i].style.borderColor = '';
+                addActionSide[i].onmouseover = null;
+                addActionSide[i].onmouseout = null;
             }
         }
     }

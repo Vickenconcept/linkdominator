@@ -2,59 +2,59 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Content Creator</h2>
+    <h2 class="text-2xl font-bold text-gray-900">Content Creator</h2>
     <a href="{{ route('content-creator.create') }}" 
-       class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+       class="text-white px-4 py-2 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
         <i class="fas fa-plus mr-2"></i>Create New Post
     </a>
 </div>
 
 <!-- Statistics Cards -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex items-center">
-            <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <i class="fas fa-file-alt text-blue-600 dark:text-blue-400"></i>
+            <div class="p-2 bg-blue-50 rounded-lg">
+                <i class="fas fa-file-alt text-[#0077b5]"></i>
             </div>
             <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Posts</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $stats['total_posts'] }}</p>
+                <p class="text-sm font-medium text-gray-600">Total Posts</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $stats['total_posts'] }}</p>
             </div>
         </div>
     </div>
     
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex items-center">
-            <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <i class="fas fa-edit text-yellow-600 dark:text-yellow-400"></i>
+            <div class="p-2 bg-yellow-50 rounded-lg">
+                <i class="fas fa-edit text-yellow-600"></i>
             </div>
             <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Drafts</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $stats['draft_posts'] }}</p>
+                <p class="text-sm font-medium text-gray-600">Drafts</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $stats['draft_posts'] }}</p>
             </div>
         </div>
     </div>
     
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex items-center">
-            <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-                <i class="fas fa-clock text-orange-600 dark:text-orange-400"></i>
+            <div class="p-2 bg-blue-50 rounded-lg">
+                <i class="fas fa-clock text-[#0077b5]"></i>
             </div>
             <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Scheduled</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $stats['scheduled_posts'] }}</p>
+                <p class="text-sm font-medium text-gray-600">Scheduled</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $stats['scheduled_posts'] }}</p>
             </div>
         </div>
     </div>
     
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
         <div class="flex items-center">
-            <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+            <div class="p-2 bg-green-50 rounded-lg">
+                <i class="fas fa-check-circle text-green-600"></i>
             </div>
             <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Published</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $stats['published_posts'] }}</p>
+                <p class="text-sm font-medium text-gray-600">Published</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $stats['published_posts'] }}</p>
             </div>
         </div>
     </div>
@@ -62,22 +62,22 @@
 
 <!-- Filter Tabs -->
 <div class="mb-6">
-    <div class="border-b border-gray-200 dark:border-gray-700">
+    <div class="border-b border-gray-200">
         <nav class="-mb-px flex space-x-8">
             <a href="{{ route('content-creator.index', ['status' => 'all']) }}" 
-               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'all' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'all' ? 'border-[#0077b5] text-[#0077b5]' : 'border-transparent text-gray-500 hover:text-[#0077b5] hover:border-gray-300' }}">
                 All Posts
             </a>
             <a href="{{ route('content-creator.index', ['status' => 'draft']) }}" 
-               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'draft' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'draft' ? 'border-[#0077b5] text-[#0077b5]' : 'border-transparent text-gray-500 hover:text-[#0077b5] hover:border-gray-300' }}">
                 Drafts
             </a>
             <a href="{{ route('content-creator.index', ['status' => 'scheduled']) }}" 
-               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'scheduled' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'scheduled' ? 'border-[#0077b5] text-[#0077b5]' : 'border-transparent text-gray-500 hover:text-[#0077b5] hover:border-gray-300' }}">
                 Scheduled
             </a>
             <a href="{{ route('content-creator.index', ['status' => 'published']) }}" 
-               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'published' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+               class="py-2 px-1 border-b-2 font-medium text-sm {{ $status === 'published' ? 'border-[#0077b5] text-[#0077b5]' : 'border-transparent text-gray-500 hover:text-[#0077b5] hover:border-gray-300' }}">
                 Published
             </a>
         </nav>
@@ -87,24 +87,24 @@
 <!-- Posts Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @forelse($posts as $post)
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow">
+    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
         <div class="p-6">
             <!-- Post Header -->
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center space-x-2">
                     <span class="px-2 py-1 text-xs font-medium rounded-full
-                        @if($post->status === 'draft') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
-                        @elseif($post->status === 'scheduled') bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
-                        @elseif($post->status === 'published') bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
-                        @else bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 @endif">
+                        @if($post->status === 'draft') bg-yellow-100 text-yellow-800
+                        @elseif($post->status === 'scheduled') bg-blue-50 text-[#0077b5] border border-[#0077b5]
+                        @elseif($post->status === 'published') bg-green-100 text-green-800
+                        @else bg-red-100 text-red-800 @endif">
                         {{ ucfirst($post->status) }}
                     </span>
-                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
                         {{ ucfirst($post->post_type) }}
                     </span>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                    <span class="text-sm text-gray-500">
                         {{ $post->word_count }} words
                     </span>
                 </div>
@@ -112,7 +112,7 @@
 
             <!-- Post Content Preview -->
             <div class="mb-4">
-                <p class="text-gray-900 dark:text-white text-sm line-clamp-3">
+                <p class="text-gray-900 text-sm line-clamp-3">
                     {{ Str::limit($post->content, 150) }}
                 </p>
             </div>
@@ -132,21 +132,21 @@
                         @foreach(array_slice($imageUrls, 0, 6) as $index => $imageUrl)
                         <div class="relative">
                             <img src="{{ $imageUrl }}" alt="Image {{ $index + 1 }}" 
-                                 class="w-full h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600">
-                            <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                 class="w-full h-20 object-cover rounded-lg border border-gray-200">
+                            <div class="absolute top-1 right-1 text-white text-xs px-1.5 py-0.5 rounded-full" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">
                                 {{ $index + 1 }}
                             </div>
                         </div>
                         @endforeach
                         @if(count($imageUrls) > 6)
-                        <div class="flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg h-20">
-                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center justify-center bg-gray-100 rounded-lg h-20">
+                            <span class="text-xs text-gray-500">
                                 +{{ count($imageUrls) - 6 }} more
                             </span>
                         </div>
                         @endif
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <div class="text-xs text-gray-500 mt-2">
                         <i class="fas fa-images mr-1"></i>{{ count($imageUrls) }} image(s)
                     </div>
                 @else
@@ -161,23 +161,23 @@
             
             @if($post->carousel_images)
             <div class="mb-4">
-                <div class="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                <div class="bg-gradient-to-r from-blue-50 to-blue-50 border border-[#0077b5] rounded-lg p-4">
                     <div class="flex items-center">
                         @php
                             $fileName = basename($post->carousel_images);
                             $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-                            $icon = $extension === 'pdf' ? 'fa-file-pdf text-red-500' : 'fa-file-powerpoint text-orange-500';
+                            $icon = $extension === 'pdf' ? 'fa-file-pdf text-red-500' : 'fa-file-powerpoint text-[#0077b5]';
                         @endphp
                         <i class="fas {{ $icon }} text-3xl mr-3"></i>
                         <div class="flex-1">
-                            <div class="text-sm font-medium text-gray-900 dark:text-white">
+                            <div class="text-sm font-medium text-gray-900">
                                 Carousel Document
                             </div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <div class="text-xs text-gray-500">
                                 {{ strtoupper($extension) }} • Swipeable Carousel
                             </div>
                         </div>
-                        <i class="fas fa-swatchbook text-orange-500 text-xl"></i>
+                        <i class="fas fa-swatchbook text-[#0077b5] text-xl"></i>
                     </div>
                 </div>
             </div>
@@ -193,7 +193,7 @@
             @endif
 
             <!-- Post Meta -->
-            <div class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <div class="text-sm text-gray-500 mb-4">
                 <div class="flex items-center justify-between">
                     <span>Created: {{ $post->created_at->format('M j, Y') }}</span>
                     @if($post->scheduled_at)
@@ -209,23 +209,23 @@
 
             <!-- Analytics (for published posts) -->
             @if($post->status === 'published' && $post->analytics_data)
-            <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div class="grid grid-cols-4 gap-4 text-center">
                     <div>
-                        <div class="text-lg font-bold text-gray-900 dark:text-white">{{ $post->engagement['likes'] }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Likes</div>
+                        <div class="text-lg font-bold text-gray-900">{{ $post->engagement['likes'] }}</div>
+                        <div class="text-xs text-gray-500">Likes</div>
                     </div>
                     <div>
-                        <div class="text-lg font-bold text-gray-900 dark:text-white">{{ $post->engagement['comments'] }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Comments</div>
+                        <div class="text-lg font-bold text-gray-900">{{ $post->engagement['comments'] }}</div>
+                        <div class="text-xs text-gray-500">Comments</div>
                     </div>
                     <div>
-                        <div class="text-lg font-bold text-gray-900 dark:text-white">{{ $post->engagement['shares'] }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Shares</div>
+                        <div class="text-lg font-bold text-gray-900">{{ $post->engagement['shares'] }}</div>
+                        <div class="text-xs text-gray-500">Shares</div>
                     </div>
                     <div>
-                        <div class="text-lg font-bold text-gray-900 dark:text-white">{{ $post->engagement['views'] }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Views</div>
+                        <div class="text-lg font-bold text-gray-900">{{ $post->engagement['views'] }}</div>
+                        <div class="text-xs text-gray-500">Views</div>
                     </div>
                 </div>
             </div>
@@ -240,14 +240,14 @@
                         Publish Now
                     </button>
                     <button onclick="schedulePost({{ $post->id }})" 
-                            class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-md transition-colors">
+                            class="px-3 py-1 text-white text-xs rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                         Schedule
                     </button>
                     @endif
                     
                     @if($post->status === 'scheduled')
                     <button onclick="editSchedule({{ $post->id }})" 
-                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors">
+                            class="px-3 py-1 text-white text-xs rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                         Edit Schedule
                     </button>
                     @endif
@@ -273,13 +273,13 @@
     </div>
     @empty
     <div class="col-span-full text-center py-12">
-        <div class="text-gray-400 dark:text-gray-600 mb-4">
+        <div class="text-gray-400 mb-4">
             <i class="fas fa-file-alt text-6xl"></i>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No posts found</h3>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">Get started by creating your first LinkedIn post.</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
+        <p class="text-gray-500 mb-6">Get started by creating your first LinkedIn post.</p>
         <a href="{{ route('content-creator.create') }}" 
-           class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+           class="text-white px-6 py-3 rounded-lg font-medium transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
             Create Your First Post
         </a>
     </div>
@@ -296,26 +296,26 @@
 <!-- Schedule Modal -->
 <div id="scheduleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Schedule Post</h3>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Schedule Post</h3>
                 <form id="scheduleForm">
                     @csrf
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Schedule Date & Time
                         </label>
                         <input type="datetime-local" id="scheduleDateTime" 
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]"
                                min="{{ now()->format('Y-m-d\TH:i') }}">
                     </div>
                     <div class="flex justify-end space-x-3">
                         <button type="button" onclick="closeScheduleModal()" 
-                                class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+                                class="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors">
                             Cancel
                         </button>
                         <button type="submit" 
-                                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
+                                class="px-4 py-2 text-white rounded-md transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                             Schedule
                         </button>
                     </div>
