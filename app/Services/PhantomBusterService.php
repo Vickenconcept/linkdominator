@@ -365,6 +365,8 @@ class PhantomBusterService
      */
     public function listPhantoms(): array
     {
+        // Note: This endpoint may not be available in all PhantomBuster API versions
+        // It's better to configure phantom IDs directly in .env instead of using this
         $url = "{$this->apiUrl}/agents/fetch-all";
 
         Log::info('PhantomBuster: Fetching list of phantoms');
@@ -394,11 +396,34 @@ class PhantomBusterService
         }
 
         if ($response->failed()) {
-            Log::error("PhantomBuster list phantoms failed:", [
+            // If v2 fails, try v1 endpoint
+            if (str_contains($this->apiUrl, '/api/v2')) {
+                Log::info('PhantomBuster: v2 endpoint failed, trying v1');
+                $url = str_replace('/api/v2', '/api/v1', $this->apiUrl) . '/agents/fetch-all';
+                $response = Http::timeout(30)
+                    ->connectTimeout(15)
+                    ->withHeaders([
+                        'X-Phantombuster-Key-1' => $this->apiKey
+                    ])->get($url);
+                
+                if ($response->successful()) {
+                    $data = $response->json();
+                    Log::info('PhantomBuster: Retrieved phantoms list from v1', [
+                        'count' => count($data)
+                    ]);
+                    return $data;
+                }
+            }
+            
+            // Don't throw - just log and return empty array
+            // The endpoint may not be available, so we should configure phantom IDs directly
+            Log::warning("PhantomBuster list phantoms endpoint not available (this is normal)", [
                 'status' => $response->status(),
-                'body' => $response->body()
+                'body' => $response->body(),
+                'url_tried' => $url,
+                'note' => 'Please configure phantom IDs directly in .env file instead of using findPhantomByName'
             ]);
-            $response->throw();
+            return [];
         }
 
         $data = $response->json();
@@ -411,13 +436,32 @@ class PhantomBusterService
 
     /**
      * Find a phantom by name or slug
+     * Note: This method requires the listPhantoms endpoint which may not be available
+     * It's recommended to configure phantom IDs directly in .env instead
      *
      * @param string $name Phantom name or slug to search for
      * @return string|null Phantom ID if found, null otherwise
      */
     public function findPhantomByName(string $name): ?string
     {
-        $phantoms = $this->listPhantoms();
+        try {
+            $phantoms = $this->listPhantoms();
+        } catch (\Exception $e) {
+            Log::warning('PhantomBuster: Cannot list phantoms to find by name', [
+                'search' => $name,
+                'error' => $e->getMessage(),
+                'note' => 'Please configure phantom IDs directly in .env file'
+            ]);
+            return null;
+        }
+        
+        if (empty($phantoms)) {
+            Log::warning('PhantomBuster: No phantoms returned from list', [
+                'search' => $name,
+                'note' => 'Please configure phantom IDs directly in .env file'
+            ]);
+            return null;
+        }
         
         $searchName = strtolower($name);
         
@@ -436,7 +480,10 @@ class PhantomBusterService
             }
         }
 
-        Log::warning('PhantomBuster: Phantom not found by name', ['search' => $name]);
+        Log::warning('PhantomBuster: Phantom not found by name', [
+            'search' => $name,
+            'note' => 'Please configure phantom IDs directly in .env file'
+        ]);
         return null;
     }
 
@@ -951,14 +998,10 @@ class PhantomBusterService
 
         try {
             $phantomId = config('services.phantombuster.linkedin_search_export_phantom_id');
-
+            
             if (!$phantomId) {
-                $phantomId = $this->findPhantomByName('linkedin search export');
-            }
-
-            if (!$phantomId) {
-                Log::warning('PhantomBuster: LinkedIn Search Export phantom not found, skipping search extraction');
-                return [];
+                Log::error('PhantomBuster: LinkedIn Search Export phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_SEARCH_EXPORT_PHANTOM_ID in your .env file.');
+                throw new \Exception('LinkedIn Search Export phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_SEARCH_EXPORT_PHANTOM_ID in your .env file.');
             }
 
             $arguments = [];
@@ -1490,12 +1533,8 @@ class PhantomBusterService
         $phantomId = config('services.phantombuster.linkedin_post_likers_phantom_id');
         
         if (!$phantomId) {
-            $phantomId = $this->findPhantomByName('linkedin post likers');
-        }
-        
-        if (!$phantomId) {
-            Log::warning('PhantomBuster: LinkedIn Post Likers phantom not found, skipping likers extraction');
-            return [];
+            Log::error('PhantomBuster: LinkedIn Post Likers phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID in your .env file.');
+            throw new \Exception('LinkedIn Post Likers phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID in your .env file.');
         }
 
         $arguments = [
@@ -1858,6 +1897,237 @@ class PhantomBusterService
         return [];
     }
 
+    /**
+     * Fetch post comments from PhantomBuster
+     * Similar to fetchPostLikers but for comments
+     * 
+     * @param string $postUrl LinkedIn post URL
+     * @param int $maxWaitSeconds Maximum seconds to wait
+     * @param int $pollIntervalSeconds Poll interval
+     * @return array Array of commenter profiles
+     */
+    private function fetchPostComments(
+        string $postUrl,
+        int $maxWaitSeconds = 300,
+        int $pollIntervalSeconds = 10
+    ): array {
+        $phantomId = config('services.phantombuster.linkedin_post_comments_phantom_id');
+        
+        if (!$phantomId) {
+            $errorMessage = 'LinkedIn Post Comments phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_POST_COMMENTS_PHANTOM_ID in your .env file.';
+            Log::error('PhantomBuster: ' . $errorMessage);
+            throw new \Exception($errorMessage);
+        }
+
+        $arguments = [
+            'postUrl' => $postUrl,
+        ];
+        
+        // Add session cookie and user agent
+        $sessionCookie = $this->getSessionCookie();
+        if ($sessionCookie) {
+            $arguments['sessionCookie'] = $sessionCookie;
+        }
+        
+        $userAgent = $this->getUserAgent();
+        if ($userAgent) {
+            $arguments['userAgent'] = $userAgent;
+        }
+
+        $launchResponse = $this->launchPhantom($phantomId, $arguments);
+        $containerId = $launchResponse['containerId'] ?? $launchResponse['data']['containerId'] ?? null;
+        
+        if (!$containerId) {
+            throw new \Exception("Failed to get container ID from PhantomBuster launch for post comments");
+        }
+
+        // Wait a bit before first poll
+        sleep(5);
+
+        // Poll for completion
+        $startTime = time();
+        $attempts = 0;
+        $last404Time = null;
+        
+        while (time() - $startTime < $maxWaitSeconds) {
+            $attempts++;
+            
+            try {
+                if ($attempts > 1) {
+                    sleep($pollIntervalSeconds);
+                }
+
+                $output = $this->getPhantomOutput($phantomId, $containerId);
+            } catch (\Exception $e) {
+                if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                    if ($last404Time === null) {
+                        $last404Time = time();
+                    }
+                    
+                    if (time() - $last404Time > 30) {
+                        Log::error('PhantomBuster: Container not found after multiple attempts', [
+                            'phantom_id' => $phantomId,
+                            'container_id' => $containerId,
+                            'attempts' => $attempts,
+                            'post_url' => $postUrl
+                        ]);
+                        return [];
+                    }
+                    
+                    Log::info('PhantomBuster: Container not ready yet, waiting...', [
+                        'attempt' => $attempts,
+                        'phantom_id' => $phantomId,
+                        'container_id' => $containerId
+                    ]);
+                    continue;
+                }
+                
+                throw $e;
+            }
+            
+            // Check multiple possible locations for the data
+            $comments = $output['data']['output'] 
+                ?? $output['data']['resultObject'] 
+                ?? $output['output'] 
+                ?? [];
+            
+            $containerStatus = $output['data']['containerStatus'] ?? null;
+            $agentStatus = $output['data']['agentStatus'] ?? null;
+            $messages = $output['data']['messages'] ?? [];
+            $progress = $output['data']['progress'] ?? null;
+            
+            Log::info('PhantomBuster: Post comments status check', [
+                'attempt' => $attempts,
+                'container_status' => $containerStatus,
+                'agent_status' => $agentStatus,
+                'comments_count' => is_array($comments) ? count($comments) : 0,
+                'progress' => $progress,
+                'has_resultObject' => isset($output['data']['resultObject']),
+                'messages' => $messages,
+            ]);
+            
+            if (is_array($comments) && !empty($comments)) {
+                Log::info('PhantomBuster: Got comments data', ['count' => count($comments)]);
+                return $comments;
+            }
+            
+            // Check if phantom is finished
+            if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                // Check for data in resultObject
+                if (isset($output['data']['resultObject'])) {
+                    $resultObject = $output['data']['resultObject'];
+                    
+                    // If resultObject is a JSON string, try to decode it
+                    if (is_string($resultObject)) {
+                        $decoded = json_decode($resultObject, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                            if (isset($decoded[0]['error'])) {
+                                Log::error('PhantomBuster: Phantom returned error in resultObject', [
+                                    'error' => $decoded[0]['error'],
+                                    'post_url' => $postUrl
+                                ]);
+                                break;
+                            }
+                            Log::info('PhantomBuster: Found comments in resultObject (decoded from JSON string)', ['count' => count($decoded)]);
+                            return $decoded;
+                        }
+                    }
+                    
+                    if (is_array($resultObject) && !empty($resultObject)) {
+                        if (isset($resultObject[0]['error'])) {
+                            Log::error('PhantomBuster: Phantom returned error in resultObject', [
+                                'error' => $resultObject[0]['error'],
+                                'post_url' => $postUrl
+                            ]);
+                            break;
+                        }
+                        Log::info('PhantomBuster: Found comments in resultObject', ['count' => count($resultObject)]);
+                        return $resultObject;
+                    }
+                }
+                
+                // Check output array
+                $outputArray = $output['data']['output'] ?? null;
+                if ($outputArray !== null) {
+                    if (is_string($outputArray)) {
+                        $decodedOutput = json_decode($outputArray, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decodedOutput)) {
+                            if (isset($decodedOutput[0]['error'])) {
+                                Log::error('PhantomBuster: Output error', ['error' => $decodedOutput[0]['error']]);
+                            } elseif (!empty($decodedOutput)) {
+                                Log::info('PhantomBuster: Found comments in output array (decoded from string)', ['count' => count($decodedOutput)]);
+                                return $decodedOutput;
+                            }
+                        }
+                    } elseif (is_array($outputArray) && !empty($outputArray)) {
+                        if (isset($outputArray[0]['error'])) {
+                            Log::error('PhantomBuster: Output error', ['error' => $outputArray[0]['error']]);
+                        } else {
+                            Log::info('PhantomBuster: Found comments in output array', ['count' => count($outputArray)]);
+                            return $outputArray;
+                        }
+                    }
+                }
+                
+                Log::warning('PhantomBuster: Phantom finished but no comments found', [
+                    'container_status' => $containerStatus,
+                    'post_url' => $postUrl
+                ]);
+                break;
+            }
+            
+            if ($containerStatus === 'error') {
+                Log::error('PhantomBuster: Phantom error', [
+                    'messages' => $messages,
+                    'agent_status' => $agentStatus
+                ]);
+                break;
+            }
+        }
+
+        Log::error('PhantomBuster: Timeout or no data for post comments', [
+            'post_url' => $postUrl,
+            'waited_seconds' => time() - $startTime,
+            'max_wait_seconds' => $maxWaitSeconds
+        ]);
+        return [];
+    }
+
+    /**
+     * Public method to fetch post comments for a URL
+     * Similar to fetchPostLikersForUrl
+     * 
+     * @param string $postUrl LinkedIn post URL
+     * @param int $maxWaitSeconds Maximum seconds to wait
+     * @param int $pollIntervalSeconds Poll interval
+     * @param string|null $sessionCookie Override session cookie
+     * @param string|null $userAgent Override user agent
+     * @return array Array of commenter profiles
+     */
+    public function fetchPostCommentsForUrl(
+        string $postUrl,
+        int $maxWaitSeconds = 600,
+        int $pollIntervalSeconds = 15,
+        ?string $sessionCookie = null,
+        ?string $userAgent = null
+    ): array {
+        // Override session cookie and user agent if provided
+        if ($sessionCookie) {
+            $this->sessionCookieOverride = $sessionCookie;
+        }
+        if ($userAgent) {
+            $this->userAgentOverride = $userAgent;
+        }
+        
+        try {
+            return $this->fetchPostComments($postUrl, $maxWaitSeconds, $pollIntervalSeconds);
+        } finally {
+            // Reset overrides
+            $this->sessionCookieOverride = null;
+            $this->userAgentOverride = null;
+        }
+    }
+
 
     private function getSessionCookie(): ?string
     {
@@ -1894,14 +2164,10 @@ class PhantomBusterService
 
         try {
             $phantomId = config('services.phantombuster.linkedin_profile_scraper_phantom_id');
-
+            
             if (!$phantomId) {
-                $phantomId = $this->findPhantomByName('linkedin profile scraper');
-            }
-
-            if (!$phantomId) {
-                Log::warning('PhantomBuster: LinkedIn Profile Scraper phantom not found, cannot scrape profile');
-                throw new \Exception('LinkedIn Profile Scraper phantom not configured');
+                Log::error('PhantomBuster: LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
+                throw new \Exception('LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
             }
 
          

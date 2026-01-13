@@ -91,6 +91,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::get('lang', 'langFilter');
     Route::post('conf', 'LinkedInConfig');
     Route::post('audience/post-likers', 'fetchPostLikersFromPhantom');
+    Route::post('audience/post-comments', 'fetchPostCommentsFromPhantom');
     Route::post('audience/search-export', 'fetchSearchResultsFromPhantom');
     Route::post('snleads/store', 'storeSnLeads');
     Route::get('snleads/lists', 'getSnLeadList');
@@ -102,4 +103,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     
     // Post comment generation
     Route::post('post/generate-comment', 'generatePostComment');
+    
+    // LinkedIn ID sync endpoint
+    Route::post('auth/sync-linkedin-id', 'syncLinkedInId');
 }); 

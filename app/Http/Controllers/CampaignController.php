@@ -240,7 +240,16 @@ class CampaignController extends Controller
     public function getCampaignStatusUpdates(Request $request)
     {
         try {
-            $userId = auth()->user()->id;
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'User not authenticated',
+                    'timestamp' => now()
+                ], 401);
+            }
+            
+            $userId = $user->id;
 
             $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end) as total_lead_list";
 
@@ -253,6 +262,11 @@ class CampaignController extends Controller
                 ->get();
 
             foreach ($campaigns as $key => $campaign) {
+                // Skip if campaign is null or doesn't have an id
+                if (!$campaign || !isset($campaign->id)) {
+                    continue;
+                }
+                
                 // Append leads
                 $query1 = "campaign_lists.id, sn_leads_lists.name as name, campaign_lists.list_hash as list_hash, count(sn_leads.id) as leads, 'sn' as source, date(sn_leads_lists.created_at) as created_date";
                 $first = CampaignList::select(DB::raw($query1))
@@ -277,8 +291,8 @@ class CampaignController extends Controller
                 $totalList = 0;
 
                 if (count($clist) > 0) {
-                    foreach ($clist as $clist) {
-                        $totalList += $clist->leads;
+                    foreach ($clist as $clistItem) {
+                        $totalList += $clistItem->leads ?? 0;
                     }
                 }
                 $campaigns[$key]['total_leads'] = $totalList;
@@ -294,13 +308,13 @@ class CampaignController extends Controller
                     $totalInvitesSent = 0;
                     $totalAccepted = 0;
                     
-                    foreach ($leadgen as $leadgen) {
+                    foreach ($leadgen as $leadgenItem) {
                         // Count invites that have been sent (status_last_id = 2 means sent)
-                        if ($leadgen->status_last_id == 2) {
+                        if (isset($leadgenItem->status_last_id) && $leadgenItem->status_last_id == 2) {
                             $totalInvitesSent += 1;
                         }
                         // Count accepted invites
-                        if ($leadgen->accept_status == 1) {
+                        if (isset($leadgenItem->accept_status) && $leadgenItem->accept_status == 1) {
                             $totalAccepted += 1;
                         }
                     }

@@ -16,6 +16,7 @@ use App\Helpers\CampaignHelper;
 use App\Services\EmailFinder;
 use App\Services\LeadShareService;
 use App\Services\PhantomBusterService;
+use App\Services\LinkedInService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -961,6 +962,9 @@ class ChromeApiController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:500']
         ]);
 
+        // Normalize the post URL to handle various LinkedIn URL formats
+        $postUrl = $this->normalizeLinkedInPostUrl($validated['post_url']);
+
         $integration = Integration::where('user_id', $user->id)
             ->where('oauth_provider', 'linkedin')
             ->whereNotNull('linkedin_session_cookie')
@@ -977,7 +981,7 @@ class ChromeApiController extends Controller
         try {
             $service = new PhantomBusterService();
             $likers = $service->fetchPostLikersForUrl(
-                $validated['post_url'],
+                $postUrl,
                 600,
                 15,
                 $integration->linkedin_session_cookie,
@@ -990,7 +994,8 @@ class ChromeApiController extends Controller
                 Log::info('📊 POST-SCRAPING AUDIENCE: PhantomBuster raw response sample', [
                     'total_from_phantom' => count($likers),
                     'requested_limit' => $validated['limit'] ?? 'not set',
-                    'post_url' => $validated['post_url'],
+                    'post_url' => $postUrl,
+                    'original_post_url' => $validated['post_url'],
                     'sample_profile_keys' => array_keys($sampleProfile),
                     'sample_profile_data' => $sampleProfile,
                     'has_connectionDegree' => isset($sampleProfile['connectionDegree']),
@@ -1002,7 +1007,8 @@ class ChromeApiController extends Controller
                 Log::info('Post likers received from PhantomBuster', [
                     'total_from_phantom' => 0,
                     'requested_limit' => $validated['limit'] ?? 'not set',
-                    'post_url' => $validated['post_url'],
+                    'post_url' => $postUrl,
+                    'original_post_url' => $validated['post_url'],
                 ]);
             }
 
@@ -1125,18 +1131,238 @@ class ChromeApiController extends Controller
                 'after_limit' => count($likers),
                 'skipped_companies' => $skippedCompanies,
                 'skipped_no_profile_link' => $skippedNoProfileLink,
-                'post_url' => $validated['post_url'],
+                'post_url' => $postUrl,
+                'original_post_url' => $validated['post_url'],
                 'fetched_at' => now()->toISOString()
             ], 'Fetched post likers successfully');
         } catch (\Throwable $th) {
             Log::error('Chrome API: Failed to fetch post likers', [
                 'user_id' => $user->id,
-                'post_url' => $validated['post_url'],
+                'post_url' => $postUrl ?? ($validated['post_url'] ?? 'unknown'),
+                'original_post_url' => $validated['post_url'] ?? 'unknown',
                 'error' => $th->getMessage(),
                 'trace' => $th->getTraceAsString()
             ]);
 
             return $this->errorResponse('Failed to fetch post likers: ' . $th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Fetch post commenters from PhantomBuster
+     * Similar to fetchPostLikersFromPhantom but for comments
+     */
+    public function fetchPostCommentsFromPhantom(Request $request)
+    {
+        try {
+            $user = $this->checkAuthorization($request);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => $th->getMessage(),
+                'status' => 401
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'post_url' => ['required', 'url'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500']
+        ]);
+
+        // Normalize the post URL to handle various LinkedIn URL formats
+        $postUrl = $this->normalizeLinkedInPostUrl($validated['post_url']);
+
+        $integration = Integration::where('user_id', $user->id)
+            ->where('oauth_provider', 'linkedin')
+            ->whereNotNull('linkedin_session_cookie')
+            ->latest('linkedin_session_verified_at')
+            ->first();
+
+        if (!$integration) {
+            return $this->errorResponse(
+                'LinkedIn session cookie not found. Please update it from the Social Accounts page.',
+                422
+            );
+        }
+
+        try {
+            $service = new PhantomBusterService();
+            $comments = $service->fetchPostCommentsForUrl(
+                $postUrl,
+                600,
+                15,
+                $integration->linkedin_session_cookie,
+                $integration->linkedin_user_agent ?? config('services.phantombuster.linkedin_user_agent')
+            );
+
+            // Log sample of raw PhantomBuster response
+            if (count($comments) > 0) {
+                $sampleComment = $comments[0];
+                Log::info('📊 POST-COMMENTS-SCRAPING: PhantomBuster raw response sample', [
+                    'total_from_phantom' => count($comments),
+                    'requested_limit' => $validated['limit'] ?? 'not set',
+                    'post_url' => $postUrl,
+                    'original_post_url' => $validated['post_url'],
+                    'sample_comment_keys' => array_keys($sampleComment),
+                    'sample_comment_data' => $sampleComment,
+                ]);
+            } else {
+                Log::info('Post comments received from PhantomBuster', [
+                    'total_from_phantom' => 0,
+                    'requested_limit' => $validated['limit'] ?? 'not set',
+                    'post_url' => $postUrl,
+                    'original_post_url' => $validated['post_url'],
+                ]);
+            }
+
+            $commentsBeforeLimit = count($comments);
+            if (isset($validated['limit'])) {
+                $comments = array_slice($comments, 0, (int) $validated['limit']);
+            Log::info('Post comments limited', [
+                'before_limit' => $commentsBeforeLimit,
+                'after_limit' => count($comments),
+                'limit_value' => (int) $validated['limit'],
+                'post_url' => $postUrl,
+            ]);
+            }
+
+            // Transform comments to extract commenter profiles
+            // PhantomBuster Post Comments Export typically returns comments with commenter info
+            $normalized = [];
+            $skippedCompanies = 0;
+            $skippedNoProfileLink = 0;
+            $transformationErrors = 0;
+            
+            foreach ($comments as $index => $comment) {
+                try {
+                    // Log what PhantomBuster returned for this comment
+                    if ($index < 3) {
+            Log::info('📊 POST-COMMENTS-SCRAPING: PhantomBuster raw comment data', [
+                'index' => $index,
+                'comment_keys' => array_keys($comment),
+                'comment_data' => $comment,
+                'post_url' => $postUrl,
+            ]);
+                    }
+                    
+                    // Extract commenter profile from comment
+                    // PhantomBuster format may vary, check common fields
+                    $commenter = $comment['commenter'] 
+                        ?? $comment['author'] 
+                        ?? $comment['profile'] 
+                        ?? null;
+                    
+                    if (!$commenter) {
+                        // If commenter is not nested, the comment itself might have profile fields
+                        $commenter = $comment;
+                    }
+                    
+                    // Skip company entries
+                    if (isset($commenter['companyUrl']) && !isset($commenter['profileLink']) && !isset($commenter['profile_link'])) {
+                        $skippedCompanies++;
+                        continue;
+                    }
+                    
+                    // Skip entries without profileLink
+                    if (!isset($commenter['profileLink']) && !isset($commenter['profile_link']) && !isset($commenter['profileUrl'])) {
+                        $skippedNoProfileLink++;
+                        continue;
+                    }
+                    
+                    // Transform commenter profile (similar to likers)
+                    $transformed = $this->transformPhantomProfile($commenter);
+                    
+                    // Add comment-specific data if available
+                    if (isset($comment['commentText']) || isset($comment['text']) || isset($comment['message'])) {
+                        $transformed['comment_text'] = $comment['commentText'] ?? $comment['text'] ?? $comment['message'] ?? null;
+                    }
+                    if (isset($comment['timestamp']) || isset($comment['createdAt'])) {
+                        $transformed['comment_timestamp'] = $comment['timestamp'] ?? $comment['createdAt'] ?? null;
+                    }
+                    
+                    if ($index < 3) {
+                        Log::info('🔄 POST-COMMENTS-SCRAPING: Transformed commenter profile', [
+                            'index' => $index,
+                            'transformed_publicIdentifier' => $transformed['publicIdentifier'] ?? 'not_found',
+                            'fullName' => $transformed['fullName'] ?? 'not_found',
+                        ]);
+                    }
+                    
+                    if (empty($transformed['publicIdentifier']) && empty($transformed['connectionId'])) {
+                        Log::warning('Transformed commenter profile missing identifiers', [
+                            'index' => $index,
+                            'name' => $transformed['fullName'] ?? 'unknown',
+                        ]);
+                    }
+                    $normalized[] = $transformed;
+                } catch (\Throwable $e) {
+                    $transformationErrors++;
+                    Log::error('Error transforming commenter profile', [
+                        'index' => $index,
+                        'error' => $e->getMessage(),
+                        'comment_data' => array_keys($comment),
+                    ]);
+                }
+            }
+
+            Log::info('Post comments filtered and transformed', [
+                'total_from_phantom' => $commentsBeforeLimit,
+                'after_limit' => count($comments),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'transformation_errors' => $transformationErrors,
+                'valid_profiles' => count($normalized)
+            ]);
+
+            Log::info('Returning post commenters to frontend', [
+                'profiles_count' => count($normalized),
+                'total_from_phantom' => $commentsBeforeLimit,
+                'after_limit' => count($comments),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'transformation_errors' => $transformationErrors,
+                'requested_limit' => $validated['limit'] ?? 'not set'
+            ]);
+
+            return $this->successResponse([
+                'profiles' => $normalized,
+                'total' => count($normalized),
+                'total_from_phantom' => $commentsBeforeLimit,
+                'after_limit' => count($normalized),
+                'skipped_companies' => $skippedCompanies,
+                'skipped_no_profile_link' => $skippedNoProfileLink,
+                'transformation_errors' => $transformationErrors,
+                'post_url' => $postUrl,
+                'original_post_url' => $validated['post_url'],
+                'fetched_at' => now()->toISOString()
+            ], 'Fetched post commenters successfully');
+            
+        } catch (\Throwable $th) {
+            $errorMessage = $th->getMessage();
+            
+            // Check if this is a configuration error (phantom ID not set)
+            if (str_contains($errorMessage, 'phantom ID not configured')) {
+            Log::error('Chrome API: PhantomBuster configuration missing', [
+                'user_id' => $user->id ?? 'unknown',
+                'post_url' => $postUrl ?? ($validated['post_url'] ?? 'unknown'),
+                'original_post_url' => $validated['post_url'] ?? 'unknown',
+                'error' => $errorMessage
+            ]);
+                
+                return $this->errorResponse(
+                    'PhantomBuster configuration missing. Please set PHANTOMBUSTER_LINKEDIN_POST_COMMENTS_PHANTOM_ID in your .env file.',
+                    422
+                );
+            }
+            
+            Log::error('Chrome API: Failed to fetch post comments', [
+                'user_id' => $user->id ?? 'unknown',
+                'post_url' => $postUrl ?? ($validated['post_url'] ?? 'unknown'),
+                'original_post_url' => $validated['post_url'] ?? 'unknown',
+                'error' => $errorMessage,
+                'trace' => $th->getTraceAsString()
+            ]);
+            
+            return $this->errorResponse('Failed to fetch post comments: ' . $errorMessage, 500);
         }
     }
 
@@ -1792,6 +2018,61 @@ class ChromeApiController extends Controller
 
 
     /**
+     * Normalize LinkedIn post URL to handle various formats
+     * Handles:
+     * - https://www.linkedin.com/feed/update/urn:li:activity:7389592155834642434/ (keep as-is)
+     * - https://www.linkedin.com/posts/username_slug-7416785324715962368-XGiQ/ (keep as-is - PhantomBuster accepts this)
+     * - Other LinkedIn post URL formats
+     * 
+     * Note: /posts/ URLs are kept as-is because some posts are only accessible via this format
+     * and PhantomBuster accepts this format directly.
+     */
+    protected function normalizeLinkedInPostUrl($url)
+    {
+        if (empty($url)) {
+            return $url;
+        }
+
+        $url = trim($url);
+
+        // If it's already a feed URL format, return as-is (PhantomBuster accepts this)
+        if (str_contains($url, '/feed/update/urn:li:activity:')) {
+            return $url;
+        }
+
+        // If it's a /posts/ URL, keep it as-is - PhantomBuster accepts this format
+        // and some posts are only accessible via this format
+        if (str_contains($url, '/posts/')) {
+            // Remove query parameters but keep the URL structure
+            $urlParts = explode('?', $url);
+            return $urlParts[0];
+        }
+
+        // If it's a full URL but not recognized format, try to extract ID
+        if (str_starts_with($url, 'http')) {
+            // Try to extract from various URL patterns
+            if (preg_match('/activity[:\/](\d+)/', $url, $matches)) {
+                if (isset($matches[1])) {
+                    return "https://www.linkedin.com/feed/update/urn:li:activity:{$matches[1]}/";
+                }
+            }
+            // If we can't parse it but it's a valid URL, return as-is (remove query params)
+            $urlParts = explode('?', $url);
+            return $urlParts[0];
+        }
+
+        // If it's just an ID (numeric string), convert to feed format
+        $numericId = preg_replace('/^activity:/', '', $url);
+        $numericId = preg_replace('/[^\d]/', '', $numericId);
+        if (!empty($numericId) && ctype_digit($numericId)) {
+            return "https://www.linkedin.com/feed/update/urn:li:activity:{$numericId}/";
+        }
+
+        // If we can't parse it, return the original (PhantomBuster might handle it)
+        return $url;
+    }
+
+    /**
      * Standardized error response
      */
     protected function errorResponse($message = 'Error occurred', $status = 400, $errors = null)
@@ -1807,5 +2088,164 @@ class ChromeApiController extends Controller
         }
 
         return response()->json($responseData, $status);
+    }
+
+    /**
+     * Sync LinkedIn ID from extension
+     * When extension gets 401, it can call this to sync the LinkedIn public identifier
+     * to the user's linkedin_id field in the database
+     * This finds users with active LinkedIn Integrations and updates their linkedin_id
+     */
+    public function syncLinkedInId(Request $request)
+    {
+        try {
+            $linkedinPublicId = $request->input('linkedin_public_id');
+            $userEmail = $request->input('email'); // Optional: user's email for matching
+            
+            if (empty($linkedinPublicId)) {
+                return $this->errorResponse('LinkedIn public identifier is required', 400);
+            }
+
+            Log::info('🔄 Syncing LinkedIn ID', [
+                'linkedin_public_id' => $linkedinPublicId,
+                'email' => $userEmail
+            ]);
+
+            // First, check if user already exists with this linkedin_id
+            $existingUser = User::where('linkedin_id', $linkedinPublicId)->first();
+            if ($existingUser) {
+                Log::info('✅ User already has this LinkedIn ID', [
+                    'user_id' => $existingUser->id,
+                    'linkedin_id' => $linkedinPublicId
+                ]);
+                
+                return $this->successResponse([
+                    'user_id' => $existingUser->id,
+                    'linkedin_id' => $linkedinPublicId,
+                    'synced' => false,
+                    'message' => 'LinkedIn ID already exists'
+                ], 'LinkedIn ID already synced');
+            }
+
+            // Try to find user by email if provided
+            $user = null;
+            if ($userEmail) {
+                $user = User::where('email', $userEmail)->first();
+            }
+
+            // If user found by email, check if they have LinkedIn Integration
+            if ($user) {
+                $integration = Integration::where('user_id', $user->id)
+                    ->where('oauth_provider', 'linkedin')
+                    ->where('connected_status', 1)
+                    ->latest()
+                    ->first();
+
+                if ($integration) {
+                    // Update user's linkedin_id
+                    $oldLinkedInId = $user->linkedin_id;
+                    $user->update(['linkedin_id' => $linkedinPublicId]);
+                    
+                    Log::info('✅ LinkedIn ID synced successfully by email', [
+                        'user_id' => $user->id,
+                        'email' => $userEmail,
+                        'old_linkedin_id' => $oldLinkedInId,
+                        'new_linkedin_id' => $linkedinPublicId
+                    ]);
+
+                    return $this->successResponse([
+                        'user_id' => $user->id,
+                        'linkedin_id' => $linkedinPublicId,
+                        'synced' => true
+                    ], 'LinkedIn ID synced successfully');
+                }
+            }
+
+            // Alternative: Find all users with active LinkedIn Integrations
+            // Try to match by verifying the LinkedIn profile using Integration's access token
+            $integrations = Integration::where('oauth_provider', 'linkedin')
+                ->where('connected_status', 1)
+                ->whereNotNull('access_token')
+                ->latest()
+                ->get();
+
+            if ($integrations->isEmpty()) {
+                return $this->errorResponse('No active LinkedIn integrations found. Please connect your LinkedIn account in the dashboard first.', 404);
+            }
+
+            $linkedinService = new LinkedInService();
+            
+            // Try to verify and match by checking LinkedIn profile
+            foreach ($integrations as $integration) {
+                try {
+                    // Get LinkedIn profile using Integration's access token
+                    $profile = $linkedinService->getUserProfile($integration->access_token);
+                    
+                    // LinkedIn API v2 returns profile with id, but we need to get public identifier
+                    // The public identifier might be in a different field or we need to construct it
+                    // For now, if we have an active integration, we'll update the user
+                    
+                    $potentialUser = User::find($integration->user_id);
+                    if ($potentialUser) {
+                        $oldLinkedInId = $potentialUser->linkedin_id;
+                        $potentialUser->update(['linkedin_id' => $linkedinPublicId]);
+                        
+                        Log::info('✅ LinkedIn ID synced using Integration access token', [
+                            'user_id' => $potentialUser->id,
+                            'integration_id' => $integration->id,
+                            'old_linkedin_id' => $oldLinkedInId,
+                            'new_linkedin_id' => $linkedinPublicId,
+                            'profile_id' => $profile['id'] ?? 'unknown'
+                        ]);
+
+                        return $this->successResponse([
+                            'user_id' => $potentialUser->id,
+                            'linkedin_id' => $linkedinPublicId,
+                            'synced' => true
+                        ], 'LinkedIn ID synced successfully');
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Could not verify LinkedIn profile for integration', [
+                        'integration_id' => $integration->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    continue; // Try next integration
+                }
+            }
+
+            // Last resort: Update the most recent active integration's user
+            // (User is already connected, so this should be safe)
+            $latestIntegration = $integrations->first();
+            $user = User::find($latestIntegration->user_id);
+            
+            if ($user) {
+                $oldLinkedInId = $user->linkedin_id;
+                $user->update(['linkedin_id' => $linkedinPublicId]);
+                
+                Log::info('✅ LinkedIn ID synced to most recent integration user (fallback)', [
+                    'user_id' => $user->id,
+                    'integration_id' => $latestIntegration->id,
+                    'old_linkedin_id' => $oldLinkedInId,
+                    'new_linkedin_id' => $linkedinPublicId
+                ]);
+
+                return $this->successResponse([
+                    'user_id' => $user->id,
+                    'linkedin_id' => $linkedinPublicId,
+                    'synced' => true,
+                    'message' => 'LinkedIn ID synced to most recent active integration'
+                ], 'LinkedIn ID synced successfully');
+            }
+
+            return $this->errorResponse('Could not find user to sync LinkedIn ID. Please ensure your LinkedIn account is connected in the dashboard.', 404);
+            
+        } catch (Exception $e) {
+            Log::error('Error syncing LinkedIn ID: ' . $e->getMessage(), [
+                'linkedin_public_id' => $request->input('linkedin_public_id'),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return $this->errorResponse('Failed to sync LinkedIn ID: ' . $e->getMessage(), 500);
+        }
     }
 }

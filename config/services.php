@@ -69,6 +69,8 @@ return [
         'api_url' => env('PHANTOMBUSTER_API_URL', 'https://api.phantombuster.com/api/v1'),
         // LinkedIn Post Likers Export - extracts users who liked a specific post (requires post URL)
         'linkedin_post_likers_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_LIKERS_PHANTOM_ID'),
+        // LinkedIn Post Comments Export - extracts users who commented on a specific post (requires post URL)
+        'linkedin_post_comments_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_POST_COMMENTS_PHANTOM_ID'),
         // Limit how many company posts we process per run
         // Each post = 1 phantom call (likers only)
         // Lower = less PhantomBuster credits used, Higher = more data scraped
