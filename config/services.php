@@ -85,5 +85,7 @@ return [
         'linkedin_user_agent' => env('PHANTOMBUSTER_LINKEDIN_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'),
         // LinkedIn Search Export - exports search results from a LinkedIn search URL
         'linkedin_search_export_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_SEARCH_EXPORT_PHANTOM_ID'),
+        // LinkedIn Profile Scraper - scrapes full profile data including email
+        'linkedin_profile_scraper_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID'),
     ]
 ];

@@ -45,10 +45,49 @@ class PhantomBusterService
             'arguments' => $arguments
         ]);
 
-        $response = Http::withHeaders([
-            'X-Phantombuster-Key-1' => $this->apiKey,
-            'Content-Type' => 'application/json'
-        ])->post($url, $payload);
+        try {
+            $response = Http::timeout(30) // 30 seconds timeout
+                ->connectTimeout(15) // 15 seconds for DNS/connection
+                ->withHeaders([
+                    'X-Phantombuster-Key-1' => $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->post($url, $payload);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Handle network/DNS errors
+            $errorMessage = $e->getMessage();
+            
+            if (str_contains($errorMessage, 'Resolving timed out') || str_contains($errorMessage, 'cURL error 28')) {
+                Log::error("PhantomBuster: DNS resolution timeout", [
+                    'phantom_id' => $phantomId,
+                    'url' => $url,
+                    'error' => $errorMessage
+                ]);
+                
+                throw new \Exception(
+                    'NETWORK_TIMEOUT: Cannot connect to PhantomBuster API. ' .
+                    'This is usually a network connectivity issue. ' .
+                    'Please check your internet connection and try again. ' .
+                    'If the problem persists, your server may be blocking external API connections.'
+                );
+            }
+            
+            if (str_contains($errorMessage, 'Connection timed out') || str_contains($errorMessage, 'cURL error 7')) {
+                Log::error("PhantomBuster: Connection timeout", [
+                    'phantom_id' => $phantomId,
+                    'url' => $url,
+                    'error' => $errorMessage
+                ]);
+                
+                throw new \Exception(
+                    'NETWORK_TIMEOUT: Connection to PhantomBuster API timed out. ' .
+                    'The API may be temporarily unavailable or your network is slow. ' .
+                    'Please try again in a few moments.'
+                );
+            }
+            
+            // Re-throw other connection errors
+            throw $e;
+        }
 
         if ($response->failed()) {
             $status = $response->status();
@@ -170,11 +209,33 @@ class PhantomBusterService
             'container_id' => $containerId
         ]);
 
-        $response = Http::withHeaders([
-            'X-Phantombuster-Key-1' => $this->apiKey
-        ])->get($url, [
-            'containerId' => $containerId
-        ]);
+        try {
+            $response = Http::timeout(30) // 30 seconds timeout
+                ->connectTimeout(15) // 15 seconds for DNS/connection
+                ->withHeaders([
+                    'X-Phantombuster-Key-1' => $this->apiKey
+                ])->get($url, [
+                    'containerId' => $containerId
+                ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            $errorMessage = $e->getMessage();
+            
+            if (str_contains($errorMessage, 'Resolving timed out') || str_contains($errorMessage, 'cURL error 28')) {
+                Log::error("PhantomBuster: DNS resolution timeout when fetching output", [
+                    'phantom_id' => $phantomId,
+                    'container_id' => $containerId,
+                    'url' => $url,
+                    'error' => $errorMessage
+                ]);
+                
+                throw new \Exception(
+                    'NETWORK_TIMEOUT: Cannot connect to PhantomBuster API. ' .
+                    'Network connectivity issue detected. Please check your internet connection.'
+                );
+            }
+            
+            throw $e;
+        }
 
         if ($response->failed()) {
             $status = $response->status();
@@ -308,9 +369,29 @@ class PhantomBusterService
 
         Log::info('PhantomBuster: Fetching list of phantoms');
 
-        $response = Http::withHeaders([
-            'X-Phantombuster-Key-1' => $this->apiKey
-        ])->get($url);
+        try {
+            $response = Http::timeout(30) // 30 seconds timeout
+                ->connectTimeout(15) // 15 seconds for DNS/connection
+                ->withHeaders([
+                    'X-Phantombuster-Key-1' => $this->apiKey
+                ])->get($url);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            $errorMessage = $e->getMessage();
+            
+            if (str_contains($errorMessage, 'Resolving timed out') || str_contains($errorMessage, 'cURL error 28')) {
+                Log::error("PhantomBuster: DNS resolution timeout when listing phantoms", [
+                    'url' => $url,
+                    'error' => $errorMessage
+                ]);
+                
+                throw new \Exception(
+                    'NETWORK_TIMEOUT: Cannot connect to PhantomBuster API. ' .
+                    'Network connectivity issue detected. Please check your internet connection.'
+                );
+            }
+            
+            throw $e;
+        }
 
         if ($response->failed()) {
             Log::error("PhantomBuster list phantoms failed:", [
@@ -1786,6 +1867,205 @@ class PhantomBusterService
     private function getUserAgent(): ?string
     {
         return $this->userAgentOverride ?? config('services.phantombuster.linkedin_user_agent');
+    }
+
+    /**
+     * Scrape a LinkedIn profile to get full profile data including email
+     * 
+     * @param string $profileUrl LinkedIn profile URL (e.g., https://www.linkedin.com/in/username/)
+     * @param string|null $sessionCookie Optional override for li_at
+     * @param string|null $userAgent Optional override for user agent
+     * @param array|null $identities Optional identities array format
+     * @param int $maxWaitSeconds Maximum seconds to wait for the phantom to finish
+     * @param int $pollIntervalSeconds Poll interval while waiting
+     * @return array Profile data including email if available
+     * @throws \Exception
+     */
+    public function scrapeLinkedInProfile(
+        string $profileUrl,
+        ?string $sessionCookie = null,
+        ?string $userAgent = null,
+        ?array $identities = null,
+        int $maxWaitSeconds = 300,
+        int $pollIntervalSeconds = 10
+    ): array {
+        $this->sessionCookieOverride = $sessionCookie;
+        $this->userAgentOverride = $userAgent;
+
+        try {
+            $phantomId = config('services.phantombuster.linkedin_profile_scraper_phantom_id');
+
+            if (!$phantomId) {
+                $phantomId = $this->findPhantomByName('linkedin profile scraper');
+            }
+
+            if (!$phantomId) {
+                Log::warning('PhantomBuster: LinkedIn Profile Scraper phantom not found, cannot scrape profile');
+                throw new \Exception('LinkedIn Profile Scraper phantom not configured');
+            }
+
+            // Build arguments for the profile scraper
+            $arguments = [
+                'urls' => [$profileUrl],
+                'spreadsheetUrl' => '',
+                'emailChooser' => 'phantombuster', // Use PhantomBuster's email finder
+                'enrichWithCompanyData' => false,
+                'updateMonitoringMetadata' => false,
+                'pushResultToCRM' => false,
+            ];
+
+            // Add identities if provided
+            if ($identities && !empty($identities)) {
+                $formattedIdentities = [];
+                foreach ($identities as $identity) {
+                    $formattedIdentity = [];
+                    if (isset($identity['identityId'])) {
+                        $formattedIdentity['identityId'] = $identity['identityId'];
+                    }
+                    if (isset($identity['sessionCookie'])) {
+                        $formattedIdentity['sessionCookie'] = $identity['sessionCookie'];
+                    }
+                    if (isset($identity['userAgent'])) {
+                        $formattedIdentity['userAgent'] = $identity['userAgent'];
+                    }
+                    if (!empty($formattedIdentity)) {
+                        $formattedIdentities[] = $formattedIdentity;
+                    }
+                }
+
+                if (!empty($formattedIdentities)) {
+                    $arguments['identities'] = $formattedIdentities;
+                }
+            } else {
+                // Fallback to top-level sessionCookie and userAgent
+                $sessionCookieValue = $this->getSessionCookie();
+                if ($sessionCookieValue) {
+                    $arguments['sessionCookie'] = $sessionCookieValue;
+                }
+
+                $userAgentValue = $this->getUserAgent();
+                if ($userAgentValue) {
+                    $arguments['userAgent'] = $userAgentValue;
+                }
+            }
+
+            Log::info('PhantomBuster: Launching profile scraper', [
+                'phantom_id' => $phantomId,
+                'profile_url' => $profileUrl,
+                'has_identities' => !empty($arguments['identities'] ?? null)
+            ]);
+
+            $launchResponse = $this->launchPhantom($phantomId, $arguments);
+            $containerId = $launchResponse['containerId'] ?? $launchResponse['data']['containerId'] ?? null;
+
+            if (!$containerId) {
+                throw new \Exception("Failed to get container ID from PhantomBuster launch for profile scraper");
+            }
+
+            // Wait briefly before polling
+            sleep(5);
+
+            $startTime = time();
+            $attempts = 0;
+            $profileData = null;
+
+            while (time() - $startTime < $maxWaitSeconds) {
+                $attempts++;
+
+                if ($attempts > 1) {
+                    sleep($pollIntervalSeconds);
+                }
+
+                try {
+                    $output = $this->getPhantomOutput($phantomId, $containerId);
+                } catch (\Exception $e) {
+                    if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                        Log::info('PhantomBuster: Profile scraper container not ready yet', [
+                            'attempt' => $attempts,
+                            'container_id' => $containerId
+                        ]);
+                        continue;
+                    }
+                    throw $e;
+                }
+
+                // Extract profile data from output
+                $resultObject = $output['data']['resultObject'] ?? null;
+                $outputData = $output['data']['output'] ?? null;
+
+                // Try to parse resultObject first
+                if ($resultObject) {
+                    if (is_string($resultObject)) {
+                        $decoded = json_decode($resultObject, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                            $profileData = is_array($decoded) && isset($decoded[0]) ? $decoded[0] : $decoded;
+                        }
+                    } elseif (is_array($resultObject)) {
+                        $profileData = isset($resultObject[0]) ? $resultObject[0] : $resultObject;
+                    }
+                }
+
+                // Fallback to output if resultObject didn't yield data
+                if (!$profileData && $outputData) {
+                    if (is_string($outputData)) {
+                        $trimmed = trim($outputData);
+                        if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                            $decoded = json_decode($outputData, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $profileData = is_array($decoded) && isset($decoded[0]) ? $decoded[0] : $decoded;
+                            }
+                        }
+                    } elseif (is_array($outputData)) {
+                        $profileData = isset($outputData[0]) ? $outputData[0] : $outputData;
+                    }
+                }
+
+                $containerStatus = $output['data']['containerStatus'] ?? null;
+                $agentStatus = $output['data']['agentStatus'] ?? null;
+
+                Log::info('PhantomBuster: Profile scraper status check', [
+                    'attempt' => $attempts,
+                    'container_status' => $containerStatus,
+                    'agent_status' => $agentStatus,
+                    'has_profile_data' => !empty($profileData),
+                    'has_email' => isset($profileData['email']) && !empty($profileData['email'])
+                ]);
+
+                if ($profileData && isset($profileData['email']) && !empty($profileData['email'])) {
+                    Log::info('PhantomBuster: Successfully scraped profile with email', [
+                        'profile_url' => $profileUrl,
+                        'email_found' => true
+                    ]);
+                    return $profileData;
+                }
+
+                if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                    if ($profileData) {
+                        // Profile scraped but no email found
+                        Log::warning('PhantomBuster: Profile scraped but no email found', [
+                            'profile_url' => $profileUrl,
+                            'profile_data_keys' => array_keys($profileData)
+                        ]);
+                        return $profileData;
+                    }
+                    break;
+                }
+            }
+
+            Log::warning('PhantomBuster: Profile scraper finished with no data', [
+                'profile_url' => $profileUrl,
+                'waited_seconds' => time() - $startTime
+            ]);
+
+            return $profileData ?? [];
+        } catch (\Throwable $th) {
+            Log::error('PhantomBuster: Failed to scrape profile', [
+                'profile_url' => $profileUrl,
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            throw $th;
+        }
     }
 
 }

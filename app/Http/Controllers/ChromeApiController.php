@@ -399,51 +399,6 @@ class ChromeApiController extends Controller
                     'connection_id' => $connection_id
                 ]);
 
-                // Try to get company website URL if we have a profile URL
-                $companyUrl = null;
-                if ($public_identifier) {
-                    $profileUrl = "https://www.linkedin.com/in/{$public_identifier}/";
-                    try {
-                        $rapidApiService = new \App\Services\RapidApiService();
-                        $profileData = $rapidApiService->fetch_profile($profileUrl);
-                        
-                        // Extract company website from profile data
-                        // RapidAPI returns company data in various formats
-                        if (isset($profileData['data']['experience']) && is_array($profileData['data']['experience'])) {
-                            foreach ($profileData['data']['experience'] as $exp) {
-                                if (isset($exp['company_website']) && !empty($exp['company_website'])) {
-                                    $companyUrl = $exp['company_website'];
-                                    break;
-                                } elseif (isset($exp['company_url']) && !empty($exp['company_url'])) {
-                                    $companyUrl = $exp['company_url'];
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Also check top-level company data
-                        if (!$companyUrl && isset($profileData['data']['company_website'])) {
-                            $companyUrl = $profileData['data']['company_website'];
-                        }
-                        if (!$companyUrl && isset($profileData['data']['company_url'])) {
-                            $companyUrl = $profileData['data']['company_url'];
-                        }
-                        
-                        if ($companyUrl) {
-                            Log::info('Found company URL from RapidAPI', [
-                                'profile_url' => $profileUrl,
-                                'company_url' => $companyUrl
-                            ]);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('Failed to fetch company URL from RapidAPI', [
-                            'profile_url' => $profileUrl,
-                            'error' => $e->getMessage()
-                        ]);
-                        // Continue without company URL - email finding will be skipped
-                    }
-                }
-                
                 // Prepare data array for creation
                 $createData = [
                     'audience_id' => $audience_id,
@@ -457,11 +412,6 @@ class ChromeApiController extends Controller
                     'con_tracking_id' => $tracking_id,
                     'con_member_urn' => $member_urn,
                 ];
-                
-                // Add company URL if found
-                if ($companyUrl) {
-                    $createData['con_company_url'] = $companyUrl;
-                }
                 
                 // Only add con_distance if it's not null
                 if ($network_distance !== null) {
@@ -478,36 +428,6 @@ class ChromeApiController extends Controller
                 ]);
 
                 $audienceListItem = AudienceList::create($createData);
-                
-                // Automatically find email if we have all required data
-                if ($first_name && $last_name && $companyUrl && !$email) {
-                    try {
-                        $domain = $this->trimDomain($companyUrl);
-                        $getEmail = new EmailFinder([
-                            'firstName' => $first_name,
-                            'lastName' => $last_name,
-                            'website' => $domain
-                        ]);
-
-                        $emailResult = $getEmail->findEmail();
-                        
-                        if (isset($emailResult['email']) && !empty($emailResult['email'])) {
-                            $audienceListItem->update(['con_email' => $emailResult['email']]);
-                            Log::info('Email found automatically for audience member', [
-                                'audience_id' => $audience_id,
-                                'connection_id' => $connection_id,
-                                'email' => $emailResult['email']
-                            ]);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('Failed to find email automatically', [
-                            'audience_id' => $audience_id,
-                            'connection_id' => $connection_id,
-                            'error' => $e->getMessage()
-                        ]);
-                        // Continue - email finding failed but profile is saved
-                    }
-                }
                 
                 // Refresh from database to ensure we have the actual saved values
                 $audienceListItem->refresh();
@@ -547,6 +467,29 @@ class ChromeApiController extends Controller
                     'id' => $audienceListItem->id,
                     'audience_id' => $audience_id
                 ]);
+
+                // If email is missing, dispatch job to fetch it using PhantomBuster Profile Scraper
+                if (empty($email) && !empty($public_identifier)) {
+                    try {
+                        // Dispatch as background job to avoid blocking the request
+                        // Use afterCommit() to ensure the database transaction has committed before the job runs
+                        \App\Jobs\FetchAudienceEmailJob::dispatch($audienceListItem->id, $public_identifier)
+                            ->onQueue('default')
+                            ->afterCommit();
+                        
+                        Log::info('Dispatched job to fetch email for audience item', [
+                            'audience_list_id' => $audienceListItem->id,
+                            'public_identifier' => $public_identifier
+                        ]);
+                    } catch (\Throwable $th) {
+                        // Log but don't fail the request - email fetching is optional
+                        Log::warning('Failed to dispatch email fetching job', [
+                            'audience_list_id' => $audienceListItem->id,
+                            'public_identifier' => $public_identifier,
+                            'error' => $th->getMessage()
+                        ]);
+                    }
+                }
 
                 return response()->json([
                     'message' => 'success'
@@ -1420,6 +1363,26 @@ class ChromeApiController extends Controller
                 ], 422);
             }
 
+            // Check if this is a network timeout error
+            if (str_contains($th->getMessage(), 'NETWORK_TIMEOUT') || 
+                str_contains($th->getMessage(), 'Resolving timed out') ||
+                str_contains($th->getMessage(), 'cURL error 28')) {
+                
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Network timeout: Cannot connect to PhantomBuster API.',
+                    'error_code' => 'NETWORK_TIMEOUT',
+                    'error_type' => 'network_timeout',
+                    'help_message' => 'This is usually a network connectivity issue. Please check your internet connection and try again.',
+                    'suggestions' => [
+                        '1. Check your internet connection',
+                        '2. Verify your server can access external APIs',
+                        '3. Check if a firewall is blocking connections to api.phantombuster.com',
+                        '4. Try again in a few moments'
+                    ]
+                ], 500);
+            }
+
             return $this->errorResponse('Failed to fetch search results: ' . $th->getMessage(), 500);
         }
     }
@@ -1826,6 +1789,7 @@ class ChromeApiController extends Controller
             return $this->errorResponse('Failed to generate comment: ' . $message, 500);
         }
     }
+
 
     /**
      * Standardized error response
