@@ -1904,40 +1904,51 @@ class PhantomBusterService
                 throw new \Exception('LinkedIn Profile Scraper phantom not configured');
             }
 
-            // Build arguments for the profile scraper
+         
             $arguments = [
                 'urls' => [$profileUrl],
-                'spreadsheetUrl' => '',
-                'emailChooser' => 'phantombuster', // Use PhantomBuster's email finder
+                'spreadsheetUrl' => 'org-storage://leads/by-list/7041576098381409', 
+                'emailChooser' => 'phantombuster',
                 'enrichWithCompanyData' => false,
                 'updateMonitoringMetadata' => false,
                 'pushResultToCRM' => false,
+                'numberOfAddsPerLaunch' => 1,
             ];
 
-            // Add identities if provided
-            if ($identities && !empty($identities)) {
+            // Use identities array format if provided, otherwise use top-level sessionCookie/userAgent
+            if (!empty($identities) && is_array($identities)) {
                 $formattedIdentities = [];
                 foreach ($identities as $identity) {
-                    $formattedIdentity = [];
-                    if (isset($identity['identityId'])) {
-                        $formattedIdentity['identityId'] = $identity['identityId'];
-                    }
-                    if (isset($identity['sessionCookie'])) {
-                        $formattedIdentity['sessionCookie'] = $identity['sessionCookie'];
-                    }
-                    if (isset($identity['userAgent'])) {
-                        $formattedIdentity['userAgent'] = $identity['userAgent'];
-                    }
-                    if (!empty($formattedIdentity)) {
+                    if (is_array($identity) && isset($identity['sessionCookie'])) {
+                        $formattedIdentity = [
+                            'sessionCookie' => $identity['sessionCookie']
+                        ];
+                        
+                        if (isset($identity['identityId']) && !empty($identity['identityId'])) {
+                            $formattedIdentity['identityId'] = $identity['identityId'];
+                        }
+                        
+                        if (isset($identity['userAgent']) && !empty($identity['userAgent'])) {
+                            $formattedIdentity['userAgent'] = $identity['userAgent'];
+                        } elseif ($userAgent) {
+                            $formattedIdentity['userAgent'] = $userAgent;
+                        } elseif ($this->getUserAgent()) {
+                            $formattedIdentity['userAgent'] = $this->getUserAgent();
+                        }
+                        
                         $formattedIdentities[] = $formattedIdentity;
                     }
                 }
-
+                
                 if (!empty($formattedIdentities)) {
                     $arguments['identities'] = $formattedIdentities;
+                    
+                    Log::info('PhantomBuster: Using identities array format', [
+                        'identities_count' => count($formattedIdentities),
+                        'has_identityId' => isset($formattedIdentities[0]['identityId']) && !empty($formattedIdentities[0]['identityId'])
+                    ]);
                 }
             } else {
-                // Fallback to top-level sessionCookie and userAgent
                 $sessionCookieValue = $this->getSessionCookie();
                 if ($sessionCookieValue) {
                     $arguments['sessionCookie'] = $sessionCookieValue;
@@ -1952,7 +1963,11 @@ class PhantomBusterService
             Log::info('PhantomBuster: Launching profile scraper', [
                 'phantom_id' => $phantomId,
                 'profile_url' => $profileUrl,
-                'has_identities' => !empty($arguments['identities'] ?? null)
+                'has_identities' => !empty($arguments['identities'] ?? null),
+                'arguments_keys' => array_keys($arguments),
+                'identities_count' => isset($arguments['identities']) ? count($arguments['identities']) : 0,
+                'identity_has_id' => isset($arguments['identities'][0]['identityId']) && !empty($arguments['identities'][0]['identityId']),
+                'full_arguments' => $arguments // Log full arguments for debugging
             ]);
 
             $launchResponse = $this->launchPhantom($phantomId, $arguments);
@@ -1962,8 +1977,13 @@ class PhantomBusterService
                 throw new \Exception("Failed to get container ID from PhantomBuster launch for profile scraper");
             }
 
-            // Wait briefly before polling
             sleep(5);
+            
+            Log::info('PhantomBuster: Starting to poll for profile data', [
+                'container_id' => $containerId,
+                'max_wait_seconds' => $maxWaitSeconds,
+                'poll_interval_seconds' => $pollIntervalSeconds
+            ]);
 
             $startTime = time();
             $attempts = 0;
@@ -1989,11 +2009,40 @@ class PhantomBusterService
                     throw $e;
                 }
 
-                // Extract profile data from output
                 $resultObject = $output['data']['resultObject'] ?? null;
                 $outputData = $output['data']['output'] ?? null;
+                $messages = $output['data']['messages'] ?? [];
+                $progress = $output['data']['progress'] ?? null;
+                
+                if (!empty($messages) || !empty($progress)) {
+                    Log::info('PhantomBuster: Profile scraper messages and progress', [
+                        'attempt' => $attempts,
+                        'messages' => $messages,
+                        'progress' => $progress,
+                        'messages_count' => is_array($messages) ? count($messages) : 0
+                    ]);
+                }
+                
+                if (!empty($messages)) {
+                    $errorMessages = array_filter($messages, function($msg) {
+                        return is_string($msg) && (
+                            stripos($msg, 'error') !== false ||
+                            stripos($msg, 'failed') !== false ||
+                            stripos($msg, 'invalid') !== false ||
+                            stripos($msg, 'expired') !== false ||
+                            stripos($msg, 'Invalid argument') !== false
+                        );
+                    });
+                    
+                    if (!empty($errorMessages)) {
+                        Log::warning('PhantomBuster: Error messages in output', [
+                            'profile_url' => $profileUrl,
+                            'messages' => $messages,
+                            'error_messages' => array_values($errorMessages)
+                        ]);
+                    }
+                }
 
-                // Try to parse resultObject first
                 if ($resultObject) {
                     if (is_string($resultObject)) {
                         $decoded = json_decode($resultObject, true);
@@ -2005,7 +2054,6 @@ class PhantomBusterService
                     }
                 }
 
-                // Fallback to output if resultObject didn't yield data
                 if (!$profileData && $outputData) {
                     if (is_string($outputData)) {
                         $trimmed = trim($outputData);
@@ -2028,7 +2076,13 @@ class PhantomBusterService
                     'container_status' => $containerStatus,
                     'agent_status' => $agentStatus,
                     'has_profile_data' => !empty($profileData),
-                    'has_email' => isset($profileData['email']) && !empty($profileData['email'])
+                    'has_email' => isset($profileData['email']) && !empty($profileData['email']),
+                    'has_resultObject' => !empty($resultObject),
+                    'has_outputData' => !empty($outputData),
+                    'resultObject_type' => $resultObject ? gettype($resultObject) : null,
+                    'outputData_type' => $outputData ? gettype($outputData) : null,
+                    'output_keys' => array_keys($output['data'] ?? []),
+                    'profile_data_keys' => $profileData ? array_keys($profileData) : []
                 ]);
 
                 if ($profileData && isset($profileData['email']) && !empty($profileData['email'])) {
@@ -2040,11 +2094,29 @@ class PhantomBusterService
                 }
 
                 if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
-                    if ($profileData) {
-                        // Profile scraped but no email found
+                    if (!$profileData) {
+                        Log::warning('PhantomBuster: Profile scraper finished but no profile data extracted', [
+                            'profile_url' => $profileUrl,
+                            'attempt' => $attempts,
+                            'waited_seconds' => time() - $startTime,
+                            'output_structure' => [
+                                'has_resultObject' => !empty($resultObject),
+                                'has_outputData' => !empty($outputData),
+                                'resultObject_type' => $resultObject ? gettype($resultObject) : null,
+                                'resultObject_preview' => $resultObject ? (is_string($resultObject) ? substr($resultObject, 0, 500) : (is_array($resultObject) ? array_keys($resultObject) : gettype($resultObject))) : null,
+                                'outputData_type' => $outputData ? gettype($outputData) : null,
+                                'outputData_preview' => $outputData ? (is_string($outputData) ? substr($outputData, 0, 500) : (is_array($outputData) ? array_keys($outputData) : gettype($outputData))) : null,
+                                'messages' => $messages,
+                                'progress' => $progress,
+                                'all_output_keys' => array_keys($output['data'] ?? []),
+                                'full_output_data_keys' => isset($output['data']) ? array_keys($output['data']) : []
+                            ]
+                        ]);
+                    } else {
                         Log::warning('PhantomBuster: Profile scraped but no email found', [
                             'profile_url' => $profileUrl,
-                            'profile_data_keys' => array_keys($profileData)
+                            'profile_data_keys' => array_keys($profileData),
+                            'profile_data_sample' => array_slice($profileData, 0, 5, true) // First 5 keys for debugging
                         ]);
                         return $profileData;
                     }

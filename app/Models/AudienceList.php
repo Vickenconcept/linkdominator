@@ -21,6 +21,9 @@ class AudienceList extends Model
         'con_influencer',
         'con_jobseeker',
         'con_company_url',
-        'con_member_urn'
+        'con_company_name',
+        'con_member_urn',
+        'con_profile_url',
+        'con_last_activity'
     ];
 }

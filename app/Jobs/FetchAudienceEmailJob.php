@@ -117,7 +117,9 @@ class FetchAudienceEmailJob implements ShouldQueue
             );
 
             // Extract email from profile data
-            $email = $profileData['email'] 
+            // PhantomBuster Profile Scraper returns email in 'professionalEmail' field
+            $email = $profileData['professionalEmail'] 
+                ?? $profileData['email'] 
                 ?? $profileData['emailAddress'] 
                 ?? $profileData['contactInfo']['emailAddress'] 
                 ?? $profileData['contactInfo']['email'] 

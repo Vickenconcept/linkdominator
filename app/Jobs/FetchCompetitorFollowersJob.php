@@ -216,6 +216,15 @@ class FetchCompetitorFollowersJob implements ShouldQueue
             ?? $follower['profileUrl'] 
             ?? $follower['profile_url'] 
             ?? ($publicId ? 'https://www.linkedin.com/in/' . $publicId . '/' : null);
+        
+        // Log profile URL extraction for debugging
+        if (!$profileUrl && isset($follower['profileLink'])) {
+            Log::warning('FetchCompetitorFollowersJob: profileLink exists but is empty/null', [
+                'profileLink_value' => $follower['profileLink'],
+                'public_id' => $publicId,
+                'follower_keys' => array_keys($follower)
+            ]);
+        }
 
         // Connection degree (1st, 2nd, 3rd) - PhantomBuster includes this
         $connectionDegree = $follower['connectionDegree'] 
@@ -235,13 +244,16 @@ class FetchCompetitorFollowersJob implements ShouldQueue
                                         (isset($follower['degree']) ? 'degree' : 
                                         (isset($follower['networkDistance']) ? 'networkDistance' : 
                                         (isset($follower['network_distance']) ? 'network_distance' : 'not_found')))),
+            'profileLink_received' => $follower['profileLink'] ?? null,
+            'profileUrl_extracted' => $profileUrl,
             'all_follower_keys' => array_keys($follower),
             'sample_follower_data' => [
                 'firstName' => $first,
                 'lastName' => $last,
                 'jobTitle' => $jobTitle,
                 'company' => $companyName,
-                'location' => $location
+                'location' => $location,
+                'profileUrl' => $profileUrl
             ]
         ]);
 
@@ -290,10 +302,16 @@ class FetchCompetitorFollowersJob implements ShouldQueue
             'connectionDegree_received' => $connectionDegree,
             'con_distance_saved' => $savedItem->con_distance,
             'con_distance_was_null' => $savedItem->con_distance === null,
+            'profile_url_saved' => $savedItem->con_profile_url,
+            'profile_url_was_null' => $savedItem->con_profile_url === null,
             'all_saved_fields' => [
                 'con_first_name' => $savedItem->con_first_name,
                 'con_last_name' => $savedItem->con_last_name,
                 'con_public_identifier' => $savedItem->con_public_identifier,
+                'con_profile_url' => $savedItem->con_profile_url,
+                'con_job_title' => $savedItem->con_job_title,
+                'con_company_name' => $savedItem->con_company_name,
+                'con_location' => $savedItem->con_location,
                 'con_distance' => $savedItem->con_distance
             ]
         ]);
