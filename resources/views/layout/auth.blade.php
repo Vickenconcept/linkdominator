@@ -402,9 +402,10 @@
                 </li>
                 <li>
                     <a href="{{ route('competitor-followers.index') }}" data-tooltip="{{ __('competitor_followers.title') }}" class="w-full flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-gray-800 rounded-lg hover:bg-gray-100 focus:outline-hidden focus:bg-gray-100 {{ in_array(Route::current()->getName(), ['competitor-followers.index','competitor-followers.show']) ? 'bg-gray-100':'' }}">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 003.743-.479 3 3 0 00-4.682-2.72M15 19.128v-.003c0-.225-.012-.447-.037-.666A11.944 11.944 0 0012 17.25c-2.17 0-4.207.576-5.963 1.584-.376.162-.928-.004-1.21-.38l-.97-1.293a.75.75 0 01.417-1.173l4.423-1.106c.44-.11.902.055 1.173.417l.97 1.293c.282.376.769.542 1.21.38A12.035 12.035 0 0012 12.75c2.216 0 4.238.78 5.82 2.083M15 19.128A9.042 9.042 0 0112 19.5c-4.97 0-9-3.806-9-8.5S7.03 2.5 12 2.5s9 3.806 9 8.5c0 1.32-.37 2.56-1.02 3.63" />
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                          </svg>
+                          
                         <span class="sidebar-text">{{ __('competitor_followers.title') }}</span>
                     </a>
                 </li>

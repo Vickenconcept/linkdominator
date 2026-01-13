@@ -1190,6 +1190,44 @@ class PhantomBusterService
                 }
 
                 if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                    // Check for invalid/expired session cookie error
+                    $outputString = '';
+                    if (isset($output['data']['output']) && is_string($output['data']['output'])) {
+                        $outputString = $output['data']['output'];
+                    }
+                    
+                    // Check for session cookie errors
+                    $sessionCookieErrorPatterns = [
+                        'No valid credentials found',
+                        'Invalid/expired cookie',
+                        'network-cookie-invalid',
+                        'No valid credentials',
+                        'exit code: 87'
+                    ];
+                    
+                    $hasSessionCookieError = false;
+                    foreach ($sessionCookieErrorPatterns as $pattern) {
+                        if (stripos($outputString, $pattern) !== false) {
+                            $hasSessionCookieError = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($hasSessionCookieError && empty($profiles)) {
+                        Log::error('PhantomBuster: LinkedIn session cookie invalid or expired', [
+                            'container_status' => $containerStatus,
+                            'agent_status' => $agentStatus,
+                            'error_detected' => 'Session cookie invalid/expired',
+                            'output_preview' => substr($outputString, 0, 500)
+                        ]);
+                        
+                        throw new \Exception(
+                            'LINKEDIN_SESSION_EXPIRED: Your LinkedIn session cookie has expired or is invalid. ' .
+                            'Please update it in the Social Accounts page of your CRM. ' .
+                            'Go to: Social Accounts → LinkedIn → Update session cookie'
+                        );
+                    }
+                    
                     // Check if this is the "already retrieved" case
                     if ($alreadyRetrievedWarning && empty($profiles)) {
                         Log::info('PhantomBuster: Search already retrieved - returning empty array for pagination', [
@@ -1242,6 +1280,36 @@ class PhantomBusterService
                 return [];
             }
 
+            // Final check for session cookie error before returning empty
+            $finalOutputString = '';
+            if (isset($output['data']['output']) && is_string($output['data']['output'])) {
+                $finalOutputString = $output['data']['output'];
+            }
+            
+            $sessionCookieErrorPatterns = [
+                'No valid credentials found',
+                'Invalid/expired cookie',
+                'network-cookie-invalid',
+                'No valid credentials',
+                'exit code: 87'
+            ];
+            
+            foreach ($sessionCookieErrorPatterns as $pattern) {
+                if (stripos($finalOutputString, $pattern) !== false) {
+                    Log::error('PhantomBuster: LinkedIn session cookie invalid or expired (final check)', [
+                        'search_url' => $searchUrl,
+                        'error_detected' => 'Session cookie invalid/expired',
+                        'output_preview' => substr($finalOutputString, 0, 500)
+                    ]);
+                    
+                    throw new \Exception(
+                        'LINKEDIN_SESSION_EXPIRED: Your LinkedIn session cookie has expired or is invalid. ' .
+                        'Please update it in the Social Accounts page of your CRM. ' .
+                        'Go to: Social Accounts → LinkedIn → Update session cookie'
+                    );
+                }
+            }
+            
             Log::warning('PhantomBuster: Search export finished with no data', [
                 'search_url' => $searchUrl,
                 'waited_seconds' => time() - $startTime,

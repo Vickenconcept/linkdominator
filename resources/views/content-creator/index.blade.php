@@ -355,16 +355,28 @@
                     @if($post->image_url || $post->video_url || $post->carousel_images)
                     <div class="text-xs text-gray-500 mt-1">
                         @if($post->image_url)
-                            <i class="fas fa-image mr-1"></i>
+                            {{-- <i class="fas fa-image mr-1"></i> --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.106-5.106M2.25 15.75l5.106 5.106M2.25 15.75l5.106-5.106M6.75 16.5V8.25m0 8.25h8.25M5.25 6.75h8.25M4.5 3v13.5m7.5 0V3m0 0l-1.875 1.875M21 12h-2.25m-.375 6.75h1.875M18 20.25A2.25 2.25 0 0015.75 18m-3.75 0A2.25 2.25 0 019 15.75m-.375 0h-.008v.008h.008v-.008Z" />
+                            </svg>
                             @php
                                 $imageUrls = $post->image_url;
                                 $imgCount = is_array($imageUrls) ? count($imageUrls) : 1;
                             @endphp
                             {{ $imgCount }} image(s)
                         @elseif($post->video_url)
-                            <i class="fas fa-video mr-1"></i>Video
+                            {{-- <i class="fas fa-video mr-1"></i> --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+                            </svg>
+                            Video
                         @elseif($post->carousel_images)
-                            <i class="fas fa-file-powerpoint mr-1"></i>Carousel
+                            {{-- <i class="fas fa-file-powerpoint mr-1"></i> --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                            Carousel
                         @endif
                     </div>
                     @endif

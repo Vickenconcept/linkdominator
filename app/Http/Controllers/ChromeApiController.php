@@ -399,6 +399,51 @@ class ChromeApiController extends Controller
                     'connection_id' => $connection_id
                 ]);
 
+                // Try to get company website URL if we have a profile URL
+                $companyUrl = null;
+                if ($public_identifier) {
+                    $profileUrl = "https://www.linkedin.com/in/{$public_identifier}/";
+                    try {
+                        $rapidApiService = new \App\Services\RapidApiService();
+                        $profileData = $rapidApiService->fetch_profile($profileUrl);
+                        
+                        // Extract company website from profile data
+                        // RapidAPI returns company data in various formats
+                        if (isset($profileData['data']['experience']) && is_array($profileData['data']['experience'])) {
+                            foreach ($profileData['data']['experience'] as $exp) {
+                                if (isset($exp['company_website']) && !empty($exp['company_website'])) {
+                                    $companyUrl = $exp['company_website'];
+                                    break;
+                                } elseif (isset($exp['company_url']) && !empty($exp['company_url'])) {
+                                    $companyUrl = $exp['company_url'];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Also check top-level company data
+                        if (!$companyUrl && isset($profileData['data']['company_website'])) {
+                            $companyUrl = $profileData['data']['company_website'];
+                        }
+                        if (!$companyUrl && isset($profileData['data']['company_url'])) {
+                            $companyUrl = $profileData['data']['company_url'];
+                        }
+                        
+                        if ($companyUrl) {
+                            Log::info('Found company URL from RapidAPI', [
+                                'profile_url' => $profileUrl,
+                                'company_url' => $companyUrl
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to fetch company URL from RapidAPI', [
+                            'profile_url' => $profileUrl,
+                            'error' => $e->getMessage()
+                        ]);
+                        // Continue without company URL - email finding will be skipped
+                    }
+                }
+                
                 // Prepare data array for creation
                 $createData = [
                     'audience_id' => $audience_id,
@@ -412,6 +457,11 @@ class ChromeApiController extends Controller
                     'con_tracking_id' => $tracking_id,
                     'con_member_urn' => $member_urn,
                 ];
+                
+                // Add company URL if found
+                if ($companyUrl) {
+                    $createData['con_company_url'] = $companyUrl;
+                }
                 
                 // Only add con_distance if it's not null
                 if ($network_distance !== null) {
@@ -428,6 +478,36 @@ class ChromeApiController extends Controller
                 ]);
 
                 $audienceListItem = AudienceList::create($createData);
+                
+                // Automatically find email if we have all required data
+                if ($first_name && $last_name && $companyUrl && !$email) {
+                    try {
+                        $domain = $this->trimDomain($companyUrl);
+                        $getEmail = new EmailFinder([
+                            'firstName' => $first_name,
+                            'lastName' => $last_name,
+                            'website' => $domain
+                        ]);
+
+                        $emailResult = $getEmail->findEmail();
+                        
+                        if (isset($emailResult['email']) && !empty($emailResult['email'])) {
+                            $audienceListItem->update(['con_email' => $emailResult['email']]);
+                            Log::info('Email found automatically for audience member', [
+                                'audience_id' => $audience_id,
+                                'connection_id' => $connection_id,
+                                'email' => $emailResult['email']
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to find email automatically', [
+                            'audience_id' => $audience_id,
+                            'connection_id' => $connection_id,
+                            'error' => $e->getMessage()
+                        ]);
+                        // Continue - email finding failed but profile is saved
+                    }
+                }
                 
                 // Refresh from database to ensure we have the actual saved values
                 $audienceListItem->refresh();
@@ -1317,6 +1397,28 @@ class ChromeApiController extends Controller
                 'error' => $th->getMessage(),
                 'trace' => $th->getTraceAsString()
             ]);
+
+            // Check if this is a session cookie expiration error
+            if (str_contains($th->getMessage(), 'LINKEDIN_SESSION_EXPIRED')) {
+                $crmBaseUrl = config('app.url', 'http://127.0.0.1:8000');
+                $socialAccountUrl = rtrim($crmBaseUrl, '/') . '/social-account';
+                
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Your LinkedIn session cookie has expired or is invalid.',
+                    'error_code' => 'LINKEDIN_SESSION_EXPIRED',
+                    'error_type' => 'session_expired',
+                    'action_required' => 'update_session_cookie',
+                    'help_message' => 'Please update your LinkedIn session cookie in the Social Accounts page.',
+                    'crm_url' => $socialAccountUrl,
+                    'instructions' => [
+                        '1. Go to Social Accounts page in your CRM',
+                        '2. Find your LinkedIn account',
+                        '3. Update the session cookie (li_at) and user agent',
+                        '4. Save and try again'
+                    ]
+                ], 422);
+            }
 
             return $this->errorResponse('Failed to fetch search results: ' . $th->getMessage(), 500);
         }

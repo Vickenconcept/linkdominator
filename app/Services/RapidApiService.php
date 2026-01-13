@@ -253,6 +253,52 @@ class RapidApiService
     }
 
     /**
+     * Fetch LinkedIn profile data including company website
+     * 
+     * @param string $profileUrl LinkedIn profile URL (e.g., https://www.linkedin.com/in/username/)
+     * @return array Profile data including company website
+     */
+    public function fetch_profile($profileUrl): array
+    {
+        $url = self::linkedin_provider_api . '/get-profile';
+
+        $apiKey = config('services.rapidapi.key');
+        if (!$apiKey) {
+            Log::error("RAPIDAPI_KEY not found in environment variables");
+            throw new \Exception("RAPIDAPI_KEY not configured");
+        }
+
+        $headers = [
+            "x-rapidapi-key" => $apiKey,
+            "x-rapidapi-host" => "fresh-linkedin-profile-data.p.rapidapi.com"
+        ];
+
+        $params = [
+            "linkedin_url" => $profileUrl
+        ];
+
+        Log::info('RapidAPI: Fetching profile data', [
+            'profile_url' => $profileUrl
+        ]);
+
+        $response = Http::withHeaders($headers)->get($url, $params);
+        
+        if ($response->failed()) {
+            Log::error("RapidAPI profile request failed:", [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'profile_url' => $profileUrl
+            ]);
+            
+            if ($response->status() == 429) {
+                throw new \Exception("RapidAPI quota exceeded. Please upgrade your plan or wait for quota reset.");
+            }
+        }
+
+        return $response->throw()->json();
+    }
+
+    /**
      * Fetch recent posts from a company page
      * Uses the correct RapidAPI endpoint: /get-company-posts
      *
