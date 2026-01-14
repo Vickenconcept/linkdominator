@@ -230,9 +230,10 @@
                                 class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
                                 focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                                 id="mailchimp_listid" name="mailchimp_listid"
-                                value="{{$esp?->mailchimp?->listid}}"/>
+                                value="{{$esp?->mailchimp?->listid}}"
+                                placeholder="e.g., 3c54a618ea"/>
                                 <p class="mt-1 text-gray-500 text-xs">
-                                    Ensure you add the List/Audience ID
+                                    Ensure you add the List/Audience ID. Format: <span class="font-mono text-gray-600">3c54a618ea</span> (alphanumeric, lowercase)
                                 </p>
                             </label>
                         </div>
@@ -256,7 +257,11 @@
                                 class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
                                 focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                                 id="getresponse_campaignid" name="getresponse_campaignid"
-                                value="{{$esp?->getresponse?->campaignId}}"/>
+                                value="{{$esp?->getresponse?->campaignId}}"
+                                placeholder="e.g., L4PIF"/>
+                                <p class="mt-1 text-gray-500 text-xs">
+                                    Campaign token/ID from GetResponse. Format: <span class="font-mono text-gray-600">L4PIF</span> (alphanumeric, usually uppercase letters)
+                                </p>
                             </label>
                         </div>
                         <div class="flex gap-4 mt-6 emailoctopus-input esp-input hidden">
@@ -279,7 +284,11 @@
                                 class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
                                 focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                                 id="emailoctopus_listid" name="emailoctopus_listid"
-                                value="{{$esp?->emailoctopus?->listid}}"/>
+                                value="{{$esp?->emailoctopus?->listid}}"
+                                placeholder="e.g., a1b2c3d4-e5f6-7890-abcd-ef1234567890"/>
+                                <p class="mt-1 text-gray-500 text-xs">
+                                    List ID from EmailOctopus. Format: <span class="font-mono text-gray-600">a1b2c3d4-e5f6-7890-abcd-ef1234567890</span> (UUID format)
+                                </p>
                             </label>
                         </div>
                         <div class="flex gap-4 mt-6 converterkit-input esp-input hidden">
@@ -302,9 +311,10 @@
                                 class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
                                 focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                                 id="converterkit_formid" name="converterkit_formid"
-                                value="{{$esp?->converterkit?->formId}}"/>
+                                value="{{$esp?->converterkit?->formId}}"
+                                placeholder="e.g., 1234567"/>
                                 <p class="mt-1 text-gray-500 text-xs">
-                                    Ensure you add the Form ID
+                                    Form ID from ConverterKit. Format: <span class="font-mono text-gray-600">1234567</span> (numeric ID)
                                 </p>
                             </label>
                         </div>
@@ -322,15 +332,16 @@
                                 </p>
                             </label>
                             <label class="block text-sm w-full">
-                                <span class="text-gray-700">MailerLite Form ID</span>
+                                <span class="text-gray-700">MailerLite Group ID</span>
                                 <input
                                 type="text"
                                 class="block w-full mt-1 text-sm focus:border-[#0077b5] focus:outline-none 
                                 focus:ring-2 focus:ring-[#0077b5] form-input rounded-md border-gray-300"
                                 id="mailerlite_groupid" name="mailerlite_groupid"
-                                value="{{$esp?->mailerlite?->groupId}}"/>
+                                value="{{$esp?->mailerlite?->groupId}}"
+                                placeholder="e.g., 123456789"/>
                                 <p class="mt-1 text-gray-500 text-xs">
-                                    Ensure you add the Form ID
+                                    Group ID from MailerLite. Format: <span class="font-mono text-gray-600">123456789</span> (numeric ID)
                                 </p>
                             </label>
                         </div>

@@ -104,28 +104,49 @@ class LeadShareService
     protected function shareWithMailchimp($data)
     {
         try {
-            $explode = explode('-', $data['mailchimpKey']);
+            $apiKey = $data['mailchimpKey'] ?? '';
+            
+            // Log API key format info (without exposing full key)
+            $keyLength = strlen($apiKey);
+            $hasDash = strpos($apiKey, '-') !== false;
+            $keyPreview = $keyLength > 0 ? substr($apiKey, 0, 10) . '...' : 'empty';
+            
+            Log::info('[BACKEND] LeadShareService: Mailchimp API key validation', [
+                'key_length' => $keyLength,
+                'has_dash' => $hasDash,
+                'key_preview' => $keyPreview,
+                'email' => $data['email']
+            ]);
+            
+            $explode = explode('-', $apiKey);
 
             if(count($explode) < 2) {
                 Log::error('[BACKEND] LeadShareService: Invalid Mailchimp API key format', [
-                    'email' => $data['email']
+                    'email' => $data['email'],
+                    'key_length' => $keyLength,
+                    'has_dash' => $hasDash,
+                    'key_preview' => $keyPreview,
+                    'expected_format' => 'apikey-datacenter (e.g., abc123-us21)'
                 ]);
                 return null;
             }
 
             $dc = $explode[1];
-            $url = 'https://' . $dc . '.api.mailchimp.com/3.0/lists/' . $data['mailchimpList'] . '/members';
+            // Use MD5 hash of email for PUT endpoint (Mailchimp's recommended way to handle duplicates)
+            $emailHash = md5(strtolower($data['email']));
+            $url = 'https://' . $dc . '.api.mailchimp.com/3.0/lists/' . $data['mailchimpList'] . '/members/' . $emailHash;
 
             Log::info('[BACKEND] LeadShareService: Mailchimp API call', [
                 'url' => $url,
                 'email' => $data['email'],
                 'list_id' => $data['mailchimpList'],
-                'data_center' => $dc
+                'data_center' => $dc,
+                'method' => 'PUT (upsert)'
             ]);
 
-            /* Try to subscribe the user to mailchimp list */
+            /* Use PUT to insert or update - handles duplicates gracefully */
             $response = Http::withToken($data['mailchimpKey'])
-                ->post($url, [
+                ->put($url, [
                     'email_address' => $data['email'],
                     'status' => 'subscribed',
                     'merge_fields' => [
@@ -155,22 +176,43 @@ class LeadShareService
 
     protected function shareWithGetresponse($data)
     {
-        $response = Http::withHeaders([
-            "X-Auth-Token" => "api-key ".$data['apiKey']
-        ])->post('https://api.getresponse.com/v3/contacts', [ 
-            "body" => [
+        try {
+            $url = 'https://api.getresponse.com/v3/contacts';
+            
+            Log::info('[BACKEND] LeadShareService: GetResponse API call', [
+                'url' => $url,
+                'email' => $data['email'],
+                'campaign_id' => $data['campaignId']
+            ]);
+            
+            $response = Http::withHeaders([
+                "X-Auth-Token" => "api-key ".$data['apiKey']
+            ])->post($url, [
                 "name" => $data['name'],
                 "email" => $data['email'],
                 "campaign" => [
                     "campaignId" => $data["campaignId"]
                 ]
-            ]
-        ]);
+            ]);
 
-        $responseBody = json_decode($response->getBody());
-        Log::info($response->getBody());
+            $responseBody = json_decode($response->getBody());
+            
+            Log::info('[BACKEND] LeadShareService: GetResponse response', [
+                'email' => $data['email'],
+                'status_code' => $response->status(),
+                'response' => $responseBody,
+                'success' => $response->successful()
+            ]);
 
-        return $responseBody;
+            return $responseBody;
+        } catch (\Exception $e) {
+            Log::error('[BACKEND] LeadShareService: GetResponse error', [
+                'email' => $data['email'],
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
     }
 
     protected function shareWithEmailOctopus($data)

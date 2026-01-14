@@ -64,8 +64,8 @@ Route::middleware(['api'])->group(function() {
 });
 
 Route::controller(LeadController::class)->group(function (){
-    Route::get('leads/export', 'export')->name('leads.export');
-    Route::get('leads/export/bulk', 'bulk_export')->name('leads.bulk_export');
+    Route::get('leads/export', 'export')->name('api.leads.export');
+    Route::get('leads/export/bulk', 'bulk_export')->name('api.leads.bulk_export');
 });
 
 Route::get('aicontents', [AiwriterController::class, 'aicontents']); 

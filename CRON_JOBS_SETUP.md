@@ -1,0 +1,255 @@
+# 🕐 Cron Jobs & Commands Setup Guide
+
+This document lists all the scheduled tasks, queue workers, and commands that need to be set up for the application to run properly.
+
+---
+
+## 📋 **REQUIRED CRON JOB**
+
+Add this **single cron job** to your server's crontab. It runs Laravel's scheduler every minute:
+
+```bash
+* * * * * cd /path/to/your/project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**For Windows (using Task Scheduler):**
+- Create a task that runs every minute
+- Command: `php artisan schedule:run`
+- Working directory: Your project path
+
+**For Laragon (Local Development):**
+- Use Windows Task Scheduler or a tool like Laragon's built-in scheduler
+
+---
+
+## ⏰ **SCHEDULED COMMANDS** (Auto-run via Scheduler)
+
+These commands are automatically scheduled in `routes/console.php` and will run based on their schedule:
+
+### 1. **Post Scheduler** 
+- **Command:** `php artisan app:post-scheduler`
+- **Schedule:** Every minute
+- **Purpose:** Publishes scheduled LinkedIn posts when their time arrives
+- **Status:** ✅ Active
+
+### 2. **Update Post Analytics**
+- **Command:** `php artisan app:update-post-analytics`
+- **Schedule:** Every hour
+- **Purpose:** Updates engagement metrics (likes, comments, shares, views) for published LinkedIn posts
+- **Status:** ✅ Active
+
+### 3. **Fetch LinkedIn Feeds** (Inspiration Library)
+- **Command:** `php artisan app:fetch-linkedin-feeds`
+- **Schedule:** Twice daily at 12:15 PM and 6:15 PM
+- **Purpose:** Fetches viral LinkedIn posts for the Inspiration Library page
+- **Status:** ✅ Active
+
+### 4. **Call Reminders**
+- **Command:** `php artisan calls:send-reminders`
+- **Schedule:** Every 15 minutes
+- **Purpose:** Sends automated call reminders (16-24 hours before, 2 hours before, 10-40 minutes before)
+- **Status:** ✅ Active
+
+### 5. **Process Auto Comments**
+- **Command:** `php artisan app:process-auto-comments`
+- **Schedule:** Every hour
+- **Purpose:** Fetches posts, generates AI comments, and schedules/posts them automatically
+- **Status:** ✅ Active
+
+---
+
+## 🔄 **QUEUE WORKER** (Required for Background Jobs)
+
+The application uses **queue jobs** for asynchronous processing. You **MUST** run a queue worker:
+
+### **Start Queue Worker:**
+
+```bash
+php artisan queue:work
+```
+
+### **For Production (with Supervisor):**
+
+Create a supervisor config file `/etc/supervisor/conf.d/linkdominator-queue.conf`:
+
+```ini
+[program:linkdominator-queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/your/project/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/your/project/storage/logs/queue-worker.log
+stopwaitsecs=3600
+```
+
+Then:
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start linkdominator-queue:*
+```
+
+### **Queue Jobs Used:**
+
+1. **FetchAudienceEmailJob** - Fetches email addresses for LinkedIn profiles via PhantomBuster
+2. **FetchCompetitorFollowersJob** - Fetches competitor followers data
+3. **PublishLinkedInPost** - Publishes scheduled LinkedIn posts
+
+---
+
+## 🛠️ **MANUAL COMMANDS** (Optional - Run as needed)
+
+These commands are not scheduled but can be run manually when needed:
+
+### **Fetch Missing Audience Emails**
+```bash
+# Fetch emails for all audience items without emails (limit 50)
+php artisan audience:fetch-missing-emails
+
+# For specific audience
+php artisan audience:fetch-missing-emails --audience-id=123
+
+# Custom limit and batch size
+php artisan audience:fetch-missing-emails --limit=100 --batch-size=20
+```
+
+### **Process Pending Messages**
+```bash
+php artisan app:process-pending-messages
+```
+*Note: This command is currently empty/stub - may need implementation*
+
+### **List PhantomBuster Phantoms** (Debug)
+```bash
+php artisan phantom:list-phantoms
+```
+
+### **Playground** (Development)
+```bash
+php artisan playground
+```
+
+---
+
+## 📊 **QUEUE CONFIGURATION**
+
+The application uses **database queue** by default. Make sure your `.env` has:
+
+```env
+QUEUE_CONNECTION=database
+```
+
+**To use Redis instead:**
+```env
+QUEUE_CONNECTION=redis
+```
+
+**Make sure to run migrations for jobs table:**
+```bash
+php artisan migrate
+```
+
+---
+
+## ✅ **SETUP CHECKLIST**
+
+- [ ] Add cron job: `* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1`
+- [ ] Start queue worker: `php artisan queue:work` (or set up Supervisor)
+- [ ] Verify `.env` has `QUEUE_CONNECTION=database`
+- [ ] Run migrations: `php artisan migrate`
+- [ ] Test scheduler: `php artisan schedule:list` (shows all scheduled tasks)
+- [ ] Test queue: `php artisan queue:work --once` (processes one job)
+
+---
+
+## 🧪 **TESTING COMMANDS**
+
+### **List All Scheduled Tasks:**
+```bash
+php artisan schedule:list
+```
+
+### **Run Scheduler Manually (for testing):**
+```bash
+php artisan schedule:run
+```
+
+### **Test Individual Commands:**
+```bash
+# Test post scheduler
+php artisan app:post-scheduler
+
+# Test analytics update
+php artisan app:update-post-analytics
+
+# Test LinkedIn feeds
+php artisan app:fetch-linkedin-feeds
+
+# Test call reminders
+php artisan calls:send-reminders
+
+# Test auto comments
+php artisan app:process-auto-comments
+```
+
+### **Check Queue Status:**
+```bash
+# See failed jobs
+php artisan queue:failed
+
+# Retry failed jobs
+php artisan queue:retry all
+
+# Clear failed jobs
+php artisan queue:flush
+```
+
+---
+
+## 📝 **NOTES**
+
+1. **Scheduler runs every minute** - This is normal. Laravel's scheduler checks which tasks need to run and executes them.
+
+2. **Queue worker must run continuously** - If the queue worker stops, background jobs (email fetching, post publishing) will not process.
+
+3. **Database queue** - Jobs are stored in the `jobs` table. Make sure this table exists (created by migrations).
+
+4. **Production recommendations:**
+   - Use Supervisor or systemd to keep queue worker running
+   - Monitor queue worker logs
+   - Set up queue retry limits
+   - Consider using Redis for better performance with high job volume
+
+5. **Local development:**
+   - You can run `php artisan queue:work` in a separate terminal
+   - Or use `php artisan queue:listen` (slower but auto-restarts on code changes)
+
+---
+
+## 🚨 **TROUBLESHOOTING**
+
+### **Scheduler not running?**
+- Check cron job is installed: `crontab -l`
+- Check Laravel logs: `storage/logs/laravel.log`
+- Test manually: `php artisan schedule:run`
+
+### **Queue jobs not processing?**
+- Check queue worker is running: `ps aux | grep queue:work`
+- Check failed jobs: `php artisan queue:failed`
+- Check database connection
+- Verify `jobs` table exists
+
+### **Jobs failing?**
+- Check logs: `storage/logs/laravel.log`
+- Check failed jobs table: `php artisan queue:failed`
+- Review job implementation for errors
+
+---
+
+**Last Updated:** 2026-01-14
+**File Location:** `routes/console.php` (scheduled tasks)

@@ -784,11 +784,27 @@ class ChromeApiController extends Controller
                             'audience_id' => $audience_id
                         ]);
                         
+                        // Access ESP config as object (json_decode returns stdClass)
+                        $espConfig = $esp[$espType];
+                        $apiKey = $espConfig->apikey ?? null;
+                        $listId = $espConfig->{$listkey} ?? null;
+                        
+                        // Log API key info (without exposing full key)
+                        $keyPreview = $apiKey ? (substr($apiKey, 0, 10) . '...' . substr($apiKey, -5)) : 'null';
+                        Log::info('[BACKEND] export: ESP config values', [
+                            'esp_type' => $espType,
+                            'has_apikey' => !empty($apiKey),
+                            'apikey_preview' => $keyPreview,
+                            'has_listid' => !empty($listId),
+                            'listid' => $listId,
+                            'email' => $lead->email
+                        ]);
+                        
                         $leadShare->leadShare($espType, [
                             'email' => $lead->email,
                             'name' => $lead->firstName,
-                            'apikey' => $esp[$espType]['apikey'],
-                            'listid' => $esp[$espType][$listkey]
+                            'apikey' => $apiKey,
+                            'listid' => $listId
                         ]);
                         $sharedCount++;
                     } else {

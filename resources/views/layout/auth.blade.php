@@ -587,7 +587,7 @@
     (function() {
         const TOAST_DISMISSED_KEY = 'socialAccountReminderDismissed';
         const TOAST_LAST_DISMISSED_KEY = 'socialAccountReminderLastDismissed';
-        const THREE_MINUTES_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+        const THREE_MINUTES_MS = 20 * 60 * 1000; // 20 minutes in milliseconds
         const toast = document.getElementById('socialAccountReminderToast');
         const dismissBtn = document.getElementById('dismissSocialAccountReminder');
         let reminderInterval = null;

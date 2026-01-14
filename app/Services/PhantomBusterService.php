@@ -204,11 +204,6 @@ class PhantomBusterService
     {
         $url = "{$this->apiUrl}/agent/{$phantomId}/output";
 
-        Log::info('PhantomBuster: Fetching output', [
-            'phantom_id' => $phantomId,
-            'container_id' => $containerId
-        ]);
-
         try {
             $response = Http::timeout(30) // 30 seconds timeout
                 ->connectTimeout(15) // 15 seconds for DNS/connection
@@ -282,47 +277,6 @@ class PhantomBusterService
             $data['output'] = is_array($outputData) ? $outputData : [];
         }
         
-        // Log full output structure for debugging
-        $outputRows = is_array($data['output']) ? count($data['output']) : 0;
-        Log::info('PhantomBuster: Output fetched', [
-            'phantom_id' => $phantomId,
-            'container_id' => $containerId,
-            'output_rows' => $outputRows,
-            'status' => $data['status'] ?? 'unknown',
-            'has_output_key' => isset($data['output']),
-            'has_data_key' => isset($data['data']),
-            'output_structure' => isset($data['output']) ? (is_array($data['output']) ? 'array' : gettype($data['output'])) : 'not_set',
-            'all_keys' => array_keys($data),
-            'data_structure' => isset($data['data']) ? (is_array($data['data']) ? 'array(' . count($data['data']) . ')' : gettype($data['data'])) : 'not_set'
-        ]);
-        
-        // Log first few lines of output if it exists (for debugging)
-        if (isset($data['output']) && is_array($data['output']) && !empty($data['output'])) {
-            Log::debug('PhantomBuster: Sample output data', [
-                'first_item' => $data['output'][0] ?? null,
-                'total_items' => count($data['output'])
-            ]);
-        }
-        
-        // Log the data structure to understand what's inside
-        if (isset($data['data']) && is_array($data['data'])) {
-            Log::debug('PhantomBuster: Data structure analysis', [
-                'data_count' => count($data['data']),
-                'data_keys' => array_keys($data['data']),
-                'first_data_key' => array_key_first($data['data']),
-                'first_data_value_type' => isset($data['data'][0]) ? gettype($data['data'][0]) : 'no_index_0',
-                'sample_data_item' => isset($data['data'][0]) && is_array($data['data'][0]) ? array_keys($data['data'][0]) : $data['data'][0] ?? 'not_array'
-            ]);
-            
-            // Check if data contains an array of followers
-            if (isset($data['data'][0]) && is_array($data['data'][0])) {
-                Log::debug('PhantomBuster: First data item structure', [
-                    'keys' => array_keys($data['data'][0]),
-                    'sample' => $data['data'][0]
-                ]);
-            }
-        }
-
         return $data;
     }
 
@@ -1096,10 +1050,6 @@ class PhantomBusterService
                         $arguments['userAgent'] = $topLevelUserAgent;
                     }
                     
-                    Log::info('PhantomBuster: Using identities array format', [
-                        'identities_count' => count($formattedIdentities),
-                        'has_identityId' => !empty($formattedIdentities[0]['identityId'] ?? null)
-                    ]);
                 }
             } else {
                 // Fallback to top-level sessionCookie and userAgent (backward compatibility)
@@ -2209,10 +2159,6 @@ class PhantomBusterService
                 if (!empty($formattedIdentities)) {
                     $arguments['identities'] = $formattedIdentities;
                     
-                    Log::info('PhantomBuster: Using identities array format', [
-                        'identities_count' => count($formattedIdentities),
-                        'has_identityId' => isset($formattedIdentities[0]['identityId']) && !empty($formattedIdentities[0]['identityId'])
-                    ]);
                 }
             } else {
                 $sessionCookieValue = $this->getSessionCookie();
