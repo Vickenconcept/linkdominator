@@ -27,7 +27,6 @@ class DashboardController extends Controller
         return response()->json([
             'numConnections' => $stat?->connections ?? 0, 
             'sentInvites' => $stat?->pending_invites ?? 0,
-            'searchAppearance' => $stat?->search_appearance ?? 0,
             'profileViews' => $stat?->profile_views ?? 0
         ]);
     }

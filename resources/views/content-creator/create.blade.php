@@ -510,7 +510,7 @@
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-600/50 hidden z-50 h-screen">
     <div class="flex items-center justify-center min-h-screen">
         <div class="bg-white rounded-lg p-6 text-center">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0077b5] mx-auto mb-4"></div>

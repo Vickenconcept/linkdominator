@@ -12,7 +12,6 @@ class Ministat extends Model
         'connections',
         'pending_invites',
         'profile_views',
-        'search_appearance',
         'user_id',
     ];
 

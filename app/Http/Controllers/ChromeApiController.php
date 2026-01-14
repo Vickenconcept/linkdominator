@@ -905,7 +905,6 @@ class ChromeApiController extends Controller
         $connection = $request->query('connection');
         $sentInvite = $request->query('sentInvite');
         $profileView = $request->query('profileView');
-        $searchAppear = $request->query('searchAppear');
         $linkedin_id = $request->query('profileId');
 
         if (isset($linkedin_id)) {
@@ -920,15 +919,13 @@ class ChromeApiController extends Controller
                     $stats->update([
                         'connections' => $connection ?? 0,
                         'pending_invites' => $sentInvite ?? 0,
-                        'profile_views' => $profileView ?? 0,
-                        'search_appearance' => $searchAppear ?? 0
+                        'profile_views' => $profileView ?? 0
                     ]);
                 } else {
                     $ministat->create([
                         'connections' => $connection ?? 0,
                         'pending_invites' => $sentInvite ?? 0,
                         'profile_views' => $profileView ?? 0,
-                        'search_appearance' => $searchAppear ?? 0,
                         'user_id' => $user->id
                     ]);
                 }
@@ -943,6 +940,8 @@ class ChromeApiController extends Controller
                     'status_code' => 401
                 ], 401);
             }
+        } else {
+            \Log::warning('⚠️ [Backend] LinkedInConfig called without profileId');
         }
     }
 
@@ -1795,12 +1794,43 @@ class ChromeApiController extends Controller
         $stats = $request->query('stat');
         $linkedin_id = $request->query('identifier');
 
+        \Log::info('📊 [Backend] storeUserActivity endpoint called', [
+            'module_name' => $module_name,
+            'stats' => $stats,
+            'linkedin_id' => $linkedin_id,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
         $user = User::where('linkedin_id', $linkedin_id)->first();
+
+        if (!$user) {
+            \Log::warning('⚠️ [Backend] User not found for LinkedIn ID in storeUserActivity', [
+                'linkedin_id' => $linkedin_id
+            ]);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found'
+            ], 404);
+        }
+
+        \Log::info('✅ [Backend] User found, creating user activity', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'module_name' => $module_name,
+            'stats' => $stats
+        ]);
 
         UserActivity::create([
             'module_name' => $module_name,
             'stats' => $stats,
             'user_id' => $user->id
+        ]);
+
+        \Log::info('✅ [Backend] User activity created successfully', [
+            'user_id' => $user->id,
+            'module_name' => $module_name,
+            'stats' => $stats
         ]);
 
         return response()->json([

@@ -620,12 +620,6 @@ class CampaignController extends Controller
                 ->orderBy('campaigns.id', 'desc')
                 ->get();
 
-            \Log::info('Campaigns query result', [
-                'user_id' => $user->id,
-                'campaigns_count' => $campaigns->count(),
-                'campaign_ids' => $campaigns->pluck('id')->toArray()
-            ]);
-
             $campaign_list = new CampaignList;
 
             foreach ($campaigns as $key => $item) {
@@ -637,12 +631,6 @@ class CampaignController extends Controller
             }
 
             $resourceData = $this->campaignResource($campaign_data);
-            
-            \Log::info('Campaigns resource data', [
-                'campaign_data_count' => count($campaign_data),
-                'resource_data_count' => count($resourceData),
-                'sample_campaign' => $resourceData[0] ?? null
-            ]);
         } else {
             return response()->json([
                 'status' => 400,
