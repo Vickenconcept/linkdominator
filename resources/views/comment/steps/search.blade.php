@@ -1,17 +1,17 @@
 <div>
-    <div class="block max-w-4xl mx-auto p-10 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <h5 class="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Posts Search Settings</h5>
-        <p class="font-normal text-gray-700 dark:text-gray-400 mb-4">
+    <div class="block max-w-4xl mx-auto p-10 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <h5 class="mb-4 text-2xl font-bold tracking-tight text-gray-900">Posts Search Settings</h5>
+        <p class="font-normal text-gray-700 mb-4">
             We will monitor this list of profiles and track their new posts. With an AI filter, we'll respond only to topics that are relevant to you.
         </p>
         <form action="{{route('comment.store-campaign')}}" method="post">
             @csrf
             <input type="hidden" name="campaign_type" value="{{$campaign->campaign_type}}">
             @if ($campaign->campaign_type == 'keyword')
-                <label for="search-expression" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                <label for="search-expression" class="block mb-2 text-sm font-medium text-gray-900">
                     LinkedIn Search Expression List: *
                 </label>
-                <textarea id="search-expression" rows="10" name="keyword_list" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+                <textarea id="search-expression" rows="10" name="keyword_list" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" 
                 placeholder="Marketing
 Lead generation
 SEO
@@ -20,10 +20,10 @@ Digital marketing
 Mobile analytics
 " required="">{{ $campaign?->keyword_list }}</textarea>
             @elseif ($campaign->campaign_type == 'profile')
-                <label for="linkedin-profile" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                <label for="linkedin-profile" class="block mb-2 text-sm font-medium text-gray-900">
                     LinkedIn Profiles List: *
                 </label>
-                <textarea id="profile-search-expression" rows="10" name="profile_list" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+                <textarea id="profile-search-expression" rows="10" name="profile_list" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" 
                 placeholder="Please paste each LinkedIn profile URL on a new line:
 https://www.linkedin.com/in/sam-hartman-10028a1a7/ 
 https://www.linkedin.com/in/muratbayram-/

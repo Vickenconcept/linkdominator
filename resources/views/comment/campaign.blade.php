@@ -1,6 +1,6 @@
 <div>
     <div class="flex justify-between">
-        <h2 class="pt-1 text-lg font-semibold text-gray-700 dark:text-gray-200 ">
+        <h2 class="pt-1 text-lg font-semibold text-gray-700">
             Campaigns
         </h2>
         <a href="{{route('comment.create-campaign', ['step' => 'express-setup'])}}"

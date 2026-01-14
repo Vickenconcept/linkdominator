@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="flex justify-between">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+    <h2 class="text-lg font-semibold text-gray-700">
         Posts
     </h2>
     <div class="flex gap-3">
@@ -12,9 +12,8 @@
                     <input 
                     type="text"
                     class="block w-full pr-20 text-sm text-black 
-                    dark:text-gray-300 dark:border-gray-600 dark:bg-gray-700 
                     focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray 
+                    focus:shadow-outline-indigo 
                     form-input rounded-md border-gray-200"
                     placeholder="Search post"
                     name="post" value="{{request()->query('post')}}"/>
@@ -46,11 +45,10 @@
 <div id="notice-board" class="hidden">
     <div id="notice"
     class="p-4 mb-4 mt-4 text-sm text-red-800 
-    rounded-lg bg-red-100 dark:bg-gray-800 
-    dark:text-red-400"
+    rounded-lg bg-red-100   "
     role="alert"></div>
 </div>
-<div class="p-4 mb-4 mt-4 text-sm text-blue-800 rounded-lg bg-blue-100 dark:bg-gray-800 dark:text-blue-400" role="alert">
+<div class="p-4 mb-4 mt-4 text-sm text-blue-800 rounded-lg bg-blue-100" role="alert">
     <span class="font-bold">Note:</span> 
     <ul>
         <li class="flex">

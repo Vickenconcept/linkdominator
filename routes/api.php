@@ -82,6 +82,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::delete('audience/list', 'deleteAudienceList');
     Route::get('audience/list/export', 'audienceListExport');
     Route::post('audiences/export/{audience_id}', 'export');
+    Route::get('esp/config', 'getEspConfig');
     Route::get('audience/count', 'audienceRecent');
     Route::get('autoresponses', 'getAutoResponses');
     Route::post('autoresponse/store', 'storeAutoResponse');

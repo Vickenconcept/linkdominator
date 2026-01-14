@@ -598,31 +598,73 @@ class ChromeApiController extends Controller
 
     public function audienceListExport(Request $request)
     {
-        $audience_id = $request->query('audienceId');
+        try {
+            $audience_id = $request->query('audienceId');
+            
+            Log::info('[BACKEND] audienceListExport called', [
+                'audience_id' => $audience_id,
+                'request_params' => $request->all(),
+                'export_type' => 'CSV',
+                'timestamp' => now()->toISOString()
+            ]);
 
-        $audience_list = sprintf("
-            SELECT con_first_name as firstName, con_last_name as lastName, con_job_title as occupation, 
-            concat('https://www.linkedin.com/in/',con_public_identifier) as Link, con_location as location, 
-            con_id as id, case when con_premium = 0 then 'false' else 'true' end as premium, 
-            case when con_influencer = 0 then 'false' else 'true' end as influencer, 
-            case when con_jobseeker = 0 then 'false' else 'true' end as jobSeeker,
-            created_at as createdAt, con_distance as memberDistance, con_company_url as companyURL 
-            from audience_lists where audience_id = %s
-        ", $audience_id);
+            if (!$audience_id) {
+                Log::warning('[BACKEND] audienceListExport: Missing audienceId parameter');
+                return response()->json([
+                    'error' => 'audienceId parameter is required'
+                ], 400);
+            }
 
-        $audience_list = DB::select($audience_list);
+            $audience_list = sprintf("
+                SELECT con_first_name as firstName, con_last_name as lastName, con_job_title as occupation, 
+                concat('https://www.linkedin.com/in/',con_public_identifier) as Link, con_location as location, 
+                con_id as id, case when con_premium = 0 then 'false' else 'true' end as premium, 
+                case when con_influencer = 0 then 'false' else 'true' end as influencer, 
+                case when con_jobseeker = 0 then 'false' else 'true' end as jobSeeker,
+                created_at as createdAt, con_distance as memberDistance, con_company_url as companyURL 
+                from audience_lists where audience_id = %s
+            ", $audience_id);
 
-        return response()->json([
-            'audience' => $audience_list
-        ]);
+            $audience_list = DB::select($audience_list);
+            
+            Log::info('[BACKEND] audienceListExport: Query executed successfully', [
+                'audience_id' => $audience_id,
+                'record_count' => count($audience_list),
+                'export_type' => 'CSV'
+            ]);
+
+            return response()->json([
+                'audience' => $audience_list
+            ]);
+        } catch (\Exception $e) {
+            Log::error('[BACKEND] audienceListExport failed', [
+                'audience_id' => $request->query('audienceId'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to export audience data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function export(Request $request, $audience_id)
     {
         try {
             $user = $this->checkAuthorization($request);
-            $exportType = $request->type;
+            $exportType = $request->type ?? 'csv';
             $espType = $request->espType;
+            
+            Log::info('[BACKEND] export method called', [
+                'audience_id' => $audience_id,
+                'user_id' => $user->id,
+                'export_type' => $exportType,
+                'esp_type' => $espType,
+                'request_params' => $request->all(),
+                'timestamp' => now()->toISOString()
+            ]);
 
             $query = sprintf("
                 SELECT con_first_name as firstName, con_last_name as lastName, con_email as email, con_job_title as occupation, 
@@ -633,56 +675,220 @@ class ChromeApiController extends Controller
             ", $audience_id);
 
             $audiences = DB::select($query);
+            
+            Log::info('[BACKEND] export: Query executed', [
+                'audience_id' => $audience_id,
+                'total_records' => count($audiences),
+                'records_with_email' => count(array_filter($audiences, function($a) { return !empty($a->email); }))
+            ]);
 
             if ($exportType == 'csv') {
+                Log::info('[BACKEND] export: Returning CSV data', [
+                    'audience_id' => $audience_id,
+                    'record_count' => count($audiences)
+                ]);
                 return $this->successResponse(['data' => $audiences]);
             } else {
+                Log::info('[BACKEND] export: Processing ESP export', [
+                    'audience_id' => $audience_id,
+                    'esp_type' => $espType,
+                    'user_id' => $user->id
+                ]);
+                
                 $esp = EspIntegration::where('user_id', $user->id)->first();
 
-                if ($esp) {
-                    $esp = [
-                        'id' => $esp->id,
-                        'mailchimp' => json_decode($esp->mailchimp),
-                        'getresponse' => json_decode($esp->getresponse),
-                        'emailoctopus' => json_decode($esp->emailoctopus),
-                        'converterkit' => json_decode($esp->converterkit),
-                        'mailerlite' => json_decode($esp->mailerlite),
-                        'webhook' => $esp->webhook
-                    ];
-
-                    $leadShare = new LeadShareService;
-                    $listTypes = ['listid', 'campaignId', 'formId', 'groupId'];
-
-                    if ($espType == 'mailchimp' || $espType == 'emailoctopus')
-                        $listkey = $listTypes[0];
-                    elseif ($espType == 'getresponse')
-                        $listkey = $listTypes[1];
-                    elseif ($espType == 'converterkit')
-                        $listkey = $listTypes[2];
-                    elseif ($espType == 'mailerlite')
-                        $listkey = $listTypes[3];
-
-                    foreach ($audiences as $lead) {
-                        if ($lead->email) {
-                            $leadShare->leadShare($espType, [
-                                'email' => $lead->email,
-                                'name' => $lead->firstName,
-                                'apikey' => $esp[$espType]['apikey'],
-                                'listid' => $esp[$espType][$listkey]
-                            ]);
-                        }
-                    }
+                if (!$esp) {
+                    Log::warning('[BACKEND] export: No ESP integration found for user', [
+                        'user_id' => $user->id,
+                        'audience_id' => $audience_id
+                    ]);
+                    return $this->errorResponse('No ESP integration configured. Please configure your email service provider in the profile settings.', 400);
+                }
+                
+                if (!$espType) {
+                    Log::warning('[BACKEND] export: ESP type not specified', [
+                        'user_id' => $user->id,
+                        'audience_id' => $audience_id,
+                        'available_esps' => [
+                            'mailchimp' => !empty($esp->mailchimp),
+                            'getresponse' => !empty($esp->getresponse),
+                            'emailoctopus' => !empty($esp->emailoctopus),
+                            'converterkit' => !empty($esp->converterkit),
+                            'mailerlite' => !empty($esp->mailerlite),
+                            'webhook' => !empty($esp->webhook)
+                        ]
+                    ]);
+                    return $this->errorResponse('ESP type is required. Please specify which email service provider to use.', 400);
                 }
 
-                return $this->successResponse([], 'Leads added to list successfully');
+                $esp = [
+                    'id' => $esp->id,
+                    'mailchimp' => json_decode($esp->mailchimp),
+                    'getresponse' => json_decode($esp->getresponse),
+                    'emailoctopus' => json_decode($esp->emailoctopus),
+                    'converterkit' => json_decode($esp->converterkit),
+                    'mailerlite' => json_decode($esp->mailerlite),
+                    'webhook' => $esp->webhook
+                ];
+                
+                Log::info('[BACKEND] export: ESP configuration loaded', [
+                    'esp_type' => $espType,
+                    'esp_config_exists' => !empty($esp[$espType]),
+                    'user_id' => $user->id
+                ]);
+
+                if (empty($esp[$espType])) {
+                    Log::warning('[BACKEND] export: ESP type not configured', [
+                        'esp_type' => $espType,
+                        'user_id' => $user->id,
+                        'available_esps' => array_keys(array_filter($esp, function($v) { return !empty($v); }))
+                    ]);
+                    return $this->errorResponse("ESP type '{$espType}' is not configured. Please configure it in your profile settings.", 400);
+                }
+
+                $leadShare = new LeadShareService;
+                $listTypes = ['listid', 'campaignId', 'formId', 'groupId'];
+
+                if ($espType == 'mailchimp' || $espType == 'emailoctopus')
+                    $listkey = $listTypes[0];
+                elseif ($espType == 'getresponse')
+                    $listkey = $listTypes[1];
+                elseif ($espType == 'converterkit')
+                    $listkey = $listTypes[2];
+                elseif ($espType == 'mailerlite')
+                    $listkey = $listTypes[3];
+                else {
+                    Log::warning('[BACKEND] export: Unknown ESP type', [
+                        'esp_type' => $espType,
+                        'user_id' => $user->id
+                    ]);
+                    return $this->errorResponse("Unknown ESP type: {$espType}", 400);
+                }
+                
+                Log::info('[BACKEND] export: Starting lead sharing', [
+                    'esp_type' => $espType,
+                    'list_key' => $listkey,
+                    'total_leads' => count($audiences),
+                    'leads_with_email' => count(array_filter($audiences, function($a) { return !empty($a->email); }))
+                ]);
+
+                $sharedCount = 0;
+                $skippedCount = 0;
+                
+                foreach ($audiences as $lead) {
+                    if ($lead->email) {
+                        Log::info('[BACKEND] export: Sharing lead to ESP', [
+                            'esp_type' => $espType,
+                            'email' => $lead->email,
+                            'name' => $lead->firstName,
+                            'audience_id' => $audience_id
+                        ]);
+                        
+                        $leadShare->leadShare($espType, [
+                            'email' => $lead->email,
+                            'name' => $lead->firstName,
+                            'apikey' => $esp[$espType]['apikey'],
+                            'listid' => $esp[$espType][$listkey]
+                        ]);
+                        $sharedCount++;
+                    } else {
+                        $skippedCount++;
+                    }
+                }
+                
+                Log::info('[BACKEND] export: Lead sharing completed', [
+                    'esp_type' => $espType,
+                    'shared_count' => $sharedCount,
+                    'skipped_count' => $skippedCount,
+                    'audience_id' => $audience_id
+                ]);
+
+                return $this->successResponse([
+                    'shared_count' => $sharedCount,
+                    'skipped_count' => $skippedCount
+                ], "Successfully shared {$sharedCount} leads to {$espType}");
             }
         } catch (Exception $e) {
-            Log::error('Export failed: ' . $e->getMessage(), [
+            Log::error('[BACKEND] export failed', [
                 'audience_id' => $audience_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'request' => $request->all()
             ]);
             
-            return $this->errorResponse('Failed to export audience data', 500);
+            return $this->errorResponse('Failed to export audience data: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function getEspConfig(Request $request)
+    {
+        try {
+            $user = $this->checkAuthorization($request);
+            
+            Log::info('[BACKEND] getEspConfig called', [
+                'user_id' => $user->id,
+                'timestamp' => now()->toISOString()
+            ]);
+            
+            $esp = EspIntegration::where('user_id', $user->id)->first();
+            
+            $configuredEsp = [];
+            
+            if ($esp) {
+                $espData = [
+                    'mailchimp' => json_decode($esp->mailchimp),
+                    'getresponse' => json_decode($esp->getresponse),
+                    'emailoctopus' => json_decode($esp->emailoctopus),
+                    'converterkit' => json_decode($esp->converterkit),
+                    'mailerlite' => json_decode($esp->mailerlite),
+                    'webhook' => $esp->webhook
+                ];
+                
+                $espDisplayNames = [
+                    'mailchimp' => 'Mailchimp',
+                    'getresponse' => 'GetResponse',
+                    'emailoctopus' => 'EmailOctopus',
+                    'converterkit' => 'ConverterKit',
+                    'mailerlite' => 'MailerLite',
+                    'webhook' => 'Webhook'
+                ];
+                
+                foreach ($espData as $espType => $config) {
+                    if (!empty($config)) {
+                        // Check if it's a JSON object with apikey or if it's a string (webhook)
+                        if (is_object($config) && !empty($config->apikey)) {
+                            $configuredEsp[] = [
+                                'type' => $espType,
+                                'name' => $espDisplayNames[$espType] ?? ucfirst($espType)
+                            ];
+                        } elseif (is_string($config) && !empty($config)) {
+                            // For webhook
+                            $configuredEsp[] = [
+                                'type' => $espType,
+                                'name' => $espDisplayNames[$espType] ?? ucfirst($espType)
+                            ];
+                        }
+                    }
+                }
+            }
+            
+            Log::info('[BACKEND] getEspConfig: Returning configured ESPs', [
+                'user_id' => $user->id,
+                'configured_count' => count($configuredEsp),
+                'esps' => array_column($configuredEsp, 'type')
+            ]);
+            
+            return $this->successResponse([
+                'esps' => $configuredEsp,
+                'has_config' => count($configuredEsp) > 0
+            ], 'ESP configuration retrieved successfully');
+        } catch (Exception $e) {
+            Log::error('[BACKEND] getEspConfig failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return $this->errorResponse('Failed to retrieve ESP configuration', 500);
         }
     }
 

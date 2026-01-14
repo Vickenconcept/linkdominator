@@ -18,24 +18,6 @@ class LinkedInCompetitorController extends Controller
     {
         $user = Auth::user();
 
-        // Debug: Log what we're querying
-        $allAudiences = Audience::where('user_id', $user->id)->get();
-        Log::info('CompetitorFollowers index - Full debug', [
-            'user_id' => $user->id,
-            'total_audiences' => $allAudiences->count(),
-            'audiences_details' => $allAudiences->map(function($a) {
-                return [
-                    'id' => $a->id,
-                    'audience_id' => $a->audience_id,
-                    'name' => $a->audience_name,
-                    'tag' => $a->tag,
-                    'source' => $a->source,
-                    'source_meta' => $a->source_meta,
-                    'created_at' => $a->created_at
-                ];
-            })->toArray()
-        ]);
-
         // Find all audience_ids that have followers for this user
         $allUserAudienceIds = Audience::where('user_id', $user->id)->pluck('audience_id')->toArray();
         $audienceIdsWithFollowers = AudienceList::whereIn('audience_id', $allUserAudienceIds)
@@ -114,12 +96,6 @@ class LinkedInCompetitorController extends Controller
             $count = AudienceList::where('audience_id', $audience->audience_id)->count();
             $audience->followers_count = $count;
             
-            // Debug log to check counts
-            Log::info('Audience follower count', [
-                'audience_id' => $audience->audience_id,
-                'name' => $audience->audience_name,
-                'count' => $count
-            ]);
         }
 
         $hasLinkedInSession = Integration::where('user_id', $user->id)
