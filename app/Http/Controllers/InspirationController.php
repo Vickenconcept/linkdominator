@@ -74,26 +74,24 @@ class InspirationController extends Controller
             'industries' => 'nullable|array',
             'topics' => 'nullable|array',
             'min_engagement' => 'required|integer|min:50|max:10000',
-            'date_range' => 'required|in:past-week,past-2-weeks,past-3-weeks,past-month,any-time',
+            'date_range' => 'required|in:past-24-hours,past-week,past-month,past-year,any-time',
+            'smart_fetch' => 'nullable|boolean',
         ]);
-        
-        // Ensure at least one industry is selected
-        if (empty($validated['industries'])) {
-            return redirect()->back()->with('error', 'Please select at least one industry');
-        }
-        
+
         auth()->user()->contentPreferences()->updateOrCreate(
             ['user_id' => auth()->id()],
             [
-                'industries' => $validated['industries'],
+                // Industries are now optional – default to empty array if not provided
+                'industries' => $validated['industries'] ?? [],
                 'topics' => $validated['topics'] ?? [],
                 'min_engagement' => $validated['min_engagement'],
                 'date_range' => $validated['date_range'],
+                'smart_fetch' => $request->boolean('smart_fetch'),
                 'fetch_from_keywords' => true,
             ]
         );
         
-        return redirect()->back()->with('success', 'Preferences saved! Run the fetch command to get personalized viral posts.');
+        return redirect()->back()->with('success', 'Preferences saved!');
     }
 
     /**

@@ -378,12 +378,22 @@ class RapidApiService
         $dateRange = trim($dateRange);
         $normalized = strtolower(str_replace(['_', ' '], '-', $dateRange));
 
+        // IMPORTANT:
+        // RapidAPI's search-posts endpoint is picky about date_posted values.
+        // From testing:
+        // - "Past month" works
+        // - "Past week" works
+        // - "Past 3 weeks" returns 400 "Bad request: Invalid date_posted."
+        // To avoid hard failures, we only send values we know are accepted
+        // and let our own code enforce 2–3 week ranges client-side.
         $map = [
             'any-time' => '',
             'anytime' => '',
             'past-week' => 'Past week',
-            'past-2-weeks' => 'Past 2 weeks',
-            'past-3-weeks' => 'Past 3 weeks',
+            // For 2–3 week ranges, don't send date_posted at all.
+            // We'll enforce the exact window in postWithinDateRange().
+            'past-2-weeks' => '',
+            'past-3-weeks' => '',
             'past-month' => 'Past month',
         ];
 

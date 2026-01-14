@@ -90,7 +90,9 @@
         <div class="flex items-center space-x-2">
             <span class="text-xs text-gray-500 hidden sm:inline" id="preferences-text">Click to expand</span>
             <div class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-[#0077b5] hover:bg-blue-50 transition-all">
-                <i id="preferences-icon" class="fas fa-chevron-down text-gray-600 transition-transform duration-300"></i>
+                <svg id="preferences-icon" class="w-4 h-4 text-gray-600 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
             </div>
         </div>
     </button>
@@ -154,8 +156,10 @@
                     @foreach($userTopics as $topic)
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
                         {{ $topic }}
-                        <button type="button" onclick="removeTopic(this)" class="ml-2 text-blue-500 hover:text-blue-700">
-                            <i class="fas fa-times"></i>
+                        <button type="button" onclick="removeTopic(this, event)" class="ml-2 text-blue-600 hover:text-blue-800 hover:bg-blue-200 rounded-full p-0.5 transition-colors" title="Remove topic">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
                         </button>
                         <input type="hidden" name="topics[]" value="{{ $topic }}">
                     </span>
@@ -181,24 +185,24 @@
                 </label>
                 <select name="date_range" 
                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
+                    <option value="past-24-hours" {{ ($preferences->date_range ?? 'past-month') == 'past-24-hours' ? 'selected' : '' }}>
+                        Past 24 hours (Latest, but very fresh)
+                    </option>
                     <option value="past-week" {{ ($preferences->date_range ?? 'past-month') == 'past-week' ? 'selected' : '' }}>
-                        Past Week (Latest, but lower engagement)
-                    </option>
-                    <option value="past-2-weeks" {{ ($preferences->date_range ?? 'past-month') == 'past-2-weeks' ? 'selected' : '' }}>
-                        Past 2 Weeks (Balanced)
-                    </option>
-                    <option value="past-3-weeks" {{ ($preferences->date_range ?? 'past-month') == 'past-3-weeks' ? 'selected' : '' }}>
-                        Past 3 Weeks (Good engagement)
+                        Past week (Recent posts)
                     </option>
                     <option value="past-month" {{ ($preferences->date_range ?? 'past-month') == 'past-month' ? 'selected' : '' }}>
-                        Past Month (Best for high engagement) ⭐
+                        Past month (Best for high engagement) ⭐
+                    </option>
+                    <option value="past-year" {{ ($preferences->date_range ?? 'past-month') == 'past-year' ? 'selected' : '' }}>
+                        Past year (Evergreen content)
                     </option>
                     <option value="any-time" {{ ($preferences->date_range ?? 'past-month') == 'any-time' ? 'selected' : '' }}>
                         Any Time (All posts)
                     </option>
                 </select>
                 <p class="text-xs text-gray-600 mt-2">
-                    💡 <strong>Recommended:</strong> Past Month (2-4 weeks) - Posts have time to accumulate 100+ likes
+                    💡 <strong>Recommended:</strong> <strong>Past month</strong> (2-4 weeks) – best balance of freshness and high engagement.
                 </p>
             </div>
             
@@ -223,6 +227,18 @@
                 <div class="flex justify-between text-xs text-gray-500 mt-1">
                     <span>50 (Good posts)</span>
                     <span>1000+ (Very viral)</span>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <input 
+                        type="checkbox" 
+                        id="smart_fetch" 
+                        name="smart_fetch" 
+                        value="1"
+                        {{ ($preferences->smart_fetch ?? false) ? 'checked' : '' }}
+                        class="w-4 h-4 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                    <label for="smart_fetch" class="text-xs text-gray-700">
+                        <span class="font-semibold">Smart fetch</span> (if enabled, the system may fetch posts with likes down to about half your slider value, e.g. 100 → 50, to avoid returning nothing)
+                    </label>
                 </div>
                 <p class="text-xs text-gray-600 mt-2">
                     💡 <strong>Tip:</strong> 100-300 likes is ideal for quality viral content. Combine with "Past Month" date range for best results.
@@ -570,11 +586,13 @@ function togglePreferences() {
     
     if (section.classList.contains('hidden')) {
         section.classList.remove('hidden');
-        icon.classList.add('rotate-180');
+        // Change icon from plus to minus (expand to collapse)
+        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>';
         if (text) text.textContent = 'Click to collapse';
     } else {
         section.classList.add('hidden');
-        icon.classList.remove('rotate-180');
+        // Change icon from minus to plus (collapse to expand)
+        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>';
         if (text) text.textContent = 'Click to expand';
     }
 }
@@ -591,8 +609,10 @@ function addTopic() {
     tag.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700';
     tag.innerHTML = `
         ${topic}
-        <button type="button" onclick="removeTopic(this)" class="ml-2 text-blue-500 hover:text-blue-700">
-            <i class="fas fa-times"></i>
+        <button type="button" onclick="removeTopic(this, event)" class="ml-2 text-blue-600 hover:text-blue-800 hover:bg-blue-200 rounded-full p-0.5 transition-colors" title="Remove topic">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
         </button>
         <input type="hidden" name="topics[]" value="${topic}">
     `;
@@ -602,7 +622,13 @@ function addTopic() {
 }
 
 // Remove topic tag
-function removeTopic(button) {
+function removeTopic(button, event) {
+    // Prevent any form submission
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    // Remove the parent span element (which contains the topic text, button, and hidden input)
     button.parentElement.remove();
 }
 

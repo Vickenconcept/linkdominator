@@ -341,9 +341,23 @@ class FetchLinkedinFeeds extends Command
         
         $this->info("  Industries: " . implode(', ', $preferences->industries ?? []));
         $this->info("  Topics: " . implode(', ', $preferences->topics ?? []));
-        $this->info("  Min Engagement: {$preferences->min_engagement} likes");
+        $this->info("  Min Engagement (slider): {$preferences->min_engagement} likes");
+        
+        // Smart fetch: optionally relax the effective threshold used during fetching
+        $effectiveMinEngagement = $preferences->min_engagement;
+        if ($preferences->smart_fetch ?? false) {
+            // Never go below 50 (the UI minimum), and use half the slider value
+            $effectiveMinEngagement = max(50, (int) floor($effectiveMinEngagement / 2));
+            $this->info("  Smart Fetch: ON → Effective threshold for fetching: {$effectiveMinEngagement} likes");
+        } else {
+            $this->info("  Smart Fetch: OFF → Effective threshold for fetching: {$effectiveMinEngagement} likes");
+        }
+        
         $this->info("  Date Range: " . ($preferences->date_range ?? 'past-month'));
         $this->newLine();
+        
+        // Store effective threshold on the preferences object for downstream methods
+        $preferences->effective_min_engagement = $effectiveMinEngagement;
         
         $totalFetched = 0;
         
@@ -421,8 +435,9 @@ class FetchLinkedinFeeds extends Command
                             
                         if ($existingPost) continue;
                         
-                        // Use user's custom threshold
-                        if ($this->meetsThreshold($post, $preferences->min_engagement)) {
+                        // Use effective threshold (may be relaxed if Smart Fetch is enabled)
+                        $threshold = $preferences->effective_min_engagement ?? $preferences->min_engagement;
+                        if ($this->meetsThreshold($post, $threshold)) {
                             $this->saveViralPost($post, $user->id);
                             $totalFetched++;
                         }
@@ -456,10 +471,12 @@ class FetchLinkedinFeeds extends Command
         
         $this->info("  Keywords: " . implode(', ', array_slice($keywords, 0, 5)) . (count($keywords) > 5 ? '...' : ''));
         
+        $effectiveMinEngagement = $preferences->effective_min_engagement ?? $preferences->min_engagement;
+        
         return $this->searchKeywordsWithMultiplePages(
             $keywords, 
             $user->id, 
-            $preferences->min_engagement,
+            $effectiveMinEngagement,
             $preferences->date_range ?? 'past-month',
             $rapidapi_service
         );
@@ -601,10 +618,10 @@ class FetchLinkedinFeeds extends Command
         }
 
         $cutoff = match ($dateRange) {
+            'past-24-hours' => now()->subDay(),
             'past-week' => now()->subWeek(),
-            'past-2-weeks' => now()->subWeeks(2),
-            'past-3-weeks' => now()->subWeeks(3),
             'past-month' => now()->subMonth(),
+            'past-year' => now()->subYear(),
             default => null,
         };
 

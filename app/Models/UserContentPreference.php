@@ -18,6 +18,7 @@ class UserContentPreference extends Model
         'favorite_creators',
         'fetch_from_creators',
         'fetch_from_keywords',
+        'smart_fetch',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class UserContentPreference extends Model
         'fetch_from_creators' => 'boolean',
         'fetch_from_keywords' => 'boolean',
         'min_engagement' => 'integer',
+        'smart_fetch' => 'boolean',
     ];
 
     /**
@@ -73,6 +75,7 @@ class UserContentPreference extends Model
             'date_range' => 'past-month', // Posts from last month have time to accumulate engagement
             'fetch_from_keywords' => true,
             'fetch_from_creators' => false,
+            'smart_fetch' => false,
         ];
     }
 }
