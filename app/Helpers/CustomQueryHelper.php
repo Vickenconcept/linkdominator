@@ -65,9 +65,9 @@ trait CustomQueryHelper
     protected function allLeads($listId, $src)
     {
         if($src == 'aud'){
-            $leads = AudienceList::select(DB::raw("id, audience_id as list_hash, concat(con_first_name,' ',con_last_name) as name, con_email as email, con_job_title as headline, con_location as location, con_id as profileid, con_member_urn as member_urn, con_tracking_id as trackingId, con_distance as networkDistance, 'aud' as source, created_at"))
-                ->where('audience_id', $listId)
-                ->paginate(15);
+        $leads = AudienceList::select(DB::raw("id, audience_id as list_hash, concat(con_first_name,' ',con_last_name) as name, con_email as email, con_job_title as headline, con_location as location, con_id as profileid, con_public_identifier as public_identifier, con_member_urn as member_urn, con_tracking_id as trackingId, con_distance as networkDistance, 'aud' as source, email_fetch_attempted_at, created_at"))
+            ->where('audience_id', $listId)
+            ->paginate(15);
         }else {
             $leads = SnLead::select(DB::raw("id, sn_list_id as list_hash, concat(first_name,' ',last_name) as name, email, headline, geolocation as location, lid as profileid, object_urn as member_urn, null as trackingId, degree as networkDistance, 'sn' as source, created_at"))
                 ->where('sn_list_id', $listId)

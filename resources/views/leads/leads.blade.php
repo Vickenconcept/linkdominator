@@ -122,15 +122,28 @@
                         </div>
                         {{$item->name}}
                     </div>
-                    @if( $item->email)
-                    <div class="col-span-3">
-                        {{$item->email}}
+                    <div class="col-span-3 email-cell-{{$item->id}}">
+                        @if($item->email)
+                            {{$item->email}}
+                        @elseif(request()->query('src') == 'aud')
+                            @if(!empty($item->email_fetch_attempted_at) && empty($item->email))
+                                <span class="text-gray-500 text-xs">No email found</span>
+                            @else
+                                <button 
+                                    type="button" 
+                                    class="get-email-btn inline-flex items-center justify-center rounded text-white px-3 py-1.5 text-xs transition-all" 
+                                    style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" 
+                                    onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" 
+                                    onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';"
+                                    data-audience-list-id="{{$item->id}}"
+                                    data-list-id="{{$item->list_hash}}">
+                                    Get Email
+                                </button>
+                            @endif
+                        @else
+                            <span class="text-gray-400">Not Found</span>
+                        @endif
                     </div>
-                    @else
-                    <div class="col-span-3">
-                        Not Found
-                    </div>
-                    @endif
                     <div class="col-span-2">
                         {{$item->headline}}
                     </div>
@@ -258,5 +271,105 @@ $('.export').click(function() {
         }
     })
 })
+
+// Email fetching for audience leads
+$(document).ready(function() {
+    // Use event delegation to handle dynamically rendered buttons
+    $(document).on('click', '.get-email-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const btn = $(this);
+        const audienceListId = btn.data('audience-list-id');
+        const listId = btn.data('list-id');
+        const originalText = btn.text();
+        
+        if (!audienceListId || !listId) {
+            alert('Error: Missing required data. audienceListId: ' + audienceListId + ', listId: ' + listId);
+            return;
+        }
+        
+        // Disable button and show loading
+        btn.prop('disabled', true);
+        btn.text('Fetching...');
+        btn.css('opacity', '0.6');
+        
+        $.ajax({
+            url: `/leads/${listId}/fetch-email?src=aud`,
+            method: 'POST',
+            data: {
+                audience_list_id: audienceListId,
+                _token: '{{ csrf_token() }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    if (response.email) {
+                        // Email already existed
+                        $('.email-cell-' + audienceListId).html(response.email);
+                        btn.replaceWith('<span class="text-green-600 text-xs">✓ Email Found</span>');
+                    } else {
+                        // Job dispatched - poll for email update
+                        btn.text('Processing...');
+                        btn.css('background', '#ffc107');
+                        
+                        let attempts = 0;
+                        const maxAttempts = 60; // 60 seconds max (job might take time)
+                        
+                        const checkEmail = setInterval(function() {
+                            attempts++;
+                            
+                            $.ajax({
+                                url: `/leads/${listId}/check-email/${audienceListId}?src=aud`,
+                                method: 'GET',
+                                success: function(checkResponse) {
+                                    if (checkResponse.has_email && checkResponse.email) {
+                                        // Email found!
+                                        clearInterval(checkEmail);
+                                        $('.email-cell-' + audienceListId).html(checkResponse.email);
+                                        btn.replaceWith('<span class="text-green-600 text-xs">✓ Email Found</span>');
+                                    } else if (checkResponse.email_fetch_completed && !checkResponse.has_email) {
+                                        // Email fetch completed but no email found
+                                        clearInterval(checkEmail);
+                                        btn.prop('disabled', true);
+                                        btn.replaceWith('<span class="text-gray-500 text-xs">No email found</span>');
+                                    } else if (attempts >= maxAttempts) {
+                                        // Timeout
+                                        clearInterval(checkEmail);
+                                        btn.prop('disabled', false);
+                                        btn.text(originalText);
+                                        btn.css('opacity', '1');
+                                        btn.css('background', 'linear-gradient(135deg, #0077b5 0%, #005885 100%)');
+                                        alert('Email fetch is still processing. Please refresh the page in a few moments to check.');
+                                    }
+                                },
+                                error: function(xhr) {
+                                    console.error('Check email error:', xhr);
+                                    if (attempts >= maxAttempts) {
+                                        clearInterval(checkEmail);
+                                        btn.prop('disabled', false);
+                                        btn.text(originalText);
+                                        btn.css('opacity', '1');
+                                    }
+                                }
+                            });
+                        }, 2000); // Check every 2 seconds
+                    }
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to fetch email'));
+                    btn.prop('disabled', false);
+                    btn.text(originalText);
+                    btn.css('opacity', '1');
+                }
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.message || 'Failed to fetch email';
+                alert('Error: ' + errorMsg);
+                btn.prop('disabled', false);
+                btn.text(originalText);
+                btn.css('opacity', '1');
+            }
+        });
+    });
+});
 </script>
 @endsection

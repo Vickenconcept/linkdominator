@@ -759,7 +759,6 @@
             }
         }
         
-        console.log('Sidebar initialized:', sidebar.classList.contains('sidebar-collapsed') ? 'collapsed (icons only)' : 'expanded (full)');
     });
     
     // Handle window resize to maintain full sidebar on mobile

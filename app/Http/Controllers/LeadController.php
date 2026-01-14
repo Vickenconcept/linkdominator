@@ -9,7 +9,9 @@ use App\Models\SnLead;
 use App\Models\SnLeadsCompany;
 use App\Models\SnLeadList;
 use App\Helpers\CustomQueryHelper;
-use Log;
+use App\Jobs\FetchAudienceEmailJob;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class LeadController extends Controller
 {
@@ -172,6 +174,106 @@ class LeadController extends Controller
         
         return response()->json([
             'data' => $leads
+        ]);
+    }
+
+    public function fetchEmail(Request $request, $listId)
+    {
+        $src = $request->query('src');
+        
+        // Only support audience leads (src=aud) for now
+        if ($src !== 'aud') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email fetching is only available for audience leads.'
+            ], 400);
+        }
+
+        $user = Auth::user();
+        $audience = Audience::where('user_id', $user->id)->where('audience_id', $listId)->firstOrFail();
+
+        $request->validate([
+            'audience_list_id' => 'required|integer|exists:audience_lists,id',
+        ]);
+
+        $audienceListItem = AudienceList::where('id', $request->audience_list_id)
+            ->where('audience_id', $audience->audience_id)
+            ->firstOrFail();
+
+        // Check if email already exists
+        if (!empty($audienceListItem->con_email)) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Email already exists',
+                'email' => $audienceListItem->con_email
+            ], 200);
+        }
+
+        // Check if we have public identifier or profile URL
+        $publicIdentifier = $audienceListItem->con_public_identifier;
+        
+        if (empty($publicIdentifier) && !empty($audienceListItem->con_profile_url)) {
+            // Extract public identifier from profile URL
+            if (preg_match('/\/in\/([^\/\?]+)/', $audienceListItem->con_profile_url, $matches)) {
+                $publicIdentifier = $matches[1];
+            }
+        }
+
+        if (empty($publicIdentifier)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Profile identifier not found. Cannot fetch email.'
+            ], 400);
+        }
+
+        // Dispatch job to fetch email
+        try {
+            FetchAudienceEmailJob::dispatch($audienceListItem->id, $publicIdentifier)
+                ->onQueue('default');
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Email fetch job dispatched. Please refresh the page in a few moments.'
+            ], 200);
+        } catch (\Throwable $th) {
+            Log::error('Failed to dispatch email fetch job', [
+                'audience_list_id' => $audienceListItem->id,
+                'error' => $th->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch email: ' . $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function checkEmail($listId, $audienceListId)
+    {
+        $src = request()->query('src');
+        
+        // Only support audience leads (src=aud) for now
+        if ($src !== 'aud') {
+            return response()->json([
+                'has_email' => false,
+                'email' => null
+            ], 400);
+        }
+
+        $user = Auth::user();
+        $audience = Audience::where('user_id', $user->id)->where('audience_id', $listId)->firstOrFail();
+
+        $audienceListItem = AudienceList::where('id', $audienceListId)
+            ->where('audience_id', $audience->audience_id)
+            ->firstOrFail();
+
+        // Check if email fetch was attempted but no email found
+        $emailFetchCompleted = !empty($audienceListItem->email_fetch_attempted_at) && empty($audienceListItem->con_email);
+
+        return response()->json([
+            'has_email' => !empty($audienceListItem->con_email),
+            'email' => $audienceListItem->con_email ?? null,
+            'email_fetch_completed' => $emailFetchCompleted
         ]);
     }
 }

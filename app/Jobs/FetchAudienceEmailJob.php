@@ -118,12 +118,50 @@ class FetchAudienceEmailJob implements ShouldQueue
 
             // Extract email from profile data
             // PhantomBuster Profile Scraper returns email in 'professionalEmail' field
-            $email = $profileData['professionalEmail'] 
-                ?? $profileData['email'] 
-                ?? $profileData['emailAddress'] 
-                ?? $profileData['contactInfo']['emailAddress'] 
-                ?? $profileData['contactInfo']['email'] 
-                ?? null;
+            // Check multiple possible fields, but ensure value is non-empty (not empty string)
+            $email = null;
+            
+            // Try professionalEmail first (most common field)
+            if (isset($profileData['professionalEmail']) && 
+                is_string($profileData['professionalEmail']) && 
+                trim($profileData['professionalEmail']) !== '') {
+                $email = trim($profileData['professionalEmail']);
+            }
+            // Try email field
+            elseif (isset($profileData['email']) && 
+                    is_string($profileData['email']) && 
+                    trim($profileData['email']) !== '') {
+                $email = trim($profileData['email']);
+            }
+            // Try emailAddress field
+            elseif (isset($profileData['emailAddress']) && 
+                    is_string($profileData['emailAddress']) && 
+                    trim($profileData['emailAddress']) !== '') {
+                $email = trim($profileData['emailAddress']);
+            }
+            // Try nested contactInfo fields
+            elseif (isset($profileData['contactInfo']) && is_array($profileData['contactInfo'])) {
+                if (isset($profileData['contactInfo']['emailAddress']) && 
+                    is_string($profileData['contactInfo']['emailAddress']) && 
+                    trim($profileData['contactInfo']['emailAddress']) !== '') {
+                    $email = trim($profileData['contactInfo']['emailAddress']);
+                } elseif (isset($profileData['contactInfo']['email']) && 
+                          is_string($profileData['contactInfo']['email']) && 
+                          trim($profileData['contactInfo']['email']) !== '') {
+                    $email = trim($profileData['contactInfo']['email']);
+                }
+            }
+
+            // Log what we found for debugging
+            Log::info('FetchAudienceEmailJob: Email extraction result', [
+                'audience_list_id' => $this->audienceListItemId,
+                'profile_url' => $profileUrl,
+                'email_found' => !empty($email),
+                'email_value' => $email ? substr($email, 0, 50) . '...' : null,
+                'professionalEmail_value' => isset($profileData['professionalEmail']) ? (is_string($profileData['professionalEmail']) ? substr($profileData['professionalEmail'], 0, 50) : gettype($profileData['professionalEmail'])) : 'not_set',
+                'professionalEmail_empty' => isset($profileData['professionalEmail']) && empty(trim($profileData['professionalEmail'] ?? '')),
+                'profile_data_keys' => array_keys($profileData)
+            ]);
 
             if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $audienceListItem->update(['con_email' => $email]);
@@ -134,9 +172,14 @@ class FetchAudienceEmailJob implements ShouldQueue
                     'profile_url' => $profileUrl
                 ]);
             } else {
-                Log::info('FetchAudienceEmailJob: Profile scraped but no valid email found', [
+                // Mark that email fetch was attempted but no email found
+                $audienceListItem->update(['email_fetch_attempted_at' => now()]);
+                
+                Log::warning('FetchAudienceEmailJob: Profile scraped but no valid email found', [
                     'audience_list_id' => $this->audienceListItemId,
                     'profile_url' => $profileUrl,
+                    'email_attempted' => $email,
+                    'email_valid' => $email ? filter_var($email, FILTER_VALIDATE_EMAIL) : false,
                     'profile_data_keys' => array_keys($profileData)
                 ]);
             }
