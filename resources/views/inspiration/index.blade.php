@@ -70,7 +70,7 @@
             </div>
             <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">Avg Engagement</p>
-                <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['avg_engagement'], 1) }}%</p>
+                <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['avg_engagement'], 1, '.', '') }}%</p>
             </div>
         </div>
     </div>

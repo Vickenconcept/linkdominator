@@ -48,12 +48,17 @@ class InspirationController extends Controller
                       ->orderBy('saved_at', 'desc')
                       ->paginate(12);
         
-        // Get statistics
+        // Get statistics - calculate from actual saved posts in database
+        $avgEngagement = ViralPost::where('user_id', $userId)
+            ->whereNotNull('engagement_rate')
+            ->where('engagement_rate', '>', 0)
+            ->avg('engagement_rate');
+        
         $stats = [
             'total_posts' => ViralPost::where('user_id', $userId)->count(),
             'favorites' => ViralPost::where('user_id', $userId)->favorites()->count(),
             'viral_posts' => ViralPost::where('user_id', $userId)->viral()->count(),
-            'avg_engagement' => ViralPost::where('user_id', $userId)->avg('engagement_rate') ?? 0,
+            'avg_engagement' => $avgEngagement ? round($avgEngagement, 1) : 0,
         ];
         
         // Get or create default preferences
