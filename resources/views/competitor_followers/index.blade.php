@@ -58,7 +58,19 @@
                         <tr class="border-t">
                             <td class="py-2 pr-4">
                                 <div class="font-medium text-gray-900">{{ $aud->audience_name ?? 'Competitor Followers' }}</div>
-                                <div class="text-xs text-gray-500">{{ optional(json_decode($aud->source_meta))->company_url }}</div>
+                                @php
+                                    $companyUrl = optional(json_decode($aud->source_meta))->company_url;
+                                @endphp
+                                @if($companyUrl)
+                                    <a href="{{ $companyUrl }}" target="_blank" rel="noopener noreferrer" class="text-xs text-[#0077b5] hover:text-[#005885] hover:underline inline-flex items-center gap-1">
+                                        {{ $companyUrl }}
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                        </svg>
+                                    </a>
+                                @else
+                                    <div class="text-xs text-gray-400">N/A</div>
+                                @endif
                             </td>
                             <td class="py-2 pr-4 text-gray-700">
                                 <span class="font-semibold">{{ $aud->followers_count ?? 0 }}</span>

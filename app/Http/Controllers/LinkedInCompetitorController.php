@@ -203,17 +203,51 @@ class LinkedInCompetitorController extends Controller
             ->with('status', __('competitor_followers.fetch_started'));
     }
 
-    public function show($audienceId)
+    public function show(Request $request, $audienceId)
     {
         $user = Auth::user();
         $audience = Audience::where('user_id', $user->id)->where('id', $audienceId)->firstOrFail();
 
-        $list = AudienceList::where('audience_id', $audience->audience_id)->latest()->paginate(25);
+        $emailFilter = $request->query('email_filter', 'all'); // all, with_email, without_email, not_found, not_fetched, pending
+        
+        $query = AudienceList::where('audience_id', $audience->audience_id);
+        
+        // Apply email filter
+        switch ($emailFilter) {
+            case 'with_email':
+                $query->whereNotNull('con_email')->where('con_email', '!=', '');
+                break;
+            case 'without_email':
+                $query->where(function($q) {
+                    $q->whereNull('con_email')
+                      ->orWhere('con_email', '=', '');
+                })->where(function($q) {
+                    $q->where('email_fetch_status', 'completed')
+                      ->orWhereNotNull('email_fetch_attempted_at');
+                });
+                break;
+            case 'not_found':
+                $query->where('email_fetch_status', 'completed')
+                      ->where(function($q) {
+                          $q->whereNull('con_email')->orWhere('con_email', '=', '');
+                      });
+                break;
+            case 'not_fetched':
+                $query->whereNull('email_fetch_status')
+                      ->whereNull('email_fetch_attempted_at');
+                break;
+            case 'pending':
+                $query->where('email_fetch_status', 'pending');
+                break;
+            // 'all' - no filter applied
+        }
+        
+        $list = $query->latest()->paginate(25)->appends($request->query());
 
         // Count pending email fetch jobs for this user
         $pendingEmailFetchCount = $this->getPendingEmailFetchCount($user->id);
 
-        return view('competitor_followers.show', compact('audience', 'list', 'pendingEmailFetchCount'));
+        return view('competitor_followers.show', compact('audience', 'list', 'pendingEmailFetchCount', 'emailFilter'));
     }
 
     /**

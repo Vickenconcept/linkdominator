@@ -26,6 +26,19 @@
         </nav>
     </div>
     <div class="flex gap-2">
+        @if(request()->query('src') == 'aud')
+        <form action="{{route('leads.show', $listId ?? request()->route('listId'))}}" method="get" class="flex items-center">
+            <input type="hidden" name="src" value="{{request()->query('src')}}">
+            <select name="email_filter" id="email-filter" onchange="this.form.submit()" class="block w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0077b5] focus:border-[#0077b5]" style="min-width: 180px;">
+                <option value="all" {{($emailFilter ?? 'all') == 'all' ? 'selected' : ''}}>All Emails</option>
+                <option value="with_email" {{($emailFilter ?? 'all') == 'with_email' ? 'selected' : ''}}>With Email</option>
+                <option value="without_email" {{($emailFilter ?? 'all') == 'without_email' ? 'selected' : ''}}>Without Email</option>
+                <option value="not_found" {{($emailFilter ?? 'all') == 'not_found' ? 'selected' : ''}}>Not Found</option>
+                <option value="not_fetched" {{($emailFilter ?? 'all') == 'not_fetched' ? 'selected' : ''}}>Not Yet Fetched</option>
+                <option value="pending" {{($emailFilter ?? 'all') == 'pending' ? 'selected' : ''}}>Pending</option>
+            </select>
+        </form>
+        @endif
         <form action="{{route('leads.search_leads')}}" method="get">
             <label class="block text-sm">
                 <div class="relative text-gray-500 focus-within:text-[#0077b5]">

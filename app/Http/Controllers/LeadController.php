@@ -63,11 +63,12 @@ class LeadController extends Controller
     public function show(Request $request, $listId)
     {
         $src = $request->query('src');
+        $emailFilter = $request->query('email_filter', 'all'); // all, with_email, without_email, not_found, not_fetched, pending
         $leads = [];
         $leadlist = null;
 
         if(isset($src)){
-            $leads = $this->allLeads($listId, $src);
+            $leads = $this->allLeads($listId, $src, $emailFilter, $request);
 
             if($src == 'aud'){
                 $leadlist = Audience::select('audience_name as name')->where('audience_id', $listId)->first();
@@ -79,7 +80,7 @@ class LeadController extends Controller
         // Count pending email fetch jobs for this user
         $pendingEmailFetchCount = $this->getPendingEmailFetchCount(auth()->user()->id);
 
-        return view('leads.leads', compact('leads', 'leadlist', 'pendingEmailFetchCount'));
+        return view('leads.leads', compact('leads', 'leadlist', 'pendingEmailFetchCount', 'emailFilter', 'listId'));
     }
 
     /**

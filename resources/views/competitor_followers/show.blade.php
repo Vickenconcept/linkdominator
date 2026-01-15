@@ -6,7 +6,19 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900">{{ $audience->audience_name }}</h2>
-                <p class="text-sm text-gray-600">{{ optional(json_decode($audience->source_meta))->company_url }}</p>
+                @php
+                    $companyUrl = optional(json_decode($audience->source_meta))->company_url;
+                @endphp
+                @if($companyUrl)
+                    <a href="{{ $companyUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm text-[#0077b5] hover:text-[#005885] hover:underline inline-flex items-center gap-1">
+                        {{ $companyUrl }}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                    </a>
+                @else
+                    <p class="text-sm text-gray-400">N/A</p>
+                @endif
             </div>
             <div>
                 <a href="{{ route('competitor-followers.export', $audience->id) }}" class="inline-flex items-center justify-center rounded text-white px-4 py-2 transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">{{ __('competitor_followers.export') }}</a>
@@ -30,6 +42,21 @@
     </div>
 
     <div class="mt-6 bg-white rounded-lg shadow">
+        <div class="p-4 sm:p-6">
+            <div class="mb-4 flex items-center justify-between">
+                <form action="{{route('competitor-followers.show', $audience->id)}}" method="get" class="flex items-center">
+                    <label for="email-filter" class="mr-2 text-sm font-medium text-gray-700">Filter by Email Status:</label>
+                    <select name="email_filter" id="email-filter" onchange="this.form.submit()" class="block px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0077b5] focus:border-[#0077b5]" style="min-width: 180px;">
+                        <option value="all" {{($emailFilter ?? 'all') == 'all' ? 'selected' : ''}}>All Emails</option>
+                        <option value="with_email" {{($emailFilter ?? 'all') == 'with_email' ? 'selected' : ''}}>With Email</option>
+                        <option value="without_email" {{($emailFilter ?? 'all') == 'without_email' ? 'selected' : ''}}>Without Email</option>
+                        <option value="not_found" {{($emailFilter ?? 'all') == 'not_found' ? 'selected' : ''}}>Not Found</option>
+                        <option value="not_fetched" {{($emailFilter ?? 'all') == 'not_fetched' ? 'selected' : ''}}>Not Yet Fetched</option>
+                        <option value="pending" {{($emailFilter ?? 'all') == 'pending' ? 'selected' : ''}}>Pending</option>
+                    </select>
+                </form>
+            </div>
+        </div>
         <div class="p-4 sm:p-6 overflow-x-auto">
             <table class="min-w-full text-left text-sm">
                 <thead>
