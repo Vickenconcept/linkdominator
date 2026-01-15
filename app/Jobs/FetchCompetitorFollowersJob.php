@@ -21,6 +21,8 @@ class FetchCompetitorFollowersJob implements ShouldQueue
     public string $companyUrl;
     public string $sessionCookie;
     public string $userAgent;
+    
+    private int $emailDispatchCount = 0; // Track email dispatches per job instance
 
     public function __construct(int $userId, int $audiencePkId, string $companyUrl, string $sessionCookie, string $userAgent)
     {
@@ -320,6 +322,53 @@ class FetchCompetitorFollowersJob implements ShouldQueue
             $seen[$publicId] = true;
         }
         $created++;
+        
+        // Dispatch email fetch job if email is missing (max 5 at a time to allow other users)
+        if (empty($savedItem->con_email) && !empty($publicId)) {
+            // Get user to check daily limit
+            $user = \App\Models\User::find($this->userId);
+            if ($user) {
+                // Check and reset daily limit
+                $today = now()->toDateString();
+                $resetDate = $user->daily_profile_email_scraping_reset_at 
+                    ? \Carbon\Carbon::parse($user->daily_profile_email_scraping_reset_at)->toDateString() 
+                    : null;
+
+                if ($resetDate !== $today) {
+                    $user->update([
+                        'daily_profile_email_scraping_count' => 0,
+                        'daily_profile_email_scraping_reset_at' => $today
+                    ]);
+                    $user->refresh();
+                }
+                
+                // Only dispatch if under daily limit and we haven't dispatched 5 yet in this job
+                $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+                if ($user->daily_profile_email_scraping_count < $dailyLimit) {
+                    if ($this->emailDispatchCount < 5) {
+                        \App\Jobs\FetchAudienceEmailJob::dispatch($savedItem->id, $publicId)
+                            ->onQueue('phantombuster');
+                        $this->emailDispatchCount++;
+                        
+                        Log::info('FetchCompetitorFollowersJob: Dispatched email fetch job', [
+                            'audience_list_id' => $savedItem->id,
+                            'public_identifier' => $publicId,
+                            'dispatched_count' => $this->emailDispatchCount,
+                            'max_per_job' => 5
+                        ]);
+                    } else {
+                        Log::info('FetchCompetitorFollowersJob: Reached max email dispatch limit (5) for this job', [
+                            'audience_list_id' => $savedItem->id
+                        ]);
+                    }
+                } else {
+                    Log::info('FetchCompetitorFollowersJob: User daily limit reached, skipping email dispatch', [
+                        'user_id' => $this->userId,
+                        'count' => $user->daily_profile_email_scraping_count
+                    ]);
+                }
+            }
+        }
     }
 }
 

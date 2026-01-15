@@ -33,7 +33,9 @@ class User extends Authenticatable
         'calendly_access_token',
         'calendly_refresh_token',
         'calendly_token_expires',
-        'calendly_organization_uri'
+        'calendly_organization_uri',
+        'daily_profile_email_scraping_count',
+        'daily_profile_email_scraping_reset_at'
     ];
 
     /**

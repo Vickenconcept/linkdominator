@@ -22,6 +22,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Exception;
 
@@ -469,22 +470,48 @@ class ChromeApiController extends Controller
                     'audience_id' => $audience_id
                 ]);
 
-                // If email is missing, dispatch job to fetch it using PhantomBuster Profile Scraper
+                // If email is missing, dispatch individual email fetch job
                 if (empty($email) && !empty($public_identifier)) {
                     try {
-                        // Dispatch as background job to avoid blocking the request
-                        // Use afterCommit() to ensure the database transaction has committed before the job runs
-                        \App\Jobs\FetchAudienceEmailJob::dispatch($audienceListItem->id, $public_identifier)
-                            ->onQueue('default')
-                            ->afterCommit();
+                        // Get user ID from audience
+                        $audience = Audience::where('audience_id', $audience_id)->first();
+                        if (!$audience) {
+                            Log::warning('Failed to find audience for email fetch', [
+                                'audience_id' => $audience_id
+                            ]);
+                            return response()->json(['message' => 'success'], 201);
+                        }
+
+                        $userId = $audience->user_id;
                         
-                        Log::info('Dispatched job to fetch email for audience item', [
+                        // Check daily limit
+                        $user = \App\Models\User::find($userId);
+                        if ($user) {
+                            $this->checkAndResetDailyLimit($user);
+                            $user->refresh();
+                            
+                            $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+                            if ($user->daily_profile_email_scraping_count >= $dailyLimit) {
+                                Log::info('Daily email scraping limit reached for user', [
+                                    'user_id' => $userId,
+                                    'count' => $user->daily_profile_email_scraping_count
+                                ]);
+                                return response()->json(['message' => 'success'], 201);
+                            }
+                        }
+
+                        // Dispatch individual email fetch job (one by one)
+                        \App\Jobs\FetchAudienceEmailJob::dispatch($audienceListItem->id, $public_identifier)
+                            ->onQueue('phantombuster');
+                        
+                        Log::info('Dispatched individual email fetch job from extension', [
                             'audience_list_id' => $audienceListItem->id,
-                            'public_identifier' => $public_identifier
+                            'public_identifier' => $public_identifier,
+                            'user_id' => $userId
                         ]);
                     } catch (\Throwable $th) {
                         // Log but don't fail the request - email fetching is optional
-                        Log::warning('Failed to dispatch email fetching job', [
+                        Log::warning('Failed to dispatch email fetch job', [
                             'audience_list_id' => $audienceListItem->id,
                             'public_identifier' => $public_identifier,
                             'error' => $th->getMessage()
@@ -2498,6 +2525,61 @@ class ChromeApiController extends Controller
             ]);
             
             return $this->errorResponse('Failed to sync LinkedIn ID: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Dispatch batch email fetch job when batch queue reaches threshold
+     */
+    private function dispatchEmailBatchJob($audienceId, $userId, $cacheKey)
+    {
+        try {
+            $batchItems = Cache::get($cacheKey, []);
+            
+            if (empty($batchItems)) {
+                return;
+            }
+
+            // Extract audience list IDs and public identifiers
+            $audienceListIds = array_column($batchItems, 'audienceListItemId');
+            
+            // Clear the cache
+            Cache::forget($cacheKey);
+            
+            // Dispatch batch job
+            \App\Jobs\FetchAudienceEmailBatchJob::dispatch($audienceListIds, $userId)
+                ->onQueue('phantombuster');
+            
+            Log::info('Dispatched batch email fetch job from extension', [
+                'audience_id' => $audienceId,
+                'user_id' => $userId,
+                'batch_size' => count($audienceListIds)
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Failed to dispatch batch email fetch job', [
+                'audience_id' => $audienceId,
+                'user_id' => $userId,
+                'error' => $th->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Check and reset daily limit if needed
+     */
+    private function checkAndResetDailyLimit(User $user): void
+    {
+        $today = now()->toDateString();
+        $resetDate = $user->daily_profile_email_scraping_reset_at 
+            ? \Carbon\Carbon::parse($user->daily_profile_email_scraping_reset_at)->toDateString() 
+            : null;
+
+        // Reset if it's a new day
+        if ($resetDate !== $today) {
+            $user->update([
+                'daily_profile_email_scraping_count' => 0,
+                'daily_profile_email_scraping_reset_at' => $today
+            ]);
         }
     }
 }

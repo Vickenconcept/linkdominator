@@ -12,6 +12,7 @@ class AudienceList extends Model
         'con_last_name',
         'con_email',
         'email_fetch_attempted_at',
+        'email_fetch_status',
         'con_job_title',
         'con_location',
         'con_distance',

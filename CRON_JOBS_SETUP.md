@@ -60,22 +60,39 @@ These commands are automatically scheduled in `routes/console.php` and will run 
 
 ## 🔄 **QUEUE WORKER** (Required for Background Jobs)
 
-The application uses **queue jobs** for asynchronous processing. You **MUST** run a queue worker:
+The application uses **queue jobs** for asynchronous processing. You **MUST** run queue workers:
 
-### **Start Queue Worker:**
+### **Start Queue Workers:**
 
+**For Local Development (Laragon/Windows):**
+
+Open **TWO** terminal windows and run:
+
+**Terminal 1 - Default Queue:**
 ```bash
-php artisan queue:work
+php artisan queue:work --queue=default
+```
+
+**Terminal 2 - PhantomBuster Queue (for batch email fetching):**
+```bash
+php artisan queue:work --queue=phantombuster
+```
+
+**OR run both queues in one worker:**
+```bash
+php artisan queue:work --queue=default,phantombuster
 ```
 
 ### **For Production (with Supervisor):**
 
-Create a supervisor config file `/etc/supervisor/conf.d/linkdominator-queue.conf`:
+Create supervisor config files:
+
+**1. Default Queue Worker** `/etc/supervisor/conf.d/linkdominator-queue.conf`:
 
 ```ini
 [program:linkdominator-queue]
 process_name=%(program_name)s_%(process_num)02d
-command=php /path/to/your/project/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+command=php /path/to/your/project/artisan queue:work --queue=default --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 stopasgroup=true
@@ -87,18 +104,37 @@ stdout_logfile=/path/to/your/project/storage/logs/queue-worker.log
 stopwaitsecs=3600
 ```
 
+**2. PhantomBuster Queue Worker** `/etc/supervisor/conf.d/linkdominator-queue-phantombuster.conf`:
+
+```ini
+[program:linkdominator-queue-phantombuster]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/your/project/artisan queue:work --queue=phantombuster --sleep=3 --tries=2 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/your/project/storage/logs/queue-phantombuster-worker.log
+stopwaitsecs=3600
+```
+
 Then:
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start linkdominator-queue:*
+sudo supervisorctl start linkdominator-queue-phantombuster:*
 ```
 
 ### **Queue Jobs Used:**
 
-1. **FetchAudienceEmailJob** - Fetches email addresses for LinkedIn profiles via PhantomBuster
-2. **FetchCompetitorFollowersJob** - Fetches competitor followers data
-3. **PublishLinkedInPost** - Publishes scheduled LinkedIn posts
+1. **FetchAudienceEmailJob** - Fetches email addresses for LinkedIn profiles via PhantomBuster (uses `default` queue)
+2. **FetchAudienceEmailBatchJob** - Batch email fetching (up to 20 profiles) (uses `phantombuster` queue) ⚠️ **REQUIRES `phantombuster` QUEUE WORKER**
+3. **FetchCompetitorFollowersJob** - Fetches competitor followers data (uses `default` queue)
+4. **PublishLinkedInPost** - Publishes scheduled LinkedIn posts (uses `default` queue)
 
 ---
 

@@ -75,6 +75,23 @@ class FetchAudienceEmailJob implements ShouldQueue
                 return;
             }
 
+            // Check and reset daily limit if needed
+            $this->checkAndResetDailyLimit($user);
+            
+            // Refresh user model to get latest count after potential reset
+            $user->refresh();
+            
+            // Check daily limit before processing
+            $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+            if ($user->daily_profile_email_scraping_count >= $dailyLimit) {
+                Log::warning('FetchAudienceEmailJob: Daily limit exceeded', [
+                    'user_id' => $user->id,
+                    'current_count' => $user->daily_profile_email_scraping_count,
+                    'limit' => $dailyLimit
+                ]);
+                throw new \Exception("Daily email scraping limit reached ({$dailyLimit} profiles/day). Please try again tomorrow.");
+            }
+
             $integration = Integration::where('user_id', $user->id)
                 ->where('oauth_provider', 'linkedin')
                 ->whereNotNull('linkedin_session_cookie')
@@ -164,7 +181,10 @@ class FetchAudienceEmailJob implements ShouldQueue
             ]);
 
             if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $audienceListItem->update(['con_email' => $email]);
+                $audienceListItem->update([
+                    'con_email' => $email,
+                    'email_fetch_status' => 'completed'
+                ]);
                 
                 Log::info('FetchAudienceEmailJob: Successfully fetched and updated email', [
                     'audience_list_id' => $this->audienceListItemId,
@@ -173,7 +193,10 @@ class FetchAudienceEmailJob implements ShouldQueue
                 ]);
             } else {
                 // Mark that email fetch was attempted but no email found
-                $audienceListItem->update(['email_fetch_attempted_at' => now()]);
+                $audienceListItem->update([
+                    'email_fetch_attempted_at' => now(),
+                    'email_fetch_status' => 'completed'
+                ]);
                 
                 Log::warning('FetchAudienceEmailJob: Profile scraped but no valid email found', [
                     'audience_list_id' => $this->audienceListItemId,
@@ -183,6 +206,14 @@ class FetchAudienceEmailJob implements ShouldQueue
                     'profile_data_keys' => array_keys($profileData)
                 ]);
             }
+
+            // Update daily count (increment by 1 for this single profile scrape)
+            $user->increment('daily_profile_email_scraping_count', 1);
+            
+            Log::info('FetchAudienceEmailJob: Daily count updated', [
+                'user_id' => $user->id,
+                'new_count' => $user->fresh()->daily_profile_email_scraping_count
+            ]);
         } catch (\Throwable $th) {
             Log::error('FetchAudienceEmailJob: Failed to fetch email', [
                 'audience_list_id' => $this->audienceListItemId,
@@ -193,6 +224,30 @@ class FetchAudienceEmailJob implements ShouldQueue
             
             // Re-throw to mark job as failed (will retry if configured)
             throw $th;
+        }
+    }
+
+    /**
+     * Check and reset daily limit if needed
+     */
+    private function checkAndResetDailyLimit(User $user): void
+    {
+        $today = now()->toDateString();
+        $resetDate = $user->daily_profile_email_scraping_reset_at 
+            ? \Carbon\Carbon::parse($user->daily_profile_email_scraping_reset_at)->toDateString() 
+            : null;
+
+        // Reset if it's a new day
+        if ($resetDate !== $today) {
+            $user->update([
+                'daily_profile_email_scraping_count' => 0,
+                'daily_profile_email_scraping_reset_at' => $today
+            ]);
+            
+            Log::info('FetchAudienceEmailJob: Daily limit reset', [
+                'user_id' => $user->id,
+                'reset_date' => $today
+            ]);
         }
     }
 }

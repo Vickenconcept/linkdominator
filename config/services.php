@@ -89,5 +89,10 @@ return [
         'linkedin_search_export_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_SEARCH_EXPORT_PHANTOM_ID'),
         // LinkedIn Profile Scraper - scrapes full profile data including email
         'linkedin_profile_scraper_phantom_id' => env('PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID'),
+    ],
+
+    'email_scraping' => [
+        // Daily limit for email scraping per user (profiles per day)
+        'daily_limit_per_user' => env('DAILY_EMAIL_SCRAPING_LIMIT', 100),
     ]
 ];

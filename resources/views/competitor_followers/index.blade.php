@@ -67,7 +67,13 @@
                             <td class="py-2 pr-4 text-gray-700">{{ $aud->created_at->format('Y-m-d H:i') }}</td>
                             <td class="py-2 pr-4">
                                 <a href="{{ route('competitor-followers.show', $aud->id) }}" class="text-[#0077b5] hover:text-[#005885] hover:underline mr-3">{{ __('competitor_followers.view') }}</a>
-                                <a href="{{ route('competitor-followers.export', $aud->id) }}" class="text-gray-700 hover:underline">{{ __('competitor_followers.export') }}</a>
+                                <a href="{{ route('competitor-followers.export', $aud->id) }}" class="text-gray-700 hover:underline mr-3">{{ __('competitor_followers.export') }}</a>
+                                <button type="button" 
+                                        class="delete-audience-btn text-red-600 hover:text-red-800 hover:underline" 
+                                        data-audience-id="{{ $aud->id }}"
+                                        data-audience-name="{{ $aud->audience_name ?? 'Competitor Followers' }}">
+                                    Delete
+                                </button>
                             </td>
                         </tr>
                     @empty
@@ -84,6 +90,120 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-audience-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Delete Competitor Audience</h3>
+            <p class="text-gray-700 mb-4">
+                Are you sure you want to delete <span id="delete-audience-name" class="font-semibold"></span>?
+            </p>
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="delete-audience-checkbox" class="rounded border-gray-300 text-[#0077b5] focus:ring-[#0077b5]">
+                    <span class="ml-2 text-sm text-gray-700">Also delete the audience record</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1 ml-6">
+                    If unchecked, only the follower data will be deleted. The audience record will remain.
+                </p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" id="cancel-delete-btn" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors">
+                    Cancel
+                </button>
+                <button type="button" id="confirm-delete-btn" class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 transition-colors">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    let currentAudienceId = null;
+    
+    // Open delete modal
+    $(document).on('click', '.delete-audience-btn', function(e) {
+        e.preventDefault();
+        currentAudienceId = $(this).data('audience-id');
+        const audienceName = $(this).data('audience-name');
+        
+        $('#delete-audience-name').text(audienceName);
+        $('#delete-audience-checkbox').prop('checked', false);
+        $('#delete-audience-modal').removeClass('hidden');
+    });
+    
+    // Close modal on cancel
+    $('#cancel-delete-btn').on('click', function() {
+        $('#delete-audience-modal').addClass('hidden');
+        currentAudienceId = null;
+    });
+    
+    // Close modal on background click
+    $('#delete-audience-modal').on('click', function(e) {
+        if ($(e.target).attr('id') === 'delete-audience-modal') {
+            $(this).addClass('hidden');
+            currentAudienceId = null;
+        }
+    });
+    
+    // Confirm delete
+    $('#confirm-delete-btn').on('click', function() {
+        if (!currentAudienceId) {
+            return;
+        }
+        
+        const deleteAudience = $('#delete-audience-checkbox').is(':checked');
+        const btn = $(this);
+        const originalText = btn.text();
+        
+        btn.prop('disabled', true).text('Deleting...');
+        
+        $.ajax({
+            url: `/competitor-followers/${currentAudienceId}/delete`,
+            method: 'DELETE',
+            data: {
+                _token: '{{ csrf_token() }}',
+                delete_audience: deleteAudience ? 1 : 0
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Remove the row from table
+                    $(`.delete-audience-btn[data-audience-id="${currentAudienceId}"]`).closest('tr').fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                    
+                    // Show success message
+                    const notification = $('<div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">' + response.message + '</div>');
+                    $('body').append(notification);
+                    setTimeout(function() {
+                        notification.fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }, 3000);
+                    
+                    // Close modal
+                    $('#delete-audience-modal').addClass('hidden');
+                    currentAudienceId = null;
+                } else {
+                    alert(response.message || 'Failed to delete audience');
+                    btn.prop('disabled', false).text(originalText);
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Failed to delete audience. Please try again.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                }
+                alert(errorMessage);
+                btn.prop('disabled', false).text(originalText);
+            }
+        });
+    });
+});
+</script>
 @endsection
 
 

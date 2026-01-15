@@ -10,6 +10,8 @@ use App\Models\SnLeadsCompany;
 use App\Models\SnLeadList;
 use App\Helpers\CustomQueryHelper;
 use App\Jobs\FetchAudienceEmailJob;
+use App\Jobs\FetchAudienceEmailBatchJob;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -62,7 +64,7 @@ class LeadController extends Controller
     {
         $src = $request->query('src');
         $leads = [];
-        $leadlist = [];
+        $leadlist = null;
 
         if(isset($src)){
             $leads = $this->allLeads($listId, $src);
@@ -74,7 +76,38 @@ class LeadController extends Controller
             }
         }
 
-        return view('leads.leads', compact('leads', 'leadlist'));
+        // Count pending email fetch jobs for this user
+        $pendingEmailFetchCount = $this->getPendingEmailFetchCount(auth()->user()->id);
+
+        return view('leads.leads', compact('leads', 'leadlist', 'pendingEmailFetchCount'));
+    }
+
+    /**
+     * Get count of pending email fetch jobs for a user
+     */
+    private function getPendingEmailFetchCount($userId)
+    {
+        // Get all audience_ids for this user
+        $userAudienceIds = Audience::where('user_id', $userId)->pluck('audience_id')->toArray();
+        
+        // Count AudienceList records with pending status for this user's audiences
+        return AudienceList::whereIn('audience_id', $userAudienceIds)
+            ->where('email_fetch_status', 'pending')
+            ->count();
+    }
+
+    /**
+     * Get pending email fetch count (API endpoint)
+     */
+    public function getPendingCount()
+    {
+        $user = Auth::user();
+        $count = $this->getPendingEmailFetchCount($user->id);
+        
+        return response()->json([
+            'status' => 'success',
+            'pending_count' => $count
+        ]);
     }
 
     public function update(Request $request, $listHash)
@@ -209,6 +242,26 @@ class LeadController extends Controller
             ], 200);
         }
 
+        // Check if email fetch is already pending or attempted
+        if (!empty($audienceListItem->email_fetch_attempted_at)) {
+            // If status is 'pending', it's still being processed
+            if ($audienceListItem->email_fetch_status === 'pending') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Email fetch is already in progress. Please wait or refresh the page.',
+                    'already_pending' => true
+                ], 409); // 409 Conflict
+            }
+            // If status is 'completed' and no email, it was already attempted
+            if ($audienceListItem->email_fetch_status === 'completed' && empty($audienceListItem->con_email)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Email fetch was already attempted. No email found for this profile.',
+                    'already_completed' => true
+                ], 409); // 409 Conflict
+            }
+        }
+
         // Check if we have public identifier or profile URL
         $publicIdentifier = $audienceListItem->con_public_identifier;
         
@@ -226,14 +279,44 @@ class LeadController extends Controller
             ], 400);
         }
 
+        // Check daily limit before dispatching
+        $this->checkAndResetDailyLimit($user);
+        $user->refresh();
+        
+        $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+        if ($user->daily_profile_email_scraping_count >= $dailyLimit) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Daily email scraping limit reached ({$dailyLimit} profiles/day). Please try again tomorrow."
+            ], 429);
+        }
+
+        // Check concurrent limit (max 5 pending jobs per user)
+        $pendingCount = $this->getPendingEmailFetchCount($user->id);
+        if ($pendingCount >= 5) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "You have {$pendingCount} email scraping jobs in progress. Please come back in 45 minutes to allow other users to use the queue. This helps distribute the load across all users.",
+                'concurrent_limit_reached' => true,
+                'pending_count' => $pendingCount
+            ], 429);
+        }
+
+        // Mark as pending immediately to prevent duplicate requests
+        $audienceListItem->update([
+            'email_fetch_attempted_at' => now(),
+            'email_fetch_status' => 'pending'
+        ]);
+
         // Dispatch job to fetch email
         try {
             FetchAudienceEmailJob::dispatch($audienceListItem->id, $publicIdentifier)
-                ->onQueue('default');
+                ->onQueue('phantombuster');
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Email fetch job dispatched. Please refresh the page in a few moments.'
+                'message' => 'Email fetch job queued. Please wait while we fetch the email.',
+                'pending' => true
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Failed to dispatch email fetch job', [
@@ -275,5 +358,178 @@ class LeadController extends Controller
             'email' => $audienceListItem->con_email ?? null,
             'email_fetch_completed' => $emailFetchCompleted
         ]);
+    }
+
+    public function fetchEmailBatch(Request $request, $listId)
+    {
+        $src = request()->query('src');
+        
+        // Only support audience leads (src=aud) for now
+        if ($src !== 'aud') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Batch email fetching only supported for audience leads'
+            ], 400);
+        }
+
+        $user = Auth::user();
+        $audience = Audience::where('user_id', $user->id)->where('audience_id', $listId)->firstOrFail();
+
+        $request->validate([
+            'audience_list_ids' => 'required|array|min:1|max:20',
+            'audience_list_ids.*' => 'required|integer|exists:audience_lists,id'
+        ]);
+
+        $audienceListIds = $request->input('audience_list_ids');
+        
+        // Verify all items belong to this audience
+        $audienceListItems = AudienceList::whereIn('id', $audienceListIds)
+            ->where('audience_id', $audience->audience_id)
+            ->get();
+
+        if ($audienceListItems->count() !== count($audienceListIds)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Some selected items do not belong to this audience'
+            ], 400);
+        }
+
+        // Check minimum selection requirements
+        $totalItems = AudienceList::where('audience_id', $audience->audience_id)->count();
+        $selectedCount = count($audienceListIds);
+
+        // If total items < 5, allow any selection (even 1)
+        // If total items >= 5 and <= 20, require minimum 5
+        // If total items > 20, require minimum 20
+        if ($totalItems > 20 && $selectedCount < 20) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Please select at least 20 profiles when there are more than 20 in the list'
+            ], 400);
+        } elseif ($totalItems >= 5 && $totalItems <= 20 && $selectedCount < 5) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Please select at least 5 profiles'
+            ], 400);
+        }
+        // If totalItems < 5, no minimum requirement (allow any selection)
+
+        // Filter out items that already have emails
+        $itemsNeedingEmail = $audienceListItems->filter(function($item) {
+            return empty($item->con_email) && empty($item->email_fetch_attempted_at);
+        });
+
+        if ($itemsNeedingEmail->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'All selected profiles already have emails or have been attempted'
+            ], 400);
+        }
+
+        // Check daily limit
+        $this->checkAndResetDailyLimit($user);
+        $profileCount = $itemsNeedingEmail->count();
+        
+        $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+        if ($user->daily_profile_email_scraping_count + $profileCount > $dailyLimit) {
+            $remaining = $dailyLimit - $user->daily_profile_email_scraping_count;
+            return response()->json([
+                'status' => 'error',
+                'message' => "Daily limit reached. You can scrape {$remaining} more profiles today. Limit resets tomorrow.",
+                'daily_limit_reached' => true,
+                'remaining' => max(0, $remaining)
+            ], 400);
+        }
+
+        // Dispatch batch job
+        try {
+            FetchAudienceEmailBatchJob::dispatch(
+                $itemsNeedingEmail->pluck('id')->toArray(),
+                $user->id
+            )->onQueue('phantombuster');
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Batch email fetch job dispatched for {$profileCount} profile(s). Please refresh the page in a few moments.",
+                'profile_count' => $profileCount
+            ], 200);
+        } catch (\Throwable $th) {
+            Log::error('Failed to dispatch batch email fetch job', [
+                'audience_list_ids' => $audienceListIds,
+                'error' => $th->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch emails: ' . $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getDailyLimit()
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+                return response()->json([
+                    'daily_limit' => $dailyLimit,
+                    'used' => 0,
+                    'remaining' => $dailyLimit,
+                    'can_scrape' => true,
+                    'reset_date' => null,
+                    'error' => 'User not authenticated'
+                ], 401);
+            }
+            
+            $this->checkAndResetDailyLimit($user);
+            
+            // Refresh user model to get updated values
+            $user->refresh();
+            
+            $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+            $used = (int)($user->daily_profile_email_scraping_count ?? 0);
+            $remaining = max(0, $dailyLimit - $used);
+            
+            return response()->json([
+                'daily_limit' => $dailyLimit,
+                'used' => $used,
+                'remaining' => $remaining,
+                'can_scrape' => $remaining > 0,
+                'reset_date' => $user->daily_profile_email_scraping_reset_at
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Error getting daily limit', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            
+            $dailyLimit = config('services.email_scraping.daily_limit_per_user', 100);
+            return response()->json([
+                'daily_limit' => $dailyLimit,
+                'used' => 0,
+                'remaining' => $dailyLimit,
+                'can_scrape' => true,
+                'reset_date' => null,
+                'error' => 'Failed to load daily limit'
+            ], 500);
+        }
+    }
+
+    private function checkAndResetDailyLimit(User $user): void
+    {
+        $today = now()->toDateString();
+        $resetDate = $user->daily_profile_email_scraping_reset_at 
+            ? \Carbon\Carbon::parse($user->daily_profile_email_scraping_reset_at)->toDateString() 
+            : null;
+
+        // Reset if it's a new day
+        if ($resetDate !== $today) {
+            $user->update([
+                'daily_profile_email_scraping_count' => 0,
+                'daily_profile_email_scraping_reset_at' => $today
+            ]);
+        }
     }
 }

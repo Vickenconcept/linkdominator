@@ -2302,5 +2302,339 @@ class PhantomBusterService
         }
     }
 
+    /**
+     * Scrape multiple LinkedIn profiles in batch using urls array parameter
+     * 
+     * @param array<string> $profileUrls Array of LinkedIn profile URLs
+     * @param array|null $identities Identities array for authentication
+     * @param int $maxWaitSeconds Maximum wait time in seconds
+     * @param int $pollIntervalSeconds Poll interval while waiting
+     * @return array<string, array> Map of profile URL to profile data
+     * @throws \Exception
+     */
+    public function scrapeLinkedInProfilesBatch(
+        array $profileUrls,
+        ?array $identities = null,
+        int $maxWaitSeconds = 600,
+        int $pollIntervalSeconds = 15
+    ): array {
+        try {
+            $phantomId = config('services.phantombuster.linkedin_profile_scraper_phantom_id');
+            
+            if (!$phantomId) {
+                Log::error('PhantomBuster: LinkedIn Profile Scraper phantom ID not configured');
+                throw new \Exception('LinkedIn Profile Scraper phantom ID not configured');
+            }
+
+            if (empty($profileUrls)) {
+                throw new \Exception('No profile URLs provided for batch processing');
+            }
+
+            // Limit to 20 profiles per batch
+            $profileUrls = array_slice($profileUrls, 0, 20);
+            $profileCount = count($profileUrls);
+
+            Log::info('PhantomBuster: Starting batch profile scraping', [
+                'phantom_id' => $phantomId,
+                'profile_count' => $profileCount,
+                'urls' => $profileUrls
+            ]);
+
+            // Build arguments with urls array (tested and confirmed working)
+            // Note: PhantomBuster requires spreadsheetUrl even when using urls array
+            // Use comma-separated URLs as spreadsheetUrl (PhantomBuster will use urls array if provided)
+            $spreadsheetUrl = implode(',', $profileUrls);
+            
+            $arguments = [
+                'urls' => $profileUrls, // Use urls array parameter for batch processing
+                'spreadsheetUrl' => $spreadsheetUrl, // Required by PhantomBuster API even with urls array
+                'emailChooser' => 'phantombuster',
+                'enrichWithCompanyData' => false,
+                'updateMonitoringMetadata' => false,
+                'pushResultToCRM' => true,
+                'numberOfAddsPerLaunch' => $profileCount, // Set to actual count
+            ];
+
+            // Add identities if provided
+            if (!empty($identities) && is_array($identities)) {
+                $formattedIdentities = [];
+                foreach ($identities as $identity) {
+                    if (is_array($identity) && isset($identity['sessionCookie'])) {
+                        $formattedIdentity = [
+                            'sessionCookie' => $identity['sessionCookie']
+                        ];
+                        
+                        if (isset($identity['identityId']) && !empty($identity['identityId'])) {
+                            $formattedIdentity['identityId'] = $identity['identityId'];
+                        }
+                        
+                        if (isset($identity['userAgent']) && !empty($identity['userAgent'])) {
+                            $formattedIdentity['userAgent'] = $identity['userAgent'];
+                        } elseif ($this->getUserAgent()) {
+                            $formattedIdentity['userAgent'] = $this->getUserAgent();
+                        }
+                        
+                        $formattedIdentities[] = $formattedIdentity;
+                    }
+                }
+                
+                if (!empty($formattedIdentities)) {
+                    $arguments['identities'] = $formattedIdentities;
+                }
+            } else {
+                $sessionCookieValue = $this->getSessionCookie();
+                if ($sessionCookieValue) {
+                    $arguments['sessionCookie'] = $sessionCookieValue;
+                }
+
+                $userAgentValue = $this->getUserAgent();
+                if ($userAgentValue) {
+                    $arguments['userAgent'] = $userAgentValue;
+                }
+            }
+
+            // Launch phantom with batch URLs
+            $launchResponse = $this->launchPhantom($phantomId, $arguments);
+            $containerId = $launchResponse['containerId'] ?? $launchResponse['data']['containerId'] ?? null;
+
+            if (!$containerId) {
+                throw new \Exception("Failed to get container ID from PhantomBuster launch for batch profile scraper");
+            }
+
+            // Wait longer for batch processing to start
+            sleep(10);
+            
+            Log::info('PhantomBuster: Starting to poll for batch profile data', [
+                'container_id' => $containerId,
+                'max_wait_seconds' => $maxWaitSeconds,
+                'poll_interval_seconds' => $pollIntervalSeconds,
+                'profile_count' => $profileCount
+            ]);
+
+            $startTime = time();
+            $attempts = 0;
+            $results = [];
+            $lastStatus = null;
+
+            while (time() - $startTime < $maxWaitSeconds) {
+                $attempts++;
+
+                if ($attempts > 1) {
+                    sleep($pollIntervalSeconds);
+                }
+
+                try {
+                    $output = $this->getPhantomOutput($phantomId, $containerId);
+                } catch (\Exception $e) {
+                    if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Container not found')) {
+                        continue;
+                    }
+                    throw $e;
+                }
+
+                $containerStatus = $output['data']['containerStatus'] ?? null;
+                $lastStatus = $containerStatus;
+
+                $resultObject = $output['data']['resultObject'] ?? null;
+                $outputData = $output['data']['output'] ?? null;
+                $csvUrl = $output['data']['csvUrl'] ?? null;
+
+                // Log output structure for debugging (more detailed on first few attempts)
+                if ($attempts <= 3 || ($attempts % 5 === 0 && $containerStatus === 'finished')) {
+                    $logData = [
+                        'container_id' => $containerId,
+                        'attempt' => $attempts,
+                        'container_status' => $containerStatus,
+                        'has_resultObject' => !empty($resultObject),
+                        'resultObject_type' => $resultObject ? gettype($resultObject) : null,
+                        'has_outputData' => !empty($outputData),
+                        'outputData_type' => $outputData ? gettype($outputData) : null,
+                        'has_csvUrl' => !empty($csvUrl),
+                        'output_keys' => array_keys($output['data'] ?? [])
+                    ];
+                    
+                    // Log sample of resultObject if it's a string (first 500 chars)
+                    if (is_string($resultObject) && strlen($resultObject) > 0) {
+                        $logData['resultObject_sample'] = substr($resultObject, 0, 500);
+                    }
+                    
+                    // Log sample of outputData if it's a string (first 500 chars)
+                    if (is_string($outputData) && strlen($outputData) > 0) {
+                        $logData['outputData_sample'] = substr($outputData, 0, 500);
+                    }
+                    
+                    // Log structure if it's an array
+                    if (is_array($resultObject) && !empty($resultObject)) {
+                        $logData['resultObject_structure'] = [
+                            'count' => count($resultObject),
+                            'first_item_keys' => !empty($resultObject[0]) && is_array($resultObject[0]) ? array_keys($resultObject[0]) : 'not_array'
+                        ];
+                    }
+                    
+                    Log::info('PhantomBuster: Polling output structure', $logData);
+                }
+
+                // Parse batch results - should be an array of profile data
+                $batchResults = null;
+                
+                if ($resultObject) {
+                    if (is_string($resultObject)) {
+                        $decoded = json_decode($resultObject, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                            $batchResults = $decoded;
+                        }
+                    } elseif (is_array($resultObject)) {
+                        $batchResults = $resultObject;
+                    }
+                }
+
+                if (!$batchResults && $outputData) {
+                    if (is_string($outputData)) {
+                        $trimmed = trim($outputData);
+                        if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                            $decoded = json_decode($outputData, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $batchResults = $decoded;
+                            }
+                        }
+                    } elseif (is_array($outputData)) {
+                        $batchResults = $outputData;
+                    }
+                }
+
+                // If CSV URL is available, try fetching results from CSV
+                if (!$batchResults && $csvUrl && ($containerStatus === 'finished' || $containerStatus === 'completed')) {
+                    try {
+                        Log::info('PhantomBuster: Attempting to fetch results from CSV URL', [
+                            'container_id' => $containerId,
+                            'csv_url' => $csvUrl
+                        ]);
+                        
+                        $csvResponse = file_get_contents($csvUrl);
+                        if ($csvResponse) {
+                            // Parse CSV and convert to array
+                            $lines = explode("\n", trim($csvResponse));
+                            $headers = str_getcsv(array_shift($lines));
+                            $batchResults = [];
+                            
+                            foreach ($lines as $line) {
+                                if (empty(trim($line))) continue;
+                                $row = str_getcsv($line);
+                                if (count($row) === count($headers)) {
+                                    $batchResults[] = array_combine($headers, $row);
+                                }
+                            }
+                            
+                            Log::info('PhantomBuster: Parsed CSV results', [
+                                'container_id' => $containerId,
+                                'csv_rows' => count($batchResults)
+                            ]);
+                        }
+                    } catch (\Throwable $csvError) {
+                        Log::warning('PhantomBuster: Failed to fetch CSV results', [
+                            'container_id' => $containerId,
+                            'csv_url' => $csvUrl,
+                            'error' => $csvError->getMessage()
+                        ]);
+                    }
+                }
+
+                // If we have batch results, map them to URLs
+                if ($batchResults && is_array($batchResults) && !empty($batchResults)) {
+                    // PhantomBuster returns array of profile objects
+                    // Each object should have a URL or we match by index
+                    foreach ($batchResults as $index => $profileData) {
+                        if (is_array($profileData) && !empty($profileData)) {
+                            // Try to match by profileUrl field if available
+                            $profileUrl = $profileData['profileUrl'] 
+                                ?? $profileData['url'] 
+                                ?? $profileData['linkedinUrl']
+                                ?? ($index < count($profileUrls) ? $profileUrls[$index] : null);
+                            
+                            if ($profileUrl && isset($profileUrls[array_search($profileUrl, $profileUrls)])) {
+                                $results[$profileUrl] = $profileData;
+                            } elseif ($index < count($profileUrls)) {
+                                // Fallback to index matching
+                                $results[$profileUrls[$index]] = $profileData;
+                            }
+                        }
+                    }
+
+                    // If we got results for all profiles, return early
+                    if (count($results) >= $profileCount) {
+                        Log::info('PhantomBuster: Batch scraping completed with all results', [
+                            'container_id' => $containerId,
+                            'results_count' => count($results),
+                            'expected_count' => $profileCount
+                        ]);
+                        return $results;
+                    }
+                }
+
+                if ($containerStatus === 'not running' || $containerStatus === 'finished' || $containerStatus === 'completed') {
+                    // Wait a bit more for results to be available
+                    if (empty($batchResults) && $attempts < 3) {
+                        Log::info('PhantomBuster: Container finished but no results yet, waiting...', [
+                            'container_id' => $containerId,
+                            'attempt' => $attempts
+                        ]);
+                        sleep(5);
+                        continue;
+                    }
+                    
+                    if ($batchResults && !empty($batchResults)) {
+                        Log::info('PhantomBuster: Processing final batch results', [
+                            'container_id' => $containerId,
+                            'batch_results_count' => count($batchResults),
+                            'first_result_keys' => !empty($batchResults[0]) ? array_keys($batchResults[0]) : []
+                        ]);
+                        
+                        // Process final results
+                        foreach ($batchResults as $index => $profileData) {
+                            if (is_array($profileData) && !empty($profileData)) {
+                                $profileUrl = $profileData['profileUrl'] 
+                                    ?? $profileData['url'] 
+                                    ?? $profileData['linkedinUrl']
+                                    ?? $profileData['Profile URL']
+                                    ?? ($index < count($profileUrls) ? $profileUrls[$index] : null);
+                                
+                                if ($profileUrl && in_array($profileUrl, $profileUrls)) {
+                                    $results[$profileUrl] = $profileData;
+                                } elseif ($index < count($profileUrls)) {
+                                    $results[$profileUrls[$index]] = $profileData;
+                                }
+                            }
+                        }
+                    } else {
+                        Log::warning('PhantomBuster: Container finished but no batch results found', [
+                            'container_id' => $containerId,
+                            'container_status' => $containerStatus,
+                            'has_resultObject' => !empty($resultObject),
+                            'has_outputData' => !empty($outputData),
+                            'has_csvUrl' => !empty($csvUrl)
+                        ]);
+                    }
+                    break;
+                }
+            }
+
+            Log::info('PhantomBuster: Batch scraping completed', [
+                'container_id' => $containerId,
+                'results_count' => count($results),
+                'expected_count' => $profileCount
+            ]);
+
+            return $results;
+
+        } catch (\Throwable $th) {
+            Log::error('PhantomBuster: Failed to scrape profiles in batch', [
+                'profile_urls' => $profileUrls,
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
+            throw $th;
+        }
+    }
+
 }
 

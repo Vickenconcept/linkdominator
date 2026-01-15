@@ -53,7 +53,7 @@ class FetchMissingAudienceEmails extends Command
             foreach ($chunk as $item) {
                 try {
                     FetchAudienceEmailJob::dispatch($item->id, $item->con_public_identifier)
-                        ->onQueue('default');
+                        ->onQueue('phantombuster');
                     
                     $dispatched++;
                     $bar->advance();

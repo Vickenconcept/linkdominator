@@ -189,15 +189,18 @@ Route::middleware(['auth'])->group(function(){
     Route::controller(LeadController::class)->group(function (){
         Route::get('/leadlist', 'index')->name('leads.list');
         Route::get('/leadlist/search', 'search_leadlist')->name('leads.list.search');
-        Route::get('/leads/{listId}', 'show')->name('leads.show');
-        Route::put('/leadlist/update/{listId}', 'update')->name('leads.update');
         Route::get('/leads/export', 'export')->name('leads.export');
         Route::get('/leads/export/bulk', 'bulk_export')->name('leads.bulk_export');
         Route::get('/leads/seach', 'search_leads')->name('leads.search_leads');
+        Route::get('/leads/daily-limit', 'getDailyLimit')->name('leads.daily-limit'); // Must come before /leads/{listId}
+        Route::get('/leads/pending-count', 'getPendingCount')->name('leads.pending-count'); // Must come before /leads/{listId}
+        Route::get('/leads/{listId}', 'show')->name('leads.show');
+        Route::put('/leadlist/update/{listId}', 'update')->name('leads.update');
         Route::delete('/leadlist/remove/{listId}', 'remove_leadlist')->name('leads.remove_leadlist');
         Route::delete('/leads/remove/{leadId}', 'remove_lead')->name('leads.remove_lead');
         Route::delete('/leads/remove/bulk/{listId}', 'remove_lead_bulk')->name('leads.remove_lead_bulk');
         Route::post('/leads/{listId}/fetch-email', 'fetchEmail')->name('leads.fetch-email');
+        Route::post('/leads/{listId}/fetch-email-batch', 'fetchEmailBatch')->name('leads.fetch-email-batch');
         Route::get('/leads/{listId}/check-email/{audienceListId}', 'checkEmail')->name('leads.check-email');
     });
 
@@ -231,10 +234,14 @@ Route::middleware(['auth'])->group(function(){
     Route::controller(App\Http\Controllers\LinkedInCompetitorController::class)->group(function(){
         Route::get('/competitor-followers', 'index')->name('competitor-followers.index');
         Route::post('/competitor-followers/fetch', 'fetch')->name('competitor-followers.fetch');
+        Route::get('/competitor-followers/daily-limit', 'getDailyLimit')->name('competitor-followers.daily-limit');
+        Route::get('/competitor-followers/pending-count', 'getPendingCount')->name('competitor-followers.pending-count');
         Route::get('/competitor-followers/{audienceId}', 'show')->name('competitor-followers.show');
         Route::get('/competitor-followers/{audienceId}/export', 'exportCsv')->name('competitor-followers.export');
         Route::post('/competitor-followers/{audienceId}/fetch-email', 'fetchEmail')->name('competitor-followers.fetch-email');
+        Route::post('/competitor-followers/{audienceId}/fetch-email-batch', 'fetchEmailBatch')->name('competitor-followers.fetch-email-batch');
         Route::get('/competitor-followers/{audienceId}/check-email/{audienceListId}', 'checkEmail')->name('competitor-followers.check-email');
+        Route::delete('/competitor-followers/{audienceId}/delete', 'delete')->name('competitor-followers.delete');
     });
 
     // Inspiration Library Routes (Viral Posts Discovery)
