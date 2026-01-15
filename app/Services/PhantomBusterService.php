@@ -33,6 +33,8 @@ class PhantomBusterService
      */
     public function launchPhantom(string $phantomId, array $arguments = []): array
     {
+        // Note: Lock management is handled at a higher level (in scrapeLinkedInProfile, etc.)
+        // This method just performs the API call without locking
         $url = "{$this->apiUrl}/agent/{$phantomId}/launch";
 
         $payload = [];
@@ -46,149 +48,149 @@ class PhantomBusterService
         ]);
 
         try {
-            $response = Http::timeout(30) // 30 seconds timeout
-                ->connectTimeout(15) // 15 seconds for DNS/connection
-                ->withHeaders([
-                    'X-Phantombuster-Key-1' => $this->apiKey,
-                    'Content-Type' => 'application/json'
-                ])->post($url, $payload);
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            // Handle network/DNS errors
-            $errorMessage = $e->getMessage();
-            
-            if (str_contains($errorMessage, 'Resolving timed out') || str_contains($errorMessage, 'cURL error 28')) {
-                Log::error("PhantomBuster: DNS resolution timeout", [
-                    'phantom_id' => $phantomId,
-                    'url' => $url,
-                    'error' => $errorMessage
-                ]);
+                $response = Http::timeout(30) // 30 seconds timeout
+                    ->connectTimeout(15) // 15 seconds for DNS/connection
+                    ->withHeaders([
+                        'X-Phantombuster-Key-1' => $this->apiKey,
+                        'Content-Type' => 'application/json'
+                    ])->post($url, $payload);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                // Handle network/DNS errors
+                $errorMessage = $e->getMessage();
                 
-                throw new \Exception(
-                    'NETWORK_TIMEOUT: Cannot connect to PhantomBuster API. ' .
-                    'This is usually a network connectivity issue. ' .
-                    'Please check your internet connection and try again. ' .
-                    'If the problem persists, your server may be blocking external API connections.'
-                );
-            }
-            
-            if (str_contains($errorMessage, 'Connection timed out') || str_contains($errorMessage, 'cURL error 7')) {
-                Log::error("PhantomBuster: Connection timeout", [
-                    'phantom_id' => $phantomId,
-                    'url' => $url,
-                    'error' => $errorMessage
-                ]);
-                
-                throw new \Exception(
-                    'NETWORK_TIMEOUT: Connection to PhantomBuster API timed out. ' .
-                    'The API may be temporarily unavailable or your network is slow. ' .
-                    'Please try again in a few moments.'
-                );
-            }
-            
-            // Re-throw other connection errors
-            throw $e;
-        }
-
-        if ($response->failed()) {
-            $status = $response->status();
-            $errorBody = $response->json();
-            $errorMessage = is_array($errorBody) ? ($errorBody['error'] ?? json_encode($errorBody)) : $response->body();
-            
-            // Handle rate limiting (429) - parallel execution limit
-            if ($status === 429) {
-                $detailedError = is_array($errorBody) && isset($errorBody['details']['detailedErrorSlug']) 
-                    ? $errorBody['details']['detailedErrorSlug'] 
-                    : null;
-                
-                $helpfulError = "PhantomBuster rate limit reached (429). ";
-                if ($detailedError === 'maxParallelismReached') {
-                    $helpfulError .= "Your account allows only 1 parallel execution. Wait for running phantoms to finish, or upgrade your plan for more parallel executions.";
-                } else {
-                    $helpfulError .= "Too many requests. Please wait before retrying.";
+                if (str_contains($errorMessage, 'Resolving timed out') || str_contains($errorMessage, 'cURL error 28')) {
+                    Log::error("PhantomBuster: DNS resolution timeout", [
+                        'phantom_id' => $phantomId,
+                        'url' => $url,
+                        'error' => $errorMessage
+                    ]);
+                    
+                    throw new \Exception(
+                        'NETWORK_TIMEOUT: Cannot connect to PhantomBuster API. ' .
+                        'This is usually a network connectivity issue. ' .
+                        'Please check your internet connection and try again. ' .
+                        'If the problem persists, your server may be blocking external API connections.'
+                    );
                 }
-                $helpfulError .= " Original error: {$errorMessage}";
                 
-                Log::error("PhantomBuster launch failed - Rate limit", [
-                    'status' => $status,
-                    'body' => $errorBody,
-                    'phantom_id' => $phantomId,
-                    'detailed_error' => $detailedError
-                ]);
+                if (str_contains($errorMessage, 'Connection timed out') || str_contains($errorMessage, 'cURL error 7')) {
+                    Log::error("PhantomBuster: Connection timeout", [
+                        'phantom_id' => $phantomId,
+                        'url' => $url,
+                        'error' => $errorMessage
+                    ]);
+                    
+                    throw new \Exception(
+                        'NETWORK_TIMEOUT: Connection to PhantomBuster API timed out. ' .
+                        'The API may be temporarily unavailable or your network is slow. ' .
+                        'Please try again in a few moments.'
+                    );
+                }
                 
-                throw new \Exception($helpfulError);
+                // Re-throw other connection errors
+                throw $e;
             }
-            
-            // Provide helpful error message for "Agent not found"
-            if ($status === 400 && str_contains(strtolower($errorMessage), 'agent not found')) {
-                $helpfulError = "Phantom ID '{$phantomId}' not found in your workspace.\n\n";
-                $helpfulError .= "This usually means the agent is not added to your workspace yet.\n";
-                $helpfulError .= "1. Go to https://phantombuster.com/phantoms and add the phantom you intend to run.\n";
-                $helpfulError .= "2. Use the instance ID from your workspace URL (the template/gallery ID will not work).\n\n";
-                $helpfulError .= "Original error: {$errorMessage}";
-                
-                Log::error("PhantomBuster launch failed - Agent not found", [
-                    'status' => $status,
-                    'body' => $errorBody,
-                    'phantom_id' => $phantomId,
-                    'helpful_message' => $helpfulError
-                ]);
-                
-                throw new \Exception($helpfulError);
-            }
-            
-            Log::error("PhantomBuster launch failed:", [
-                'status' => $status,
-                'body' => $errorBody,
-                'phantom_id' => $phantomId
-            ]);
-            $response->throw();
-        }
 
-        $data = $response->json();
-        
-        // Log full response for debugging
-        Log::info('PhantomBuster: Launch response', [
-            'phantom_id' => $phantomId,
-            'full_response' => $data
-        ]);
-        
-        // Try different possible field names for container ID
-        // First check nested structure (most common format)
-        $containerId = null;
-        if (isset($data['data']) && is_array($data['data'])) {
-            $containerId = $data['data']['containerId'] 
-                ?? $data['data']['container_id'] 
-                ?? $data['data']['id'] 
-                ?? null;
-        }
-        
-        // Fallback to top-level keys
-        if (!$containerId) {
-            $containerId = $data['containerId'] 
-                ?? $data['container_id'] 
-                ?? $data['id'] 
-                ?? $data['outputId']
-                ?? null;
-        }
-        
-        Log::info('PhantomBuster: Phantom launched successfully', [
-            'phantom_id' => $phantomId,
-            'container_id' => $containerId,
-            'response_keys' => array_keys($data),
-            'has_data_key' => isset($data['data']),
-            'data_keys' => isset($data['data']) && is_array($data['data']) ? array_keys($data['data']) : []
-        ]);
-        
-        // Add containerId to response if we found it
-        if ($containerId) {
-            $data['containerId'] = $containerId;
-        } else {
-            Log::error('PhantomBuster: Could not extract containerId from launch response', [
+            if ($response->failed()) {
+                $status = $response->status();
+                $errorBody = $response->json();
+                $errorMessage = is_array($errorBody) ? ($errorBody['error'] ?? json_encode($errorBody)) : $response->body();
+                
+                // Handle rate limiting (429) - parallel execution limit
+                if ($status === 429) {
+                    $detailedError = is_array($errorBody) && isset($errorBody['details']['detailedErrorSlug']) 
+                        ? $errorBody['details']['detailedErrorSlug'] 
+                        : null;
+                    
+                    $helpfulError = "PhantomBuster rate limit reached (429). ";
+                    if ($detailedError === 'maxParallelismReached') {
+                        $helpfulError .= "Your account allows only 1 parallel execution. Wait for running phantoms to finish, or upgrade your plan for more parallel executions.";
+                    } else {
+                        $helpfulError .= "Too many requests. Please wait before retrying.";
+                    }
+                    $helpfulError .= " Original error: {$errorMessage}";
+                    
+                    Log::error("PhantomBuster launch failed - Rate limit", [
+                        'status' => $status,
+                        'body' => $errorBody,
+                        'phantom_id' => $phantomId,
+                        'detailed_error' => $detailedError
+                    ]);
+                    
+                    throw new \Exception($helpfulError);
+                }
+                
+                // Provide helpful error message for "Agent not found"
+                if ($status === 400 && str_contains(strtolower($errorMessage), 'agent not found')) {
+                    $helpfulError = "Phantom ID '{$phantomId}' not found in your workspace.\n\n";
+                    $helpfulError .= "This usually means the agent is not added to your workspace yet.\n";
+                    $helpfulError .= "1. Go to https://phantombuster.com/phantoms and add the phantom you intend to run.\n";
+                    $helpfulError .= "2. Use the instance ID from your workspace URL (the template/gallery ID will not work).\n\n";
+                    $helpfulError .= "Original error: {$errorMessage}";
+                    
+                    Log::error("PhantomBuster launch failed - Agent not found", [
+                        'status' => $status,
+                        'body' => $errorBody,
+                        'phantom_id' => $phantomId,
+                        'helpful_message' => $helpfulError
+                    ]);
+                    
+                    throw new \Exception($helpfulError);
+                }
+                
+                Log::error("PhantomBuster launch failed:", [
+                    'status' => $status,
+                    'body' => $errorBody,
+                    'phantom_id' => $phantomId
+                ]);
+                $response->throw();
+            }
+
+            $data = $response->json();
+            
+            // Log full response for debugging
+            Log::info('PhantomBuster: Launch response', [
                 'phantom_id' => $phantomId,
                 'full_response' => $data
             ]);
-            throw new \Exception("Failed to extract container ID from PhantomBuster launch response");
-        }
+            
+            // Try different possible field names for container ID
+            // First check nested structure (most common format)
+            $containerId = null;
+            if (isset($data['data']) && is_array($data['data'])) {
+                $containerId = $data['data']['containerId'] 
+                    ?? $data['data']['container_id'] 
+                    ?? $data['data']['id'] 
+                    ?? null;
+            }
+            
+            // Fallback to top-level keys
+            if (!$containerId) {
+                $containerId = $data['containerId'] 
+                    ?? $data['container_id'] 
+                    ?? $data['id'] 
+                    ?? $data['outputId']
+                    ?? null;
+            }
+            
+            Log::info('PhantomBuster: Phantom launched successfully', [
+                'phantom_id' => $phantomId,
+                'container_id' => $containerId,
+                'response_keys' => array_keys($data),
+                'has_data_key' => isset($data['data']),
+                'data_keys' => isset($data['data']) && is_array($data['data']) ? array_keys($data['data']) : []
+            ]);
+            
+            // Add containerId to response if we found it
+            if ($containerId) {
+                $data['containerId'] = $containerId;
+            } else {
+                Log::error('PhantomBuster: Could not extract containerId from launch response', [
+                    'phantom_id' => $phantomId,
+                    'full_response' => $data
+                ]);
+                throw new \Exception("Failed to extract container ID from PhantomBuster launch response");
+            }
 
         return $data;
     }
@@ -2112,13 +2114,47 @@ class PhantomBusterService
         $this->sessionCookieOverride = $sessionCookie;
         $this->userAgentOverride = $userAgent;
 
+        $phantomId = config('services.phantombuster.linkedin_profile_scraper_phantom_id');
+        
+        if (!$phantomId) {
+            Log::error('PhantomBuster: LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
+            throw new \Exception('LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
+        }
+
+        // Per-agent lock to ensure only one instance of each agent runs at a time
+        // PhantomBuster API only allows 1 parallel execution per agent
+        // Lock must be held for the ENTIRE operation (launch + polling), not just the API call
+        $lockKey = "phantombuster:agent:{$phantomId}:launch_lock";
+        $lockTimeout = 300; // 5 minutes - maximum time to wait for lock
+        $lockDuration = 600; // 10 minutes - how long to hold the lock if not manually released (safety net)
+        
+        $lock = Cache::lock($lockKey, $lockDuration);
+        
+        Log::info('PhantomBuster: Attempting to acquire per-agent lock for entire operation', [
+            'phantom_id' => $phantomId,
+            'lock_key' => $lockKey,
+            'lock_timeout' => $lockTimeout,
+            'max_wait_seconds' => $maxWaitSeconds
+        ]);
+        
+        // Acquire the lock, blocking up to $lockTimeout seconds
+        $acquired = $lock->block($lockTimeout);
+        
+        if (!$acquired) {
+            Log::error('PhantomBuster: Failed to acquire per-agent lock after timeout', [
+                'phantom_id' => $phantomId,
+                'lock_key' => $lockKey,
+                'timeout_seconds' => $lockTimeout,
+                'message' => 'Another job is holding the lock for this agent. The job will fail and can be retried later.'
+            ]);
+            throw new \Exception(
+                "LOCK_TIMEOUT: PhantomBuster agent {$phantomId} is currently processing another request and the lock could not be acquired after waiting {$lockTimeout} seconds. " .
+                "This job will be reset so you can try again. " .
+                "Each agent allows only 1 parallel execution at a time."
+            );
+        }
+
         try {
-            $phantomId = config('services.phantombuster.linkedin_profile_scraper_phantom_id');
-            
-            if (!$phantomId) {
-                Log::error('PhantomBuster: LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
-                throw new \Exception('LinkedIn Profile Scraper phantom ID not configured. Please set PHANTOMBUSTER_LINKEDIN_PROFILE_SCRAPER_PHANTOM_ID in your .env file.');
-            }
 
          
             $arguments = [
@@ -2299,6 +2335,16 @@ class PhantomBusterService
                 'trace' => $th->getTraceAsString()
             ]);
             throw $th;
+        } finally {
+            // Always release the lock, even if an exception was thrown
+            // Lock must be held for entire operation (launch + polling)
+            if ($acquired) {
+                $lock->release();
+                Log::info('PhantomBuster: Released per-agent lock after operation completion', [
+                    'phantom_id' => $phantomId,
+                    'lock_key' => $lockKey
+                ]);
+            }
         }
     }
 

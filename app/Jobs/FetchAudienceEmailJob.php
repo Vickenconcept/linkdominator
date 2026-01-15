@@ -20,8 +20,15 @@ class FetchAudienceEmailJob implements ShouldQueue
 
     /**
      * Number of times the job may be attempted (1 = no retries, fail fast)
+     * Note: This can be overridden by queue worker --tries parameter
      */
     public $tries = 1;
+
+    /**
+     * Maximum number of exceptions allowed before failing (prevents retries)
+     * This ensures the job fails immediately even if queue worker has --tries > 1
+     */
+    public $maxExceptions = 1;
 
     /**
      * The number of seconds the job can run before timing out (8 minutes)
@@ -44,6 +51,17 @@ class FetchAudienceEmailJob implements ShouldQueue
     {
         $this->audienceListItemId = $audienceListItemId;
         $this->publicIdentifier = $publicIdentifier;
+    }
+
+    /**
+     * Determine the number of times the job may be attempted.
+     * This method overrides the queue worker's --tries parameter.
+     * 
+     * @return int
+     */
+    public function tries(): int
+    {
+        return 1; // No retries - fail fast
     }
 
     /**
@@ -231,21 +249,46 @@ class FetchAudienceEmailJob implements ShouldQueue
                 'new_count' => $user->fresh()->daily_profile_email_scraping_count
             ]);
         } catch (\Throwable $th) {
-            // Mark as attempted but failed
             $audienceListItem = AudienceList::find($this->audienceListItemId);
-            if ($audienceListItem) {
-                $audienceListItem->update([
-                    'email_fetch_attempted_at' => now(),
-                    'email_fetch_status' => 'completed' // Mark as completed so it doesn't retry
-                ]);
-            }
             
-            Log::error('FetchAudienceEmailJob: Failed to fetch email', [
-                'audience_list_id' => $this->audienceListItemId,
-                'public_identifier' => $this->publicIdentifier,
-                'error' => $th->getMessage(),
-                'trace' => $th->getTraceAsString()
-            ]);
+            // Check if this is a lock timeout error (not a real scraping failure)
+            // Includes: lock timeout, 429 rate limit (parallel execution limit), or maxParallelismReached
+            $isLockTimeoutMessage = str_contains($th->getMessage(), 'LOCK_TIMEOUT') || 
+                                   str_contains($th->getMessage(), 'lock could not be acquired') || 
+                                   str_contains($th->getMessage(), 'lock after waiting') ||
+                                   str_contains($th->getMessage(), 'Agent maximum parallel executions limit') ||
+                                   str_contains($th->getMessage(), 'maxParallelismReached') ||
+                                   (str_contains($th->getMessage(), '429') && str_contains($th->getMessage(), 'parallel execution'));
+            
+            if ($audienceListItem) {
+                if ($isLockTimeoutMessage) {
+                    // Lock timeout: Reset status to null so user can try again
+                    $audienceListItem->update([
+                        'email_fetch_status' => null,
+                        'email_fetch_attempted_at' => null
+                    ]);
+                    
+                    Log::warning('FetchAudienceEmailJob: Lock timeout - reset status for retry', [
+                        'audience_list_id' => $this->audienceListItemId,
+                        'public_identifier' => $this->publicIdentifier,
+                        'error' => $th->getMessage(),
+                        'action' => 'Status reset to null - user can retry'
+                    ]);
+                } else {
+                    // Real scraping failure: Mark as completed (no email found)
+                    $audienceListItem->update([
+                        'email_fetch_attempted_at' => now(),
+                        'email_fetch_status' => 'completed' // Mark as completed so it doesn't retry
+                    ]);
+                    
+                    Log::error('FetchAudienceEmailJob: Failed to fetch email (scraping failure)', [
+                        'audience_list_id' => $this->audienceListItemId,
+                        'public_identifier' => $this->publicIdentifier,
+                        'error' => $th->getMessage(),
+                        'trace' => $th->getTraceAsString()
+                    ]);
+                }
+            }
             
             // Don't re-throw - let job complete and move to next
             // Since tries=1, this job won't retry anyway
