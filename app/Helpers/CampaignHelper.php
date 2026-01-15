@@ -26,11 +26,11 @@ trait CampaignHelper
         
         $user = User::where('linkedin_id', $linkedinId)->first();
         if(!$user){
-            Log::warning('Unauthorized access attempt', [
-                'linkedin_id' => $linkedinId,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
-            ]);
+            // Log::warning('Unauthorized access attempt', [
+            //     'linkedin_id' => $linkedinId,
+            //     'ip' => $request->ip(),
+            //     'user_agent' => $request->userAgent()
+            // ]);
             throw new Exception("User not found or unauthorized", 401);
         }
         return $user;

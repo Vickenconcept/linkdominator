@@ -665,24 +665,40 @@ class FetchLinkedinFeeds extends Command
             $authorName = $this->extractNameFromUrl($post['poster_linkedin_url']);
         }
         
-        \App\Models\ViralPost::create([
-            'user_id' => $userId, // User-specific or system-wide (1)
-            'author_name' => $authorName,
-            'author_headline' => $post['poster_title'] ?? $post['poster']['headline'] ?? '',
-            'author_profile_url' => $post['poster_linkedin_url'] ?? '',
-            'content' => $post['text'] ?? '',
-            'post_url' => $post['post_url'] ?? '',
-            'linkedin_post_id' => $post['urn'] ?? '',
-            'likes' => $post['num_likes'] ?? 0,
-            'comments' => $post['num_comments'] ?? 0,
-            'shares' => $post['num_shares'] ?? 0,
-            'views' => $post['num_views'] ?? 0,
-            'engagement_rate' => $this->calculateEngagementRate($post),
-            'post_type' => $postType,
-            'post_date' => $post['posted'] ?? now(),
-            'category' => $this->autoCategorize($post['text'] ?? ''),
-            'saved_at' => now()
-        ]);
+        // Use updateOrCreate to handle duplicates gracefully
+        // This prevents errors when the same post appears in multiple keyword searches
+        try {
+            \App\Models\ViralPost::updateOrCreate(
+                [
+                    'user_id' => $userId,
+                    'linkedin_post_id' => $post['urn'] ?? ''
+                ],
+                [
+                    'author_name' => $authorName,
+                    'author_headline' => $post['poster_title'] ?? $post['poster']['headline'] ?? '',
+                    'author_profile_url' => $post['poster_linkedin_url'] ?? '',
+                    'content' => $post['text'] ?? '',
+                    'post_url' => $post['post_url'] ?? '',
+                    'likes' => $post['num_likes'] ?? 0,
+                    'comments' => $post['num_comments'] ?? 0,
+                    'shares' => $post['num_shares'] ?? 0,
+                    'views' => $post['num_views'] ?? 0,
+                    'engagement_rate' => $this->calculateEngagementRate($post),
+                    'post_type' => $postType,
+                    'post_date' => $post['posted'] ?? now(),
+                    'category' => $this->autoCategorize($post['text'] ?? ''),
+                    'saved_at' => now()
+                ]
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Handle duplicate entry gracefully (in case updateOrCreate doesn't catch it)
+            if ($e->getCode() == 23000 && str_contains($e->getMessage(), 'Duplicate entry')) {
+                // Post already exists, skip silently
+                return;
+            }
+            // Re-throw if it's a different error
+            throw $e;
+        }
     }
     
     /**

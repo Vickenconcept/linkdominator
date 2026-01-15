@@ -14,6 +14,7 @@ Schedule::command('app:fetch-linkedin-feeds')->twiceDailyAt(12, 18, 15);
 Schedule::command('calls:send-reminders')->everyFifteenMinutes();
 Schedule::command('app:process-auto-comments')->hourly(); // Auto-comment processing
 Schedule::command('email:flush-pending-batches')->everyFiveMinutes(); // Flush pending email batches
+Schedule::command('email:reset-daily-scraping-counts')->dailyAt('00:00'); // Reset daily email scraping counts at midnight
 
 // Running the scheduler
 // * * * * * cd /home/tubetargeterapp/app.linkdominator.com && /usr/local/bin/ea-php83 artisan schedule:run >> /dev/null 2>&1

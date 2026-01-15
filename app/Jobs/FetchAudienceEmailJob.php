@@ -18,6 +18,22 @@ class FetchAudienceEmailJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Number of times the job may be attempted (1 = no retries, fail fast)
+     */
+    public $tries = 1;
+
+    /**
+     * The number of seconds the job can run before timing out (8 minutes)
+     * This is slightly longer than PhantomBuster's maxWaitSeconds (5 minutes)
+     */
+    public $timeout = 480;
+
+    /**
+     * Delete the job if it fails (don't keep failed jobs in queue)
+     */
+    public $deleteWhenMissingModels = true;
+
     public int $audienceListItemId;
     public string $publicIdentifier;
 
@@ -215,6 +231,15 @@ class FetchAudienceEmailJob implements ShouldQueue
                 'new_count' => $user->fresh()->daily_profile_email_scraping_count
             ]);
         } catch (\Throwable $th) {
+            // Mark as attempted but failed
+            $audienceListItem = AudienceList::find($this->audienceListItemId);
+            if ($audienceListItem) {
+                $audienceListItem->update([
+                    'email_fetch_attempted_at' => now(),
+                    'email_fetch_status' => 'completed' // Mark as completed so it doesn't retry
+                ]);
+            }
+            
             Log::error('FetchAudienceEmailJob: Failed to fetch email', [
                 'audience_list_id' => $this->audienceListItemId,
                 'public_identifier' => $this->publicIdentifier,
@@ -222,8 +247,9 @@ class FetchAudienceEmailJob implements ShouldQueue
                 'trace' => $th->getTraceAsString()
             ]);
             
-            // Re-throw to mark job as failed (will retry if configured)
-            throw $th;
+            // Don't re-throw - let job complete and move to next
+            // Since tries=1, this job won't retry anyway
+            return;
         }
     }
 

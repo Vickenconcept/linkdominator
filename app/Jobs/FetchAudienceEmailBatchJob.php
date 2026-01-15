@@ -18,9 +18,9 @@ class FetchAudienceEmailBatchJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $tries = 2; // Retry up to 2 times
-    public $timeout = 1200; // 20 minutes timeout for batch processing
-    public $backoff = [120, 300]; // Wait 2min, 5min between retries
+    public $tries = 1; // No retries - fail fast and move to next
+    public $timeout = 600; // 10 minutes timeout for batch processing (reduced from 20)
+    public $deleteWhenMissingModels = true; // Delete if models are missing
 
     /**
      * Array of audience list item IDs to process
