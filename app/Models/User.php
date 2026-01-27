@@ -33,7 +33,9 @@ class User extends Authenticatable
         'calendly_access_token',
         'calendly_refresh_token',
         'calendly_token_expires',
-        'calendly_organization_uri'
+        'calendly_organization_uri',
+        'daily_profile_email_scraping_count',
+        'daily_profile_email_scraping_reset_at'
     ];
 
     /**
@@ -57,5 +59,21 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+    
+    /**
+     * Get the user's content preferences
+     */
+    public function contentPreferences()
+    {
+        return $this->hasOne(\App\Models\UserContentPreference::class);
+    }
+
+    /**
+     * Get the user's auto-comment preferences
+     */
+    public function autoCommentPreferences()
+    {
+        return $this->hasOne(\App\Models\AutoCommentPreference::class);
     }
 }

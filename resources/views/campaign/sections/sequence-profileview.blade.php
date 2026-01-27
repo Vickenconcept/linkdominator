@@ -8,25 +8,23 @@
     <input type="hidden" id="action-field">
     <div class="pt-3">
         <button type="button" id="applyAction" class="block px-10 py-2 text-sm font-medium leading-2 
-        text-white transition-colors duration-150 bg-indigo-500 w-64
-        border border-transparent rounded active:bg-indigo-600
-        hover:bg-indigo-600 focus:outline-none focus:shadow-outline-indigo"
-        style="display: none;">
+        text-white transition-all duration-150 w-64
+        border border-transparent rounded focus:outline-none" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%); display: none;" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
             Apply
         </button>
     </div>
 </div>
-<button type="button" style="display: none" class="profile-view-modal-btn py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-hidden focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-profile-view-modal" data-hs-overlay="#hs-profile-view-modal">
+<button type="button" style="display: none" class="profile-view-modal-btn py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white focus:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';" aria-haspopup="dialog" aria-expanded="false" aria-controls="hs-profile-view-modal" data-hs-overlay="#hs-profile-view-modal">
     Toggle modal
 </button>
 <div id="hs-profile-view-modal" class="hs-overlay hidden size-full fixed top-0 start-0 z-80 overflow-x-hidden overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-profile-view-modal-label">
     <div class="hs-overlay-open:mt-7 hs-overlay-open:opacity-100 hs-overlay-open:duration-500 mt-0 opacity-0 ease-out transition-all md:max-w-2xl md:w-full m-3 md:mx-auto">
-        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-                <h3 id="hs-profile-view-modal-label" class="font-bold text-gray-800 dark:text-white modal-title">
+        <div class="flex flex-col bg-white border border-gray-200 shadow-md rounded-xl pointer-events-auto">
+            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+                <h3 id="hs-profile-view-modal-label" class="font-bold text-gray-800 modal-title">
                     Profile view
                 </h3>
-                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-profile-view-modal">
+                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-profile-view-modal">
                 <span class="sr-only">Close</span>
                 <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
@@ -42,10 +40,10 @@
                     </div>
                     <div class="grid grid-cols-6 gap-3 pt-2">
                         <div class="col-span-2">
-                            <input type="number" id="time-number" class="border border-gray-300 text-gray-900 rounded focus:ring-indigo-600 focus:border-indigo-600 block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
+                            <input type="number" id="time-number" class="border border-gray-300 text-gray-900 rounded focus:ring-[#0077b5] focus:border-[#0077b5] block w-full px-3 disabled:opacity-50 disabled:pointer-events-none">
                         </div>
                         <div class="col-span-3">
-                            <select id="time-type" class="px-4 pe-9 py-2 block w-full border-gray-300 rounded focus:border-indigo-600 focus:ring-indigo-600 disabled:opacity-50 disabled:pointer-events-none">
+                            <select id="time-type" class="px-4 pe-9 py-2 block w-full border-gray-300 rounded focus:border-[#0077b5] focus:ring-[#0077b5] disabled:opacity-50 disabled:pointer-events-none">
                                 <option value="days">days</option>
                                 <option value="hours">hours</option>
                             </select>
@@ -53,11 +51,11 @@
                     </div>
                 </div>
             </div>
-            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                <button type="button" id="close-apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-profile-view-modal">
+            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                <button type="button" id="close-apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-profile-view-modal">
                 Close
                 </button>
-                <button type="button" id="apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-hidden focus:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none">
+                <button type="button" id="apply-action-main" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent text-white focus:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-all" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                 Save changes
                 </button>
             </div>
@@ -76,9 +74,8 @@
     </a>
     <button type="button" onclick="saveSequence()"
         class="block px-10 py-3 text-sm font-medium leading-2 
-        text-white transition-colors duration-150 bg-indigo-500 
-        border border-transparent rounded-tr-lg rounded-bl-lg active:bg-indigo-600
-        hover:bg-indigo-600 focus:outline-none focus:shadow-outline-indigo submit-profileview-sequence">
+            text-white transition-all duration-150 
+            border border-transparent rounded-tr-lg rounded-bl-lg focus:outline-none submit-profileview-sequence" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
         <span class=" flex gap-1">
             <span class="pt-1">Next</span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">

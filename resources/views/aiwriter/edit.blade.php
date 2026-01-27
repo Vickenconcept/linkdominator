@@ -1,11 +1,11 @@
 @extends('layout.auth')
 
 @section('content')
-<h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+<h2 class="text-lg font-semibold text-gray-700">
     Update Content - {{$aicontent->title}}
 </h2>
 <div class="md:flex gap-6 mb-8">
-    <div class="w-1/2 rounded-lg dark:bg-gray-800">
+    <div class="w-1/2 rounded-lg">
         <ul class="">
             <li class="mb-4">
                 <span class="cursor-pointer text-indigo-600 section-btn" id="cold-mail">
@@ -24,9 +24,9 @@
             </li>
         </ul>
     </div>
-    <div class="w-full p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
+    <div class="w-full p-4 bg-white rounded-lg shadow-xs">
         <div class="mt-4 w-full">
-            <div class="p-4 mb-4 mt-4 text-sm text-red-800 rounded-lg bg-red-100 dark:bg-gray-800 dark:text-red-400 hidden" id="notification" role="alert">
+            <div class="p-4 mb-4 mt-4 text-sm text-red-800 rounded-lg bg-red-100 hidden" id="notification" role="alert">
                 <span class="font-medium">Error!</span>
                 <span class="notify-message"></span>
             </div>
@@ -35,13 +35,11 @@
                 @method('PUT')
                 <input type="hidden" id="aitype" name="aitype" value="{{$aicontent->ai_type}}">
                 <label class="block text-sm w-full">
-                    <span class="text-gray-700 dark:text-gray-400">Title</span>
+                    <span class="text-gray-700">Title</span>
                     <input
                     type="text"
-                    class="block w-full mt-1 text-sm dark:border-gray-600 
-                    dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:text-gray-300 
-                    dark:focus:shadow-outline-gray form-input rounded-md border-gray-200"
+                    class="block w-full mt-1 text-sm                   focus:border-indigo-400 focus:outline-none 
+                    focus:shadow-outline-indigo form-input rounded-md border-gray-200"
                     placeholder="Content title"
                     id="title" name="title"
                     value="{{$aicontent->title}}"
@@ -49,14 +47,13 @@
                     />
                 </label>
                 <label class="block mt-4 mb-4 text-sm">
-                    <span class="text-gray-700 dark:text-gray-400">
+                    <span class="text-gray-700">
                         Language
                     </span>
                     <select class="block w-full mt-1 text-sm 
-                    dark:text-gray-300 dark:border-gray-600 
-                    dark:bg-gray-700 form-select rounded-md
+                  form-select rounded-md
                     focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray"
+                    focus:shadow-outline-indigo
                     id="language"
                     name="language"
                     value="{{$aicontent->language}}">
@@ -68,14 +65,14 @@
                     </select>
                 </label>
                 <label class="block mt-4 text-sm" id="write">
-                    <span class="text-gray-700 dark:text-gray-400">
+                    <span class="text-gray-700">
                         Writing style
                     </span>
                     <select class="block w-full mt-1 text-sm 
-                    dark:text-gray-300 dark:border-gray-600 rounded-md
-                    dark:bg-gray-700 form-select focus:border-indigo-400 
+
+form-select focus:border-indigo-400 
                     focus:outline-none focus:shadow-outline-indigo 
-                    dark:focus:shadow-outline-gray"
+
                     id="write_style"
                     name="write_style"
                     value="{{$aicontent->write_style}}">
@@ -85,14 +82,14 @@
                     </select>
                 </label>
                 <label class="block mt-6 text-sm hidden" id="personalized">
-                    <span class="text-gray-700 dark:text-gray-400">
+                    <span class="text-gray-700">
                         Personalize by
                     </span>
                     <select class="block w-full mt-1 text-sm 
-                    dark:text-gray-300 dark:border-gray-600 rounded-md
-                    dark:bg-gray-700 form-select focus:border-indigo-400 
+
+form-select focus:border-indigo-400 
                     focus:outline-none focus:shadow-outline-indigo 
-                    dark:focus:shadow-outline-gray"
+
                     id="personalized_by"
                     name="personalized_by">
                         <option value="location">Location</option>
@@ -106,10 +103,8 @@
                 <label class="block mt-8 text-sm w-full hidden location-elem">
                     <input
                     type="text"
-                    class="block w-full mt-2 text-sm dark:border-gray-600 
-                    dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:text-gray-300 
-                    dark:focus:shadow-outline-gray form-input rounded-md border-gray-200"
+                    class="block w-full mt-2 text-sm                   focus:border-indigo-400 focus:outline-none 
+                    focus:shadow-outline-indigo form-input rounded-md border-gray-200"
                     placeholder="Enter location"
                     id="location" name="location"
                     value="{{$aicontent->connection_message_location}}"
@@ -118,10 +113,8 @@
                 <label class="block mt-8 text-sm w-full hidden industry-elem">
                     <input
                     type="text"
-                    class="block w-full mt-2 text-sm dark:border-gray-600 
-                    dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:text-gray-300 
-                    dark:focus:shadow-outline-gray form-input rounded-md border-gray-200"
+                    class="block w-full mt-2 text-sm                   focus:border-indigo-400 focus:outline-none 
+                    focus:shadow-outline-indigo form-input rounded-md border-gray-200"
                     placeholder="Enter industry"
                     id="industry" name="industry"
                     value="{{$aicontent->connection_message_industry}}"
@@ -130,22 +123,19 @@
                 <label class="block mt-8 text-sm w-full hidden jobtitle-elem">
                     <input
                     type="text"
-                    class="block w-full mt-2 text-sm dark:border-gray-600 
-                    dark:bg-gray-700 focus:border-indigo-400 focus:outline-none 
-                    focus:shadow-outline-indigo dark:text-gray-300 
-                    dark:focus:shadow-outline-gray form-input rounded-md border-gray-200"
+                    class="block w-full mt-2 text-sm                   focus:border-indigo-400 focus:outline-none 
+                    focus:shadow-outline-indigo form-input rounded-md border-gray-200"
                     placeholder="Enter job title"
                     id="jobtitle" name="jobtitle"
                     value="{{$aicontent->connection_message_jobtitle}}"
                     />
                 </label>
                 <label class="block mt-4 text-sm" id="ideal">
-                    <span class="text-gray-700 dark:text-gray-400">Idea </span>
+                    <span class="text-gray-700">Idea </span>
                     <textarea
-                    class="block w-full mt-1 text-sm dark:text-gray-300 
-                    dark:border-gray-600 dark:bg-gray-700 form-textarea 
+                    class="block w-full mt-1 text-sm form-textarea 
                     focus:border-indigo-400 focus:outline-none rounded-md
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray"
+                    focus:shadow-outline-indigo
                     rows="3"
                     id="idea"
                     name="idea"
@@ -153,12 +143,11 @@
                     >{{$aicontent->idea}}</textarea>
                 </label>
                 <label class="block mt-4 text-sm">
-                    <span class="text-gray-700 dark:text-gray-400">Content</span>
+                    <span class="text-gray-700">Content</span>
                     <textarea
-                    class="block w-full mt-1 text-sm dark:text-gray-300 
-                    dark:border-gray-600 dark:bg-gray-700 form-textarea 
+                    class="block w-full mt-1 text-sm form-textarea 
                     focus:border-indigo-400 focus:outline-none rounded-md
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray"
+                    focus:shadow-outline-indigo
                     rows="10"
                     id="content"
                     name="content"
@@ -166,11 +155,10 @@
                     >{{$aicontent->contents}}</textarea>
                 </label>
                 <label class="mt-4 text-sm flex gap-4 justify-end ">
-                    <span class="text-gray-700 dark:text-gray-400 mt-2">Word count</span>
-                    <input class="text-sm dark:text-gray-300 w-[5rem]
-                    dark:border-gray-600 dark:bg-gray-700 form-textarea
+                    <span class="text-gray-700 mt-2">Word count</span>
+                    <input class="text-sm w-[5rem] form-textarea
                     focus:border-indigo-400 focus:outline-none rounded-md border-gray-200
-                    focus:shadow-outline-indigo dark:focus:shadow-outline-gray"
+                    focus:shadow-outline-indigo
                     type="number" id="words" name="words" value="{{$aicontent->word_counts}}" readonly>
                 </label>
                 <div class="bg-gray-50 px-4 py-3 mt-4 sm:flex sm:flex-row-reverse sm:px-6">

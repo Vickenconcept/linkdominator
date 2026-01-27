@@ -64,8 +64,8 @@ Route::middleware(['api'])->group(function() {
 });
 
 Route::controller(LeadController::class)->group(function (){
-    Route::get('leads/export', 'export')->name('leads.export');
-    Route::get('leads/export/bulk', 'bulk_export')->name('leads.bulk_export');
+    Route::get('leads/export', 'export')->name('api.leads.export');
+    Route::get('leads/export/bulk', 'bulk_export')->name('api.leads.bulk_export');
 });
 
 Route::get('aicontents', [AiwriterController::class, 'aicontents']); 
@@ -82,6 +82,7 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::delete('audience/list', 'deleteAudienceList');
     Route::get('audience/list/export', 'audienceListExport');
     Route::post('audiences/export/{audience_id}', 'export');
+    Route::get('esp/config', 'getEspConfig');
     Route::get('audience/count', 'audienceRecent');
     Route::get('autoresponses', 'getAutoResponses');
     Route::post('autoresponse/store', 'storeAutoResponse');
@@ -90,6 +91,9 @@ Route::controller(ChromeApiController::class)->group(function (){
     Route::delete('autoresponse/delete/{id}', 'deleteAutoResponse');
     Route::get('lang', 'langFilter');
     Route::post('conf', 'LinkedInConfig');
+    Route::post('audience/post-likers', 'fetchPostLikersFromPhantom');
+    Route::post('audience/post-comments', 'fetchPostCommentsFromPhantom');
+    Route::post('audience/search-export', 'fetchSearchResultsFromPhantom');
     Route::post('snleads/store', 'storeSnLeads');
     Route::get('snleads/lists', 'getSnLeadList');
     Route::post('snleads/list/store', 'storeSnLeadList');
@@ -97,4 +101,10 @@ Route::controller(ChromeApiController::class)->group(function (){
     
     // Call management routes
     Route::get('calls/check-existing', 'checkExistingCall');
+    
+    // Post comment generation
+    Route::post('post/generate-comment', 'generatePostComment');
+    
+    // LinkedIn ID sync endpoint
+    Route::post('auth/sync-linkedin-id', 'syncLinkedInId');
 }); 

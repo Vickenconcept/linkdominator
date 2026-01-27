@@ -65,38 +65,31 @@ class ContentCreatorController extends Controller
     {
         $request->validate([
             'content' => 'required|string|max:3000',
-            'post_type' => 'required|in:text,image,carousel,video',
+            'post_type' => 'required|in:text,image,video',
             'scheduled_at' => 'nullable|date|after:now',
             'hashtags' => 'nullable|string|max:500',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // 10MB max
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240', // For carousel
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240', // For multiple images (PNG, JPG, WEBP only)
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400' // 100MB max for video
         ]);
 
         // Validate that only one media type is selected based on post_type
         if ($request->post_type === 'image' && $request->hasFile('video')) {
-            return back()->withErrors(['video' => 'Cannot upload video for image post type. Please select image instead.']);
+            return back()->withErrors(['video' => 'Cannot upload video for image post type.']);
         }
         
-        if ($request->post_type === 'video' && ($request->hasFile('image') || $request->hasFile('images'))) {
-            return back()->withErrors(['image' => 'Cannot upload images for video post type. Please select video instead.']);
+        if ($request->post_type === 'video' && $request->hasFile('images')) {
+            return back()->withErrors(['images' => 'Cannot upload images for video post type.']);
         }
 
-        $imageUrl = null;
+        $imageUrls = null;
         $videoUrl = null;
-        $carouselImages = null;
 
         // Initialize Cloudinary service
         $cloudinaryService = new LinkedInContentService();
 
-        // Handle single image upload (for image post type)
-        if ($request->post_type === 'image' && $request->hasFile('image')) {
-            $imageUrl = $cloudinaryService->uploadImage($request->file('image'));
-        }
-
-        // Handle multiple images upload (for carousel post type)
-        if ($request->post_type === 'carousel' && $request->hasFile('images')) {
-            $carouselImages = $cloudinaryService->uploadCarouselImages($request->file('images'));
+        // Handle multiple images upload (for image post type - 1 or more images)
+        if ($request->post_type === 'image' && $request->hasFile('images')) {
+            $imageUrls = $cloudinaryService->uploadCarouselImages($request->file('images'));
         }
 
         // Handle video upload (only for video post type)
@@ -113,28 +106,78 @@ class ContentCreatorController extends Controller
             $scheduledAt = now();
         } elseif ($request->publish_option === 'schedule' && $request->scheduled_at) {
             $status = 'scheduled';
-            $scheduledAt = Carbon::parse($request->scheduled_at);
+            // Parse the datetime and assume it's in UTC (since datetime-local doesn't include timezone)
+            // If user has a timezone setting, we should convert it
+            $scheduledAt = Carbon::parse($request->scheduled_at, 'UTC');
+            
+            \Log::info('📅 Scheduling post', [
+                'input_time' => $request->scheduled_at,
+                'parsed_utc' => $scheduledAt->toDateTimeString(),
+                'server_time' => Carbon::now()->toDateTimeString()
+            ]);
+        }
+
+        \Log::info('📝 Creating new LinkedIn post', [
+            'user_id' => auth()->id(),
+            'post_type' => $request->post_type,
+            'status' => $status,
+            'scheduled_at' => $scheduledAt,
+            'has_images' => !empty($imageUrls),
+            'has_video' => !empty($videoUrl),
+            'content_length' => strlen($request->content)
+        ]);
+
+        // Truncate hashtags if too long (safety measure, but column should now be TEXT)
+        $hashtags = $request->hashtags;
+        if ($hashtags && strlen($hashtags) > 65535) {
+            $hashtags = substr($hashtags, 0, 65535);
+            \Log::warning('⚠️ Hashtags truncated due to length', [
+                'original_length' => strlen($request->hashtags),
+                'truncated_length' => strlen($hashtags)
+            ]);
         }
 
         $post = LinkedInPost::create([
             'user_id' => auth()->id(),
             'content' => $request->content,
-            'image_url' => $imageUrl,
+            'image_url' => $imageUrls, // Model will auto-encode to JSON if array
             'video_url' => $videoUrl,
-            'carousel_images' => $carouselImages,
             'post_type' => $request->post_type,
             'status' => $status,
             'scheduled_at' => $scheduledAt,
-            'hashtags' => $request->hashtags,
+            'hashtags' => $hashtags,
             'word_count' => str_word_count($request->content)
         ]);
 
+        \Log::info('✅ Post created in database', [
+            'post_id' => $post->id,
+            'status' => $post->status,
+            'scheduled_at' => $post->scheduled_at
+        ]);
+
         if ($status === 'scheduled') {
+            \Log::info('📅 Dispatching scheduled job', [
+                'post_id' => $post->id,
+                'delay_until' => $scheduledAt,
+                'queue_driver' => config('queue.default')
+            ]);
             // Dispatch job for scheduling
             \App\Jobs\PublishLinkedInPost::dispatch($post)->delay($scheduledAt);
         } elseif ($status === 'ready_to_publish') {
-            // Dispatch job immediately for "Publish Now"
-            \App\Jobs\PublishLinkedInPost::dispatch($post);
+            \Log::info('🚀 Dispatching IMMEDIATE publish job', [
+                'post_id' => $post->id,
+                'user_id' => auth()->id(),
+                'linkedin_id' => auth()->user()->linkedin_id ?? 'not_set',
+                'queue_driver' => config('queue.default'),
+                'queue_connection' => config('queue.connections.database')
+            ]);
+            
+            // For immediate publishing, use dispatchSync to run immediately
+            // This ensures the job runs right away without needing queue worker
+            \Log::info('⚡ Using dispatchSync for immediate execution');
+            \App\Jobs\PublishLinkedInPost::dispatchSync($post);
+            
+            \Log::info('✅ Job completed for post_id: ' . $post->id);
         }
 
         notify()->success('Post saved successfully!');
@@ -185,9 +228,31 @@ class ContentCreatorController extends Controller
             }
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error (OpenAI specific)
+            $message = $e->getMessage();
+            $isRateLimit = str_contains(strtolower($message), 'rate limit') 
+                        || str_contains(strtolower($message), 'rate_limit_exceeded')
+                        || str_contains($message, '429')
+                        || str_contains(strtolower($message), 'too many requests');
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
+                $draftMessage = $request->multiple_drafts ? ' This was a single API call requesting 2 drafts.' : '';
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.' . $draftMessage
+                ], 429);
+            }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }
@@ -213,9 +278,28 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error (OpenAI specific)
+            $message = $e->getMessage();
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
+                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                ], 429);
+            }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }
@@ -248,9 +332,28 @@ class ContentCreatorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            // Check if it's a rate limit error (OpenAI specific)
+            $message = $e->getMessage();
+            $isRateLimit = str_contains(strtolower($message), 'rate_limit_exceeded') 
+                        || (str_contains($message, 'status code 429') && str_contains(strtolower($message), 'too many requests'));
+            
+            if ($isRateLimit) {
+                \Log::warning('AI rate limit hit', ['error' => substr($message, 0, 200)]);
+                return response()->json([
+                    'success' => false,
+                    'message' => '⏳ AI rate limit reached. Please wait 1-2 minutes before trying again.'
+                ], 429);
+            }
+            
+            // Log actual error for debugging
+            \Log::error('AI operation failed', [
+                'error' => substr($message, 0, 500),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $message
             ], 422);
         }
     }
@@ -309,9 +412,19 @@ class ContentCreatorController extends Controller
             'scheduled_at' => 'required|date|after:now'
         ]);
 
+        // Parse the datetime and assume it's in UTC (since datetime-local doesn't include timezone)
+        $scheduledAt = Carbon::parse($request->scheduled_at, 'UTC');
+        
+        \Log::info('📅 Rescheduling post', [
+            'post_id' => $id,
+            'input_time' => $request->scheduled_at,
+            'parsed_utc' => $scheduledAt->toDateTimeString(),
+            'server_time' => Carbon::now()->toDateTimeString()
+        ]);
+
         $post->update([
             'status' => 'scheduled',
-            'scheduled_at' => Carbon::parse($request->scheduled_at)
+            'scheduled_at' => $scheduledAt
         ]);
 
         // Dispatch job for scheduling
@@ -342,20 +455,20 @@ class ContentCreatorController extends Controller
             'scheduled_at' => now()
         ]);
 
-        // Dispatch job immediately
-        \App\Jobs\PublishLinkedInPost::dispatch($post);
-
-        // Log that a post was published immediately for extension to pick up
-        \Log::info('🚀 Post published immediately', [
+        // Log that a post is being published immediately
+        \Log::info('🚀 Publishing draft post immediately', [
             'post_id' => $post->id,
             'user_id' => auth()->id(),
             'linkedin_id' => auth()->user()->linkedin_id,
             'content_preview' => substr($post->content, 0, 100) . '...'
         ]);
 
+        // Dispatch job SYNCHRONOUSLY (no queue worker needed)
+        \App\Jobs\PublishLinkedInPost::dispatchSync($post);
+
         return response()->json([
             'success' => true,
-            'message' => 'Post is being published!'
+            'message' => 'Post published successfully!'
         ]);
     }
 
@@ -378,6 +491,35 @@ class ContentCreatorController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Post deleted successfully!'
+        ]);
+    }
+
+    /**
+     * Bulk delete posts
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'post_ids' => 'required|array',
+            'post_ids.*' => 'required|integer|exists:linkedin_posts,id'
+        ]);
+
+        $userId = auth()->id();
+        $postIds = $request->post_ids;
+        
+        // Only delete posts that belong to the user and are not published
+        $deletedCount = LinkedInPost::where('user_id', $userId)
+            ->whereIn('id', $postIds)
+            ->where('status', '!=', 'published')
+            ->delete();
+
+        $skippedCount = count($postIds) - $deletedCount;
+        
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully deleted {$deletedCount} post(s)." . ($skippedCount > 0 ? " {$skippedCount} published post(s) were skipped." : ''),
+            'deleted_count' => $deletedCount,
+            'skipped_count' => $skippedCount
         ]);
     }
 

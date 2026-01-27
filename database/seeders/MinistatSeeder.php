@@ -16,7 +16,6 @@ class MinistatSeeder extends Seeder
             'connections' => 938,
             'pending_invites' => 3,
             'profile_views' => 0,
-            'search_appearance' => 9,
             'user_id' => 1
         ]);
     }

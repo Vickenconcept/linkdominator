@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Integration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class SocialAccountController extends Controller
 {
@@ -23,6 +24,32 @@ class SocialAccountController extends Controller
         $account->delete();
 
         notify()->success('Account disconnected');
+        return redirect()->route('social-account.index');
+    }
+
+    public function storeCredentials(Request $request, Integration $integration)
+    {
+        abort_if($integration->user_id !== auth()->id(), 403);
+        abort_if($integration->oauth_provider !== 'linkedin', 404);
+
+        $data = $request->validate([
+            'linkedin_session_cookie' => ['required', 'string'],
+            'linkedin_user_agent' => ['required', 'string'],
+        ]);
+
+        $integration->update([
+            'linkedin_session_cookie' => $data['linkedin_session_cookie'],
+            'linkedin_user_agent' => $data['linkedin_user_agent'],
+            'linkedin_session_verified_at' => now(),
+        ]);
+
+        Log::info('LinkedIn session cookie updated for integration', [
+            'integration_id' => $integration->id,
+            'user_id' => $integration->user_id,
+        ]);
+
+        notify()->success('LinkedIn session saved. We recommend refreshing it every 30 days.');
+
         return redirect()->route('social-account.index');
     }
 }

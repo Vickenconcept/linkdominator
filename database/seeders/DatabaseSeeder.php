@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             MinistatSeeder::class,
             PostTemplateSeeder::class,
+            TimezoneSeeder::class,
         ]);
     }
 }

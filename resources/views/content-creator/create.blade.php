@@ -2,25 +2,25 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Create New Post</h2>
+    <h2 class="text-2xl font-bold text-gray-900">Create New Post</h2>
     <a href="{{ route('content-creator.index') }}" 
-       class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+       class="text-gray-600 hover:text-[#0077b5]">
         <i class="fas fa-arrow-left mr-2"></i>Back to Posts
     </a>
 </div>
 
 <!-- Error Messages -->
 @if ($errors->any())
-<div class="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+<div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
     <div class="flex">
         <div class="flex-shrink-0">
             <i class="fas fa-exclamation-triangle text-red-400"></i>
         </div>
         <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+            <h3 class="text-sm font-medium text-red-800">
                 Please fix the following errors:
             </h3>
-            <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+            <div class="mt-2 text-sm text-red-700">
                 <ul class="list-disc list-inside space-y-1">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -34,13 +34,13 @@
 
 <!-- Success Messages -->
 @if (session('success'))
-<div class="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+<div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
     <div class="flex">
         <div class="flex-shrink-0">
             <i class="fas fa-check-circle text-green-400"></i>
         </div>
         <div class="ml-3">
-            <p class="text-sm text-green-800 dark:text-green-200">
+            <p class="text-sm text-green-800">
                 {{ session('success') }}
             </p>
         </div>
@@ -51,29 +51,29 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <!-- Left Sidebar - Templates & AI Tools -->
     <div class="lg:col-span-1">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Assistant</h3>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">AI Assistant</h3>
             
             <!-- AI Generation Form -->
             <form id="aiGenerateForm" class="space-y-4">
                 @csrf
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         Topic or Idea
                     </label>
                     <textarea id="aiTopic" 
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]"
                               rows="3" 
                               placeholder="What do you want to write about?"></textarea>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Style
                         </label>
                         <select id="aiStyle" 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                             <option value="professional">Professional</option>
                             <option value="casual">Casual</option>
                             <option value="motivational">Motivational</option>
@@ -83,11 +83,11 @@
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Length
                         </label>
                         <select id="aiLength" 
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                             <option value="short">Short</option>
                             <option value="medium" selected>Medium</option>
                             <option value="long">Long</option>
@@ -99,16 +99,16 @@
                 <div class="mb-4">
                     <label class="flex items-center cursor-pointer">
                         <input type="checkbox" id="multipleDrafts" 
-                               class="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500">
-                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                            Generate 3 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
+                               class="w-4 h-4 bg-gray-100 border-gray-300 rounded focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                        <span class="ml-2 text-sm text-gray-700">
+                            Generate 2 variations <span class="text-xs text-gray-500">(Taplio-style)</span>
                         </span>
                     </label>
                 </div>
                 
                 <button type="submit" 
                         id="generateBtn"
-                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="w-full text-white py-2 px-4 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                     <span id="generateText">
                         <i class="fas fa-magic mr-2"></i>Generate with AI
                     </span>
@@ -120,8 +120,8 @@
             
             <!-- 🔥 NEW: Multiple Drafts Selection -->
             <div id="draftsContainer" class="mt-4 hidden">
-                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    <i class="fas fa-copy mr-1 text-orange-500"></i>Choose Your Favorite Draft
+                <h4 class="text-sm font-medium text-gray-700 mb-3">
+                    <i class="fas fa-copy mr-1 text-[#0077b5]"></i>Choose Your Favorite Draft
                 </h4>
                 <div id="draftsList" class="space-y-3 max-h-96 overflow-y-auto">
                     <!-- Drafts will be inserted here -->
@@ -130,10 +130,10 @@
         </div>
 
         <!-- Templates Section -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Templates</h3>
-                <span id="templateCount" class="text-xs text-gray-500 dark:text-gray-400">
+                <h3 class="text-lg font-semibold text-gray-900">Templates</h3>
+                <span id="templateCount" class="text-xs text-gray-500">
                     {{ count($templates) }} templates
                 </span>
             </div>
@@ -145,13 +145,13 @@
                     <input type="text" 
                            id="templateSearch" 
                            placeholder="Search templates..." 
-                           class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                           class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
                 </div>
                 
                 <!-- Category Filter -->
                 <select id="templateCategory" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Categories</option>
                     @foreach($categories as $key => $name)
                     <option value="{{ $key }}">{{ $name }}</option>
@@ -160,7 +160,7 @@
                 
                 <!-- Industry Filter -->
                 <select id="templateIndustry" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Industries</option>
                     @foreach($industries as $key => $name)
                     <option value="{{ $key }}">{{ $name }}</option>
@@ -169,7 +169,7 @@
                 
                 <!-- Engagement Score Filter -->
                 <select id="templateEngagement" 
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5]">
                     <option value="">All Engagement</option>
                     <option value="90">🔥 90%+ (Viral)</option>
                     <option value="85">⚡ 85%+ (High)</option>
@@ -179,7 +179,7 @@
                 <!-- Clear Filters Button -->
                 <button type="button" 
                         id="clearFilters"
-                        class="w-full px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors">
+                        class="w-full px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors">
                     <i class="fas fa-redo mr-1"></i>Clear Filters
                 </button>
             </div>
@@ -187,7 +187,7 @@
             <!-- Templates List -->
             <div id="templatesList" class="space-y-3 max-h-64 overflow-y-auto">
                 @foreach($templates as $template)
-                <div class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer template-item"
+                <div class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer template-item"
                      data-template-id="{{ $template->id }}"
                      data-category="{{ $template->category }}"
                      data-industry="{{ $template->industry }}"
@@ -195,26 +195,26 @@
                      data-title="{{ strtolower($template->title) }}"
                      data-description="{{ strtolower($template->description ?? '') }}">
                     <div class="flex items-start justify-between mb-1">
-                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                        <div class="text-sm font-medium text-gray-900">
                             {{ $template->title }}
                         </div>
                         <!-- Engagement Badge -->
                         <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded
-                            @if($template->engagement_score >= 90) bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200
-                            @elseif($template->engagement_score >= 85) bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200
-                            @else bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 @endif">
+                            @if($template->engagement_score >= 90) bg-red-100 text-red-700
+                            @elseif($template->engagement_score >= 85) bg-blue-50 text-[#0077b5] border border-[#0077b5]
+                            @else bg-blue-100 text-blue-700 @endif">
                             {{ $template->engagement_score }}%
                         </span>
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <div class="text-xs text-gray-500 mb-2">
                         {{ Str::limit($template->description ?? $template->content, 60) }}
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2">
-                            <span class="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 rounded">
+                            <span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
                                 {{ ucfirst($template->category) }}
                             </span>
-                            <span class="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
+                            <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                                 {{ ucfirst($template->industry) }}
                             </span>
                         </div>
@@ -225,10 +225,10 @@
             
             <!-- No Results Message -->
             <div id="noTemplatesMessage" class="hidden text-center py-8">
-                <i class="fas fa-search text-4xl text-gray-300 dark:text-gray-600 mb-2"></i>
-                <p class="text-sm text-gray-500 dark:text-gray-400">No templates found</p>
+                <i class="fas fa-search text-4xl text-gray-300 mb-2"></i>
+                <p class="text-sm text-gray-500">No templates found</p>
                 <button type="button" onclick="clearAllFilters()" 
-                        class="mt-2 text-xs text-orange-600 hover:text-orange-700">
+                        class="mt-2 text-xs text-[#0077b5] hover:text-[#005885]">
                     Clear filters
                 </button>
             </div>
@@ -237,86 +237,84 @@
 
     <!-- Main Content Area -->
     <div class="lg:col-span-2">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="bg-white rounded-lg shadow-md">
             <div class="p-6">
                 <form id="postForm" action="{{ route('content-creator.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     
                     <!-- Post Type Selection -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
                             Post Type
                         </label>
-                        <div class="grid grid-cols-4 gap-4 @error('post_type') border border-red-500 rounded-lg p-2 @enderror">
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <div class="grid grid-cols-3 gap-4 @error('post_type') border border-red-500 rounded-lg p-2 @enderror">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="text" 
                                        {{ old('post_type', 'text') == 'text' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Text</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Text only</div>
+                                    <div class="text-sm font-medium text-gray-900">Text</div>
+                                    <div class="text-xs text-gray-500">Text only</div>
                                 </div>
                             </label>
                             
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="image" 
                                        {{ old('post_type') == 'image' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Image</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">With image</div>
+                                    <div class="text-sm font-medium text-gray-900">Image</div>
+                                    <div class="text-xs text-gray-500">1-10 images</div>
                                 </div>
                             </label>
                             
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <input type="radio" name="post_type" value="carousel" 
-                                       {{ old('post_type') == 'carousel' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Carousel</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Multiple images</div>
-                                </div>
-                            </label>
-                            
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="post_type" value="video" 
                                        {{ old('post_type') == 'video' ? 'checked' : '' }}
-                                       class="text-orange-600 focus:ring-orange-500">
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
                                 <div class="ml-3">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">Video</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">Video content</div>
+                                    <div class="text-sm font-medium text-gray-900">Video</div>
+                                    <div class="text-xs text-gray-500">Video content</div>
                                 </div>
                             </label>
                         </div>
+                        
+                        <!-- Info note about multiple images -->
+                        <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Tip:</strong> Image posts support multiple images (1-10) - perfect for photo collections and galleries!
+                            </p>
+                        </div>
                         @error('post_type')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <!-- Content Editor -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Post Content
                         </label>
                         <textarea id="postContent" 
                                   name="content" 
                                   rows="8" 
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('content') border-red-500 @enderror"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('content') border-red-500 @enderror"
                                   placeholder="Write your LinkedIn post here...">{{ old('content') }}</textarea>
                         @error('content')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div class="mt-2 flex justify-between items-center">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                            <div class="text-sm text-gray-500">
                                 <span id="wordCount">0</span> words
                             </div>
                         </div>
                         
                         <!-- 🔥 NEW: Improve Post Action Buttons (Taplio-style) -->
-                        <div id="improveActions" class="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hidden">
+                        <div id="improveActions" class="mt-3 p-3 bg-gray-50 rounded-lg hidden">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <i class="fas fa-magic text-orange-500 mr-1"></i>Improve Your Post
+                                <span class="text-sm font-medium text-gray-700">
+                                    <i class="fas fa-magic text-[#0077b5] mr-1"></i>Improve Your Post
                                 </span>
                                 <button type="button" onclick="toggleImproveActions()" 
                                         class="text-xs text-gray-500 hover:text-gray-700">
@@ -337,7 +335,7 @@
                                     <i class="fas fa-expand-arrows-alt mr-1"></i>Expand
                                 </button>
                                 <button type="button" onclick="improvePost('make_viral')" 
-                                        class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-md transition-colors flex items-center">
+                                        class="px-3 py-1.5 text-white text-xs rounded-md transition-all flex items-center" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)';">
                                     <i class="fas fa-fire mr-1"></i>Make Viral
                                 </button>
                                 <button type="button" onclick="improvePost('add_data')" 
@@ -365,128 +363,113 @@
                                     <i class="fas fa-compress mr-1"></i>Make Concise
                                 </button>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            <p class="text-xs text-gray-500 mt-2">
                                 💡 Click any action to enhance your content with AI
                             </p>
                         </div>
                         
                         <!-- Show improve actions button -->
                         <button type="button" id="showImproveBtn" onclick="toggleImproveActions()" 
-                                class="mt-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm rounded-md transition-all flex items-center">
+                                class="mt-2 px-4 py-2 text-white text-sm rounded-md transition-all flex items-center" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                             <i class="fas fa-magic mr-2"></i>Improve This Post
                         </button>
                     </div>
 
-                    <!-- Image Upload (for image posts) -->
+                    <!-- Image Upload (for image posts - supports 1-10 images) -->
                     <div id="imageUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Upload Image
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-images mr-1 text-[#0077b5]"></i>Upload Images (1-10 images)
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('image') border-red-500 @enderror">
-                            <input type="file" id="imageUpload" name="image" accept="image/*" class="hidden">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
+                            <input type="file" id="imageUpload" name="images[]" multiple accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden">
                             <button type="button" onclick="document.getElementById('imageUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
-                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
-                                <div class="text-sm">Click to upload image</div>
-                            </button>
-                        </div>
-                        @error('image')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                        <div id="imagePreview" class="mt-4 hidden">
-                            <img id="previewImg" src="" alt="Preview" class="max-w-full h-48 object-cover rounded-lg">
-                        </div>
-                    </div>
-
-                    <!-- Carousel Images Upload (for carousel posts) -->
-                    <div id="carouselUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Upload Images for Carousel (2-10 images)
-                        </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('images.*') border-red-500 @enderror">
-                            <input type="file" id="carouselUpload" name="images[]" accept="image/*" multiple class="hidden">
-                            <button type="button" onclick="document.getElementById('carouselUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
+                                    class="text-[#0077b5] hover:text-[#005885]">
                                 <i class="fas fa-images text-3xl mb-2"></i>
-                                <div class="text-sm">Click to upload multiple images</div>
-                                <div class="text-xs text-gray-500 mt-1">Select 2-10 images for your carousel</div>
+                                <div class="text-sm font-medium">Click to upload image(s)</div>
+                                <div class="text-xs text-gray-500 mt-1">Select 1 or more images (PNG, JPG, WEBP only - max 10 images, 10MB each)</div>
                             </button>
                         </div>
                         @error('images.*')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
-                        <div id="carouselPreview" class="mt-4 hidden">
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="carouselImagesGrid">
-                                <!-- Carousel images will be displayed here -->
+                        <div id="imagePreview" class="mt-4 hidden">
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="imagePreviewGrid">
+                                <!-- Images will be displayed here -->
                             </div>
                         </div>
                     </div>
 
                     <!-- Video Upload (for video posts) -->
                     <div id="videoUploadSection" class="mb-6 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Upload Video
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center @error('video') border-red-500 @enderror">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center @error('video') border-red-500 @enderror">
                             <input type="file" id="videoUpload" name="video" accept="video/*" class="hidden">
                             <button type="button" onclick="document.getElementById('videoUpload').click()" 
-                                    class="text-orange-600 hover:text-orange-700">
+                                    class="text-[#0077b5] hover:text-[#005885]">
                                 <i class="fas fa-video text-3xl mb-2"></i>
                                 <div class="text-sm">Click to upload video</div>
                             </button>
                         </div>
                         @error('video')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div id="videoPreview" class="mt-4 hidden">
-                            <video id="previewVideo" controls class="max-w-full h-48 rounded-lg">
-                                <source id="videoSource" src="" type="video/mp4">
-                                Your browser does not support the video tag.
-                            </video>
+                            <div class="relative group">
+                                <video id="previewVideo" controls class="max-w-full h-48 rounded-lg">
+                                    <source id="videoSource" src="" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <button type="button" onclick="clearVideo()" 
+                                        class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-2 shadow-lg">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Hashtags -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Hashtags
                         </label>
                         <input type="text" 
                                name="hashtags" 
                                id="hashtags"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('hashtags') border-red-500 @enderror"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('hashtags') border-red-500 @enderror"
                                placeholder="#marketing #business #growth"
                                value="{{ old('hashtags') }}">
                         @error('hashtags')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
-                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <div class="mt-1 text-sm text-gray-500">
                             Separate hashtags with spaces. Use 3-5 hashtags for best results.
                         </div>
                     </div>
 
                     <!-- Scheduling -->
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Publishing Options
                         </label>
                         <div class="space-y-3">
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="draft" checked 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Save as Draft</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Save as Draft</span>
                             </label>
                             
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="now" 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Publish Now</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Publish Now</span>
                             </label>
                             
                             <label class="flex items-center">
                                 <input type="radio" name="publish_option" value="schedule" 
-                                       class="text-orange-600 focus:ring-orange-500">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Schedule for Later</span>
+                                       class="focus:ring-[#0077b5]" style="accent-color: #0077b5;">
+                                <span class="ml-2 text-sm text-gray-700">Schedule for Later</span>
                             </label>
                         </div>
                         
@@ -494,11 +477,11 @@
                             <input type="datetime-local" 
                                    name="scheduled_at" 
                                    id="scheduledAt"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white @error('scheduled_at') border-red-500 @enderror"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0077b5] @error('scheduled_at') border-red-500 @enderror"
                                    min="{{ now()->format('Y-m-d\TH:i') }}"
                                    value="{{ old('scheduled_at') }}">
                             @error('scheduled_at')
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
                     </div>
@@ -506,12 +489,12 @@
                     <!-- Action Buttons -->
                     <div class="flex justify-end space-x-4">
                         <a href="{{ route('content-creator.index') }}" 
-                           class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                           class="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
                             Cancel
                         </a>
                         <button type="submit" 
                                 id="savePostBtn"
-                                class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="px-6 py-2 text-white rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed" style="background: linear-gradient(135deg, #0077b5 0%, #005885 100%);" onmouseover="this.style.background='linear-gradient(135deg, #005885 0%, #004d6f 100%)'; this.style.boxShadow='0 4px 12px rgba(0, 119, 181, 0.3)';" onmouseout="this.style.background='linear-gradient(135deg, #0077b5 0%, #005885 100%)'; this.style.boxShadow='none';">
                             <span id="savePostText">
                                 <i class="fas fa-save mr-2"></i>Save Post
                             </span>
@@ -527,11 +510,11 @@
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-600/50 hidden z-50 h-screen">
     <div class="flex items-center justify-center min-h-screen">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-            <p class="text-gray-900 dark:text-white">Generating content...</p>
+        <div class="bg-white rounded-lg p-6 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0077b5] mx-auto mb-4"></div>
+            <p class="text-gray-900">Generating content...</p>
         </div>
     </div>
 </div>
@@ -594,56 +577,34 @@ document.getElementById('postContent').addEventListener('input', function() {
 document.querySelectorAll('input[name="post_type"]').forEach(radio => {
     radio.addEventListener('change', function() {
         const imageSection = document.getElementById('imageUploadSection');
-        const carouselSection = document.getElementById('carouselUploadSection');
         const videoSection = document.getElementById('videoUploadSection');
         const imageInput = document.getElementById('imageUpload');
-        const carouselInput = document.getElementById('carouselUpload');
         const videoInput = document.getElementById('videoUpload');
         const imagePreview = document.getElementById('imagePreview');
-        const carouselPreview = document.getElementById('carouselPreview');
         const videoPreview = document.getElementById('videoPreview');
         
         if (this.value === 'image') {
             imageSection.classList.remove('hidden');
-            carouselSection.classList.add('hidden');
             videoSection.classList.add('hidden');
             
             // Clear other inputs and previews
-            carouselInput.value = '';
             videoInput.value = '';
-            carouselPreview.classList.add('hidden');
-            videoPreview.classList.add('hidden');
-        } else if (this.value === 'carousel') {
-            carouselSection.classList.remove('hidden');
-            imageSection.classList.add('hidden');
-            videoSection.classList.add('hidden');
-            
-            // Clear other inputs and previews
-            imageInput.value = '';
-            videoInput.value = '';
-            imagePreview.classList.add('hidden');
             videoPreview.classList.add('hidden');
         } else if (this.value === 'video') {
             videoSection.classList.remove('hidden');
             imageSection.classList.add('hidden');
-            carouselSection.classList.add('hidden');
             
             // Clear other inputs and previews
             imageInput.value = '';
-            carouselInput.value = '';
             imagePreview.classList.add('hidden');
-            carouselPreview.classList.add('hidden');
         } else {
             imageSection.classList.add('hidden');
-            carouselSection.classList.add('hidden');
             videoSection.classList.add('hidden');
             
             // Clear all inputs and previews
             imageInput.value = '';
-            carouselInput.value = '';
             videoInput.value = '';
             imagePreview.classList.add('hidden');
-            carouselPreview.classList.add('hidden');
             videoPreview.classList.add('hidden');
         }
     });
@@ -675,6 +636,55 @@ function toggleImproveActions() {
     }
 }
 
+// 🔥 AI Cooldown System (15 seconds)
+function startAICooldown(buttonId) {
+    const cooldownEnd = Date.now() + 5000; // 10 seconds from now
+    localStorage.setItem('aiCooldown_' + buttonId, cooldownEnd);
+    updateCooldownUI(buttonId);
+}
+
+function updateCooldownUI(buttonId) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    
+    const cooldownEnd = localStorage.getItem('aiCooldown_' + buttonId);
+    if (!cooldownEnd) return;
+    
+    const timeLeft = Math.max(0, cooldownEnd - Date.now());
+    
+    if (timeLeft > 0) {
+        const secondsLeft = Math.ceil(timeLeft / 1000);
+        button.disabled = true;
+        
+        // Store original content
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
+        
+        button.innerHTML = `<i class="fas fa-clock mr-2"></i>Wait ${secondsLeft}s`;
+        
+        setTimeout(() => updateCooldownUI(buttonId), 1000);
+    } else {
+        // Cooldown ended
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.innerHTML = button.dataset.originalText;
+        }
+        localStorage.removeItem('aiCooldown_' + buttonId);
+    }
+}
+
+// Check cooldowns on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateCooldownUI('generateBtn');
+    
+    // Check improve buttons cooldown
+    const improveButtons = document.querySelectorAll('#improveActions button[onclick^="improvePost"]');
+    if (improveButtons.length > 0) {
+        updateCooldownUI('improveButtons');
+    }
+});
+
 // 🔥 NEW: Improve Post Function
 function improvePost(action) {
     const content = document.getElementById('postContent').value.trim();
@@ -704,7 +714,6 @@ function improvePost(action) {
     .then(response => response.json())
     .then(data => {
         hideLoading();
-        improveButtons.forEach(btn => btn.disabled = false);
         
         if (data.success) {
             document.getElementById('postContent').value = data.content;
@@ -712,7 +721,12 @@ function improvePost(action) {
             
             // Show success notification
             showNotification('✨ Content improved successfully!', 'success');
+            
+            // Start 60-second cooldown
+            startAICooldown('improveButtons');
+            updateImproveButtonsCooldown();
         } else {
+            improveButtons.forEach(btn => btn.disabled = false);
             alert('Error: ' + data.message);
         }
     })
@@ -722,6 +736,36 @@ function improvePost(action) {
         console.error('Error:', error);
         alert('An error occurred while improving content.');
     });
+}
+
+// Update all improve buttons with cooldown
+function updateImproveButtonsCooldown() {
+    const cooldownEnd = localStorage.getItem('aiCooldown_improveButtons');
+    if (!cooldownEnd) return;
+    
+    const timeLeft = Math.max(0, cooldownEnd - Date.now());
+    const improveButtons = document.querySelectorAll('#improveActions button[onclick^="improvePost"]');
+    
+    if (timeLeft > 0) {
+        const secondsLeft = Math.ceil(timeLeft / 1000);
+        improveButtons.forEach(btn => {
+            btn.disabled = true;
+            if (!btn.dataset.originalText) {
+                btn.dataset.originalText = btn.innerHTML;
+            }
+            const icon = btn.querySelector('i').className;
+            btn.innerHTML = `<i class="${icon}"></i> ${secondsLeft}s`;
+        });
+        setTimeout(updateImproveButtonsCooldown, 1000);
+    } else {
+        improveButtons.forEach(btn => {
+            btn.disabled = false;
+            if (btn.dataset.originalText) {
+                btn.innerHTML = btn.dataset.originalText;
+            }
+        });
+        localStorage.removeItem('aiCooldown_improveButtons');
+    }
 }
 
 // 🔥 NEW: Show Notification Function
@@ -783,6 +827,9 @@ document.getElementById('aiGenerateForm').addEventListener('submit', function(e)
                 document.getElementById('improveActions').classList.remove('hidden');
                 document.getElementById('showImproveBtn').classList.add('hidden');
             }
+            
+            // Start 60-second cooldown after successful generation
+            startAICooldown('generateBtn');
         } else {
             alert('Error: ' + data.message);
         }
@@ -805,31 +852,31 @@ function displayMultipleDrafts(drafts) {
     // Create draft cards
     drafts.forEach((draft, index) => {
         const draftCard = document.createElement('div');
-        draftCard.className = 'p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700 transition-all';
+        draftCard.className = 'p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#0077b5] hover:bg-blue-50 transition-all';
         draftCard.onclick = () => selectDraft(draft);
         
         draftCard.innerHTML = `
             <div class="flex items-start justify-between mb-2">
                 <div class="flex items-center">
-                    <span class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 rounded-full text-xs font-bold mr-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-50 text-[#0077b5] border border-[#0077b5] rounded-full text-xs font-bold mr-2">
                         ${index + 1}
                     </span>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">
+                    <span class="text-sm font-medium text-gray-900">
                         Draft ${index + 1}
                     </span>
                 </div>
-                <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="text-xs text-gray-500">
                     ${draft.word_count} words
                 </span>
             </div>
-            <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-2">
+            <p class="text-sm text-gray-700 line-clamp-3 mb-2">
                 ${draft.content.substring(0, 150)}${draft.content.length > 150 ? '...' : ''}
             </p>
             <div class="flex items-center justify-between">
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-xs text-gray-500">
                     ${draft.hashtags || 'No hashtags'}
                 </div>
-                <button class="text-xs text-orange-600 hover:text-orange-700 font-medium">
+                <button class="text-xs text-[#0077b5] hover:text-[#005885] font-medium">
                     Use this draft →
                 </button>
             </div>
@@ -1010,80 +1057,86 @@ function str_word_count(str) {
     return str.trim().split(/\s+/).filter(word => word.length > 0).length;
 }
 
-// Image upload preview
+// Store selected files globally for individual removal
+let selectedFiles = [];
+
+// Image upload preview (supports multiple images)
 document.getElementById('imageUpload').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        // Clear other inputs and previews when image is selected
-        const carouselInput = document.getElementById('carouselUpload');
-        const videoInput = document.getElementById('videoUpload');
-        const carouselPreview = document.getElementById('carouselPreview');
-        const videoPreview = document.getElementById('videoPreview');
-        carouselInput.value = '';
-        videoInput.value = '';
-        carouselPreview.classList.add('hidden');
-        videoPreview.classList.add('hidden');
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('previewImg').src = e.target.result;
-            document.getElementById('imagePreview').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
+    selectedFiles = Array.from(e.target.files);
+    
+    if (selectedFiles.length === 0) return;
+    
+    // Validate file types (PNG, JPG, WEBP only)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const invalidFiles = selectedFiles.filter(file => !allowedTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+        alert('Please select only PNG, JPG, or WEBP images. Other file types are not allowed.');
+        this.value = '';
+        selectedFiles = [];
+        return;
     }
+    
+    // Validate number of images (1-10)
+    if (selectedFiles.length > 10) {
+        alert('Please select maximum 10 images.');
+        this.value = '';
+        selectedFiles = [];
+        return;
+    }
+    
+    // Clear other inputs and previews when images are selected
+    const videoInput = document.getElementById('videoUpload');
+    const videoPreview = document.getElementById('videoPreview');
+    videoInput.value = '';
+    videoPreview.classList.add('hidden');
+    
+    updateImagePreviews();
 });
 
-// Carousel images upload preview
-document.getElementById('carouselUpload').addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-        // Validate number of images (2-10)
-        if (files.length < 2) {
-            alert('Please select at least 2 images for carousel.');
-            this.value = '';
-            return;
-        }
-        if (files.length > 10) {
-            alert('Please select maximum 10 images for carousel.');
-            this.value = '';
-            return;
-        }
-        
-        // Clear other inputs and previews when carousel images are selected
-        const imageInput = document.getElementById('imageUpload');
-        const videoInput = document.getElementById('videoUpload');
-        const imagePreview = document.getElementById('imagePreview');
-        const videoPreview = document.getElementById('videoPreview');
-        imageInput.value = '';
-        videoInput.value = '';
-        imagePreview.classList.add('hidden');
-        videoPreview.classList.add('hidden');
-        
-        // Clear previous carousel preview
-        const carouselGrid = document.getElementById('carouselImagesGrid');
-        carouselGrid.innerHTML = '';
-        
-        // Display each image
-        files.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgContainer = document.createElement('div');
-                imgContainer.className = 'relative group';
-                imgContainer.innerHTML = `
-                    <img src="${e.target.result}" alt="Carousel Image ${index + 1}" 
-                         class="w-full h-32 object-cover rounded-lg border-2 border-gray-200">
-                    <div class="absolute top-1 right-1 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
-                        ${index + 1}
-                    </div>
-                `;
-                carouselGrid.appendChild(imgContainer);
-            };
-            reader.readAsDataURL(file);
-        });
-        
-        document.getElementById('carouselPreview').classList.remove('hidden');
+// Update image previews
+function updateImagePreviews() {
+    const previewGrid = document.getElementById('imagePreviewGrid');
+    previewGrid.innerHTML = '';
+    
+    if (selectedFiles.length === 0) {
+        document.getElementById('imagePreview').classList.add('hidden');
+        return;
     }
-});
+    
+    // Display each image with individual remove button
+    selectedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'relative group';
+            imgContainer.innerHTML = `
+                <img src="${e.target.result}" alt="Image ${index + 1}" 
+                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200">
+                <button type="button" onclick="removeImage(${index})" 
+                        class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            previewGrid.appendChild(imgContainer);
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    document.getElementById('imagePreview').classList.remove('hidden');
+}
+
+// Remove individual image
+function removeImage(index) {
+    selectedFiles.splice(index, 1);
+    
+    // Update file input with remaining files
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach(file => dataTransfer.items.add(file));
+    document.getElementById('imageUpload').files = dataTransfer.files;
+    
+    updateImagePreviews();
+}
 
 // Video upload preview
 document.getElementById('videoUpload').addEventListener('change', function(e) {
@@ -1091,13 +1144,9 @@ document.getElementById('videoUpload').addEventListener('change', function(e) {
     if (file) {
         // Clear other inputs and previews when video is selected
         const imageInput = document.getElementById('imageUpload');
-        const carouselInput = document.getElementById('carouselUpload');
         const imagePreview = document.getElementById('imagePreview');
-        const carouselPreview = document.getElementById('carouselPreview');
         imageInput.value = '';
-        carouselInput.value = '';
         imagePreview.classList.add('hidden');
-        carouselPreview.classList.add('hidden');
         
         const url = URL.createObjectURL(file);
         document.getElementById('videoSource').src = url;
@@ -1105,6 +1154,21 @@ document.getElementById('videoUpload').addEventListener('change', function(e) {
         document.getElementById('videoPreview').classList.remove('hidden');
     }
 });
+
+// Clear all images function
+function clearImages() {
+    selectedFiles = [];
+    document.getElementById('imageUpload').value = '';
+    document.getElementById('imagePreview').classList.add('hidden');
+    document.getElementById('imagePreviewGrid').innerHTML = '';
+}
+
+// Clear video function
+function clearVideo() {
+    document.getElementById('videoUpload').value = '';
+    document.getElementById('videoPreview').classList.add('hidden');
+    document.getElementById('videoSource').src = '';
+}
 
 // AI Generate form submission handler with loading state
 document.getElementById('aiGenerateForm').addEventListener('submit', function(e) {

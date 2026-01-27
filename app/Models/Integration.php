@@ -18,7 +18,16 @@ class Integration extends Model
         'expires_in',
         'refresh_token_expires_in',
         'connected_status',
-        'user_id'
+        'user_id',
+        'linkedin_session_cookie',
+        'linkedin_user_agent',
+        'linkedin_session_verified_at',
+    ];
+
+    protected $casts = [
+        'linkedin_session_cookie' => 'encrypted',
+        'linkedin_user_agent' => 'encrypted',
+        'linkedin_session_verified_at' => 'datetime',
     ];
 
     public function user()

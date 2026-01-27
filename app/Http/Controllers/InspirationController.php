@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ViralPost;
+use App\Models\UserContentPreference;
 use App\Services\ChatGPT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,15 +48,55 @@ class InspirationController extends Controller
                       ->orderBy('saved_at', 'desc')
                       ->paginate(12);
         
-        // Get statistics
+        // Get statistics - calculate from actual saved posts in database
+        $avgEngagement = ViralPost::where('user_id', $userId)
+            ->whereNotNull('engagement_rate')
+            ->where('engagement_rate', '>', 0)
+            ->avg('engagement_rate');
+        
         $stats = [
             'total_posts' => ViralPost::where('user_id', $userId)->count(),
             'favorites' => ViralPost::where('user_id', $userId)->favorites()->count(),
             'viral_posts' => ViralPost::where('user_id', $userId)->viral()->count(),
-            'avg_engagement' => ViralPost::where('user_id', $userId)->avg('engagement_rate') ?? 0,
+            'avg_engagement' => $avgEngagement ? round($avgEngagement, 1) : 0,
         ];
         
-        return view('inspiration.index', compact('posts', 'stats'));
+        // Get or create default preferences
+        $preferences = auth()->user()->contentPreferences;
+        if (!$preferences) {
+            $preferences = UserContentPreference::make(UserContentPreference::getDefaults());
+        }
+        
+        return view('inspiration.index', compact('posts', 'stats', 'preferences'));
+    }
+    
+    /**
+     * Update user content preferences
+     */
+    public function updatePreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'industries' => 'nullable|array',
+            'topics' => 'nullable|array',
+            'min_engagement' => 'required|integer|min:50|max:10000',
+            'date_range' => 'required|in:past-24-hours,past-week,past-month,past-year,any-time',
+            'smart_fetch' => 'nullable|boolean',
+        ]);
+
+        auth()->user()->contentPreferences()->updateOrCreate(
+            ['user_id' => auth()->id()],
+            [
+                // Industries are now optional – default to empty array if not provided
+                'industries' => $validated['industries'] ?? [],
+                'topics' => $validated['topics'] ?? [],
+                'min_engagement' => $validated['min_engagement'],
+                'date_range' => $validated['date_range'],
+                'smart_fetch' => $request->boolean('smart_fetch'),
+                'fetch_from_keywords' => true,
+            ]
+        );
+        
+        return redirect()->back()->with('success', 'Preferences saved!');
     }
 
     /**

@@ -1,10 +1,10 @@
 @extends('layout.auth')
 
 @section('content')
-<h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+<h2 class="text-lg font-semibold text-gray-900">
     Tutorials
 </h2>
-<div class="min-w-0 p-6 bg-white rounded-lg shadow-xs dark:bg-gray-800">
+<div class="min-w-0 p-6 bg-white rounded-lg shadow-xs">
     <div class="grid gap-6 mb-8 grid-cols-6 md:grid-cols-12 tutorials-card"></div>
 </div>
 

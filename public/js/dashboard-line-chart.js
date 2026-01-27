@@ -1,12 +1,20 @@
 let lineOptions = {
     chart: {
-        type: 'line'
+        type: 'line',
+        toolbar: {
+            show: false
+        }
     },
+    colors: ['#0077b5', '#005885', '#004d6f', '#003d59', '#002d44'],
     stroke: {
         curve: 'smooth',
+        width: 2
     },
     markers: {
-        size: 0,
+        size: 4,
+        hover: {
+            size: 6
+        }
     },
     series: [
         {
@@ -32,6 +40,9 @@ let lineOptions = {
     ],
     xaxis: {
         categories: []
+    },
+    legend: {
+        position: 'top'
     }
 }
 

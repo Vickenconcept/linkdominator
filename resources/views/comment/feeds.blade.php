@@ -1,22 +1,22 @@
 <div class="mt-3">
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">
-            <div class="block max-w-3xl p-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+            <div class="block max-w-3xl p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
                 @foreach($campaignPosts as $item)
                 <div class="mb-3 flex gap-1">
-                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 dark:bg-gray-700 dark:text-gray-400 border border-gray-500 ">
+                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 border border-gray-500 ">
                         {{ $item->campaign_name }}
                     </span>
-                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 dark:bg-gray-700 dark:text-gray-400 border border-gray-500 ">
+                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 border border-gray-500 ">
                         collected: {{ date_format(date_create($item->created_at), "d/m/Y H:i") }}
                     </span>
                     @if ($item->comment_status)
-                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 dark:bg-gray-700 dark:text-gray-400 border border-gray-500 ">
+                    <span class="bg-gray-100 text-gray-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-sm me-2 border border-gray-500 ">
                         {{ $item->comment_status }}
                     </span>
                     @endif
                 </div>
-                <div class="block mb-6 p-6 bg-gray-100 border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                <div class="block mb-6 p-6 bg-gray-100 border border-gray-200 rounded-lg shadow-sm">
                     <div class="mb-4 text-sm">
                         <p class="text-gray-500 inline-flex gap-2">
                             <span>
@@ -30,10 +30,10 @@
                         </p>
                     </div>
                     <hr>
-                    <h5 class="mb-2 mt-4 text-md font-bold tracking-tight text-gray-900 dark:text-white">{{ $item->poster_title }}</h5>
-                    <p class="font-normal text-gray-700 dark:text-gray-400 text-sm post" style="white-space:pre-wrap;">{{ $item->post }}</p>
+                    <h5 class="mb-2 mt-4 text-md font-bold tracking-tight text-gray-900">{{ $item->poster_title }}</h5>
+                    <p class="font-normal text-gray-700 text-sm post" style="white-space:pre-wrap;">{{ $item->post }}</p>
                     <div class="my-4">
-                        <!-- <button type="button" class="inline-flex gap-1 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
+                        <!-- <button type="button" class="inline-flex gap-1 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V2.75a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282m0 0h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H5.904m10.598-9.75H14.25M5.904 18.5c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 0 1-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 9.953 4.167 9.5 5 9.5h1.053c.472 0 .745.556.5.96a8.958 8.958 0 0 0-1.302 4.665c0 1.194.232 2.333.654 3.375Z" />
                             </svg>
@@ -42,14 +42,14 @@
                     </div>
                     <hr>
                     <div class="my-4">
-                        <label for="post-comment-{{$item->id}}" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Comment</label>
-                        <textarea id="post-comment-{{$item->id}}" rows="5" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Write your thoughts here..." {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>{{ $item->comment ?? '' }}</textarea>
+                        <label for="post-comment-{{$item->id}}" class="block mb-2 text-sm font-medium text-gray-900">Comment</label>
+                        <textarea id="post-comment-{{$item->id}}" rows="5" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Write your thoughts here..." {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>{{ $item->comment ?? '' }}</textarea>
                     </div>
                     <div class="my-2 hidden comment-action-notification-{{$item->id}}">
-                        <div class="success hidden p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400" role="alert">
+                        <div class="success hidden p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50" role="alert">
                             
                         </div>
-                        <div class="error hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+                        <div class="error hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
                             
                         </div>
                     </div>
@@ -74,7 +74,7 @@
                                 </svg>
                                 <span class="pt-2">Copy</span>
 
-                                <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-gray-900 text-xs font-medium text-white rounded-md shadow-2xs dark:bg-neutral-700" role="tooltip">
+                                <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-gray-900 text-xs font-medium text-white rounded-md shadow-2xs" role="tooltip">
                                     Copy comment
                                 </span>
                             </button>
@@ -99,7 +99,7 @@
                         data-post="{{$item->post}}"
                         data-cid="{{$item->campaign_id}}"
                         data-pid="{{$item->id}}">
-                            <button type="button" data-type="neutral" class="generate-comment text-blue-700 hover:text-white border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-5 py-2.5 text-center me-2 dark:border-blue-500 dark:text-blue-500 dark:hover:text-white dark:hover:bg-blue-500 dark:focus:ring-blue-800" {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>
+                            <button type="button" data-type="neutral" class="generate-comment text-blue-700 hover:text-white border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-5 py-2.5 text-center me-2" {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>
                                 New Neutral Comment
                                 <span class="hidden neutral-spinner">
                                     <svg aria-hidden="true" role="status" class="inline w-4 h-4 ml-1 text-blue-600 animate-spin" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -108,7 +108,7 @@
                                     </svg>
                                 </span>
                             </button>
-                            <button type="button" data-type="promo" class="generate-comment text-blue-700 hover:text-white border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-5 py-2.5 text-center me-2 dark:border-blue-500 dark:text-blue-500 dark:hover:text-white dark:hover:bg-blue-500 dark:focus:ring-blue-800" {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>
+                            <button type="button" data-type="promo" class="generate-comment text-blue-700 hover:text-white border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-5 py-2.5 text-center me-2" {{ in_array($item->comment_status, ['skipped','publish','like_publish']) ? 'disabled':'' }}>
                                 New Promo Comment
                                 <span class="hidden promo-spinner">
                                     <svg aria-hidden="true" role="status" class="inline w-4 h-4 ml-1 text-blue-600 animate-spin" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">

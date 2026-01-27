@@ -515,8 +515,7 @@ EOD;
         // Build prompt based on style and length
         $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
 
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
 
         // Generate content with higher token limit for LinkedIn posts
         $result = $this->generateLinkedInContent($prompt);
@@ -549,8 +548,7 @@ EOD;
 
         $prompt = $instructions . "\n\nOriginal Content:\n" . $content . "\n\nReturn only the improved post text, ready for LinkedIn.";
 
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
 
         // Generate content
         $result = $this->generateContent($prompt);
@@ -711,38 +709,102 @@ EOD;
             }
         }
 
-        // If using template, return it as the first draft and generate 2 variations
+        // If using template, return it as the first draft
         if ($baseContent) {
             $drafts[] = [
                 'content' => $baseContent,
                 'hashtags' => $this->extractHashtags($baseContent),
                 'word_count' => str_word_count($baseContent)
             ];
-            $draftCount = 2;
-        } else {
-            $draftCount = 3;
         }
 
-        // Generate multiple variations with different temperatures
-        for ($i = 0; $i < $draftCount; $i++) {
-            // Vary temperature slightly for different creative outputs
-            $this->temperature = 0.7 + ($i * 0.15); // 0.7, 0.85, 1.0
-            
+        // Generate 2 drafts in ONE API call using n=2 parameter
             $prompt = $this->buildLinkedInPostPrompt($topic, $style, $length);
             
-            // Add variation instruction
-            if ($i > 0) {
-                $prompt .= "\n\nMake this version unique with a different approach or angle.";
-            }
+        Log::info('🤖 ChatGPT generateMultipleDrafts - Single API call for 2 drafts', [
+            'topic' => $topic,
+            'style' => $style,
+            'length' => $length,
+            'has_template' => !empty($baseContent)
+        ]);
 
-            $result = $this->generateLinkedInContent($prompt);
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Content-Type' => 'application/json'
+            ])
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are an expert LinkedIn content creator. Create engaging, professional posts that drive engagement and provide value to the audience.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'max_tokens' => 3000,
+                    'temperature' => 0.8, // Higher temperature for more variation between drafts
+                    'n' => 2, // Generate 2 completions in ONE API call
+                ])
+                ->throw()
+                ->json();
+                
+            Log::info('✅ ChatGPT Multiple Drafts API response successful', [
+                'choices_count' => count($response['choices'] ?? [])
+            ]);
+        } catch (\Throwable $th) {
+            $errorMessage = $th->getMessage();
+            
+            // Check if it's a rate limit error
+            $isRateLimit = str_contains(strtolower($errorMessage), 'rate limit') 
+                        || str_contains(strtolower($errorMessage), 'rate_limit_exceeded')
+                        || str_contains($errorMessage, '429')
+                        || str_contains(strtolower($errorMessage), 'too many requests');
+            
+            if ($isRateLimit) {
+                Log::warning('⚠️ ChatGPT Rate Limit Hit - Single API call attempted', [
+                    'topic' => $topic,
+                    'error' => substr($errorMessage, 0, 200)
+                ]);
+            } else {
+            Log::error('❌ ChatGPT Multiple Drafts API call failed', [
+                    'error' => $errorMessage,
+                'trace' => $th->getTraceAsString()
+            ]);
+            }
+            
+            throw $th;
+        }
+
+        // Process the 2 completions from the single API response
+        if (isset($response['choices']) && is_array($response['choices'])) {
+            foreach ($response['choices'] as $choice) {
+                $text = $choice['message']['content'] ?? '';
+                if (!empty($text)) {
+                    $content = trim($text);
+                    $content = $this->cleanJsonResponse($content);
             
             $drafts[] = [
-                'content' => $result['content'],
-                'hashtags' => $this->extractHashtags($result['content']),
-                'word_count' => $result['words']
-            ];
+                        'content' => $content,
+                        'hashtags' => $this->extractHashtags($content),
+                        'word_count' => str_word_count($content)
+                    ];
+                }
+            }
         }
+
+        // Ensure we have at least 2 drafts from API (if no template, we should have 2)
+        // If we have template + 2 from API, we'll have 3 total
+        if (empty($baseContent) && count($drafts) < 2) {
+            Log::warning('⚠️ Only got ' . count($drafts) . ' draft(s) from API, expected 2', [
+                'drafts_count' => count($drafts)
+            ]);
+        }
+
+        Log::info('✅ Generated multiple drafts', [
+            'total_drafts' => count($drafts),
+            'from_template' => !empty($baseContent),
+            'from_api' => count($drafts) - (!empty($baseContent) ? 1 : 0)
+        ]);
+
+        return $drafts;
 
         return $drafts;
     }
@@ -776,8 +838,7 @@ EOD;
 
         $prompt = $prompts[$action] ?? $prompts['add_hook'];
         
-        // Check moderation
-        $this->checkModeration($prompt);
+        // Note: Removed moderation check to reduce API calls - OpenAI chat models have built-in safety filters
         
         // Generate improved content
         $result = $this->generateContent($prompt);

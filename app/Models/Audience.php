@@ -10,6 +10,9 @@ class Audience extends Model
         'audience_name',
         'audience_id',
         'audience_type',
-        'user_id'
+        'user_id',
+        'tag',
+        'source',
+        'source_meta'
     ];
 }

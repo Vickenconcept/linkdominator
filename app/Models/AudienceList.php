@@ -11,6 +11,8 @@ class AudienceList extends Model
         'con_first_name',
         'con_last_name',
         'con_email',
+        'email_fetch_attempted_at',
+        'email_fetch_status',
         'con_job_title',
         'con_location',
         'con_distance',
@@ -21,6 +23,9 @@ class AudienceList extends Model
         'con_influencer',
         'con_jobseeker',
         'con_company_url',
-        'con_member_urn'
+        'con_company_name',
+        'con_member_urn',
+        'con_profile_url',
+        'con_last_activity'
     ];
 }

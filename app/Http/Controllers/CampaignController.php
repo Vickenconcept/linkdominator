@@ -161,7 +161,32 @@ class CampaignController extends Controller
             $campaigns[$key]['accept_rate'] = $acceptRate;
         }
 
-        return view('campaign.index', compact('campaigns'));
+        // Calculate campaign statistics
+        $totalCampaigns = Campaign::where('user_id', $userId)->count();
+        $runningCampaigns = Campaign::where('user_id', $userId)->where('status', 'running')->count();
+        $completedCampaigns = Campaign::where('user_id', $userId)->where('status', 'completed')->count();
+        
+        // Calculate total leads across all campaigns
+        $totalLeadsQuery = DB::table('campaigns')
+            ->join('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
+            ->leftJoin('sn_leads_lists', 'campaign_lists.list_hash', '=', 'sn_leads_lists.list_hash')
+            ->leftJoin('sn_leads', 'sn_leads_lists.list_hash', '=', 'sn_leads.sn_list_id')
+            ->leftJoin('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
+            ->leftJoin('audience_lists', 'audiences.audience_id', '=', 'audience_lists.audience_id')
+            ->where('campaigns.user_id', $userId)
+            ->select(DB::raw('COALESCE(SUM(CASE WHEN sn_leads.id IS NOT NULL THEN 1 ELSE 0 END), 0) + COALESCE(SUM(CASE WHEN audience_lists.id IS NOT NULL THEN 1 ELSE 0 END), 0) as total_leads'))
+            ->first();
+        
+        $totalLeads = $totalLeadsQuery->total_leads ?? 0;
+
+        $stats = [
+            'total_campaigns' => $totalCampaigns,
+            'running_campaigns' => $runningCampaigns,
+            'completed_campaigns' => $completedCampaigns,
+            'total_leads' => $totalLeads,
+        ];
+
+        return view('campaign.index', compact('campaigns', 'stats'));
     }
 
     /**
@@ -240,7 +265,16 @@ class CampaignController extends Controller
     public function getCampaignStatusUpdates(Request $request)
     {
         try {
-            $userId = auth()->user()->id;
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'User not authenticated',
+                    'timestamp' => now()
+                ], 401);
+            }
+            
+            $userId = $user->id;
 
             $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end) as total_lead_list";
 
@@ -253,6 +287,11 @@ class CampaignController extends Controller
                 ->get();
 
             foreach ($campaigns as $key => $campaign) {
+                // Skip if campaign is null or doesn't have an id
+                if (!$campaign || !isset($campaign->id)) {
+                    continue;
+                }
+                
                 // Append leads
                 $query1 = "campaign_lists.id, sn_leads_lists.name as name, campaign_lists.list_hash as list_hash, count(sn_leads.id) as leads, 'sn' as source, date(sn_leads_lists.created_at) as created_date";
                 $first = CampaignList::select(DB::raw($query1))
@@ -277,8 +316,8 @@ class CampaignController extends Controller
                 $totalList = 0;
 
                 if (count($clist) > 0) {
-                    foreach ($clist as $clist) {
-                        $totalList += $clist->leads;
+                    foreach ($clist as $clistItem) {
+                        $totalList += $clistItem->leads ?? 0;
                     }
                 }
                 $campaigns[$key]['total_leads'] = $totalList;
@@ -294,13 +333,13 @@ class CampaignController extends Controller
                     $totalInvitesSent = 0;
                     $totalAccepted = 0;
                     
-                    foreach ($leadgen as $leadgen) {
+                    foreach ($leadgen as $leadgenItem) {
                         // Count invites that have been sent (status_last_id = 2 means sent)
-                        if ($leadgen->status_last_id == 2) {
+                        if (isset($leadgenItem->status_last_id) && $leadgenItem->status_last_id == 2) {
                             $totalInvitesSent += 1;
                         }
                         // Count accepted invites
-                        if ($leadgen->accept_status == 1) {
+                        if (isset($leadgenItem->accept_status) && $leadgenItem->accept_status == 1) {
                             $totalAccepted += 1;
                         }
                     }
@@ -596,13 +635,13 @@ class CampaignController extends Controller
         $campaign_data = [];
 
         if ($user) {
-            $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end) as total_lead_list";
+            $query = "campaigns.id, campaigns.name, campaigns.status, date(campaigns.created_at) as created_at, campaigns.sequence_type, campaigns.process_condition, campaigns.user_id, COALESCE(sum(case when campaign_lists.campaign_id=campaigns.id then 1 else 0 end), 0) as total_lead_list";
 
             $campaigns = Campaign::select(DB::raw($query))
-                ->join('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
+                ->leftJoin('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
                 ->leftJoin('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
                 ->where('campaigns.user_id', $user->id)
-                ->groupBy('id', 'name', 'status', 'created_at', 'sequence_type', 'process_condition', 'user_id')
+                ->groupBy('campaigns.id', 'campaigns.name', 'campaigns.status', 'campaigns.created_at', 'campaigns.sequence_type', 'campaigns.process_condition', 'campaigns.user_id')
                 ->orderBy('campaigns.id', 'desc')
                 ->get();
 
@@ -615,17 +654,22 @@ class CampaignController extends Controller
 
                 array_push($campaign_data, $item);
             }
+
+            $resourceData = $this->campaignResource($campaign_data);
         } else {
             return response()->json([
-                "message" => "Unauthorized",
-                "status" => 400
+                'status' => 400,
+                'message' => 'Unauthorized',
+                'timestamp' => now()->toISOString()
             ], 400);
         }
 
         return response()->json([
+            'status' => 200,
+            'message' => 'Campaigns retrieved successfully',
             'data' => $this->campaignResource($campaign_data),
-            'status' => 200
-        ]);
+            'timestamp' => now()->toISOString()
+        ], 200);
     }
 
     /**
@@ -1023,7 +1067,7 @@ class CampaignController extends Controller
                     'listId' => $tracking->lead_list,
                     'memberUrn' => $leadData->con_member_urn ?? $leadData->object_urn,
                     'trackingId' => $leadData->con_tracking_id ?? null,
-                    'networkDistance' => $leadData->con_distance ?? $leadData->degree,
+                    'networkDistance' => $this->convertNetworkDistanceToInt($leadData->con_distance ?? $leadData->degree),
                     'createdAt' => $leadData->created_at ?? null,
                     // Campaign tracking fields
                     'accept_status' => $tracking->accept_status,
@@ -1086,6 +1130,38 @@ class CampaignController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Convert network distance from DISTANCE_X format to integer
+     * Handles: "DISTANCE_1", "DISTANCE_2", "DISTANCE_3" -> 1, 2, 3
+     * Also handles: 1, 2, 3 (already integers) -> 1, 2, 3
+     */
+    private function convertNetworkDistanceToInt($networkDistance)
+    {
+        if ($networkDistance === null || $networkDistance === '') {
+            return null;
+        }
+
+        // If it's already a number, return it as integer
+        if (is_numeric($networkDistance)) {
+            return (int)$networkDistance;
+        }
+
+        // If it's a string in DISTANCE_X format, extract the number
+        if (is_string($networkDistance) && strpos($networkDistance, '_') !== false) {
+            $parts = explode('_', $networkDistance);
+            if (isset($parts[1]) && is_numeric($parts[1])) {
+                return (int)$parts[1];
+            }
+        }
+
+        // If it's a string like "1st", "2nd", "3rd", extract number
+        if (is_string($networkDistance) && preg_match('/(\d+)/', $networkDistance, $matches)) {
+            return (int)$matches[1];
+        }
+
+        return null;
     }
 }
 

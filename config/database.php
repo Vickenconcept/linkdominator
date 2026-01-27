@@ -59,6 +59,9 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // Persistent connections disabled by default to prevent connection buildup
+                // Only enable if MYSQL_ATTR_PERSISTENT=true is explicitly set in .env
+                ...(env('MYSQL_ATTR_PERSISTENT', false) ? [PDO::ATTR_PERSISTENT => true] : []),
             ]) : [],
         ],
 
@@ -79,6 +82,9 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // Persistent connections disabled by default to prevent connection buildup
+                // Only enable if MYSQL_ATTR_PERSISTENT=true is explicitly set in .env
+                ...(env('MYSQL_ATTR_PERSISTENT', false) ? [PDO::ATTR_PERSISTENT => true] : []),
             ]) : [],
         ],
 

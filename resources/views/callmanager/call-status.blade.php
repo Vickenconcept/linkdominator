@@ -128,12 +128,12 @@
 
 <div id="hs-basic-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-basic-modal-label">
     <div class="sm:max-w-lg sm:w-full m-3 sm:mx-auto">
-        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-                <h3 id="hs-basic-modal-label" class="font-bold text-gray-800 dark:text-white">
+        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto">
+            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+                <h3 id="hs-basic-modal-label" class="font-bold text-gray-800">
                 Call Status
                 </h3>
-                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-basic-modal">
+                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-basic-modal">
                 <span class="sr-only">Close</span>
                 <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
@@ -147,8 +147,8 @@
                 <div class="p-4 overflow-y-auto">
                     <div>
                         <input type="hidden" name="call_status_id" class="call-status-id" />
-                        <label for="call-status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Call status</label>
-                        <select id="call-status" name="call_status" class="call-status bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required="">
+                        <label for="call-status" class="block mb-2 text-sm font-medium text-gray-900">Call status</label>
+                        <select id="call-status" name="call_status" class="call-status bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required="">
                             <option value="made">Made</option>
                             <option value="scheduled">Scheduled</option>
                             <option value="suggested">Suggested</option>
@@ -158,8 +158,8 @@
                         </select>
                     </div>
                 </div>
-                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                    <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-basic-modal">
+                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                    <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-basic-modal">
                     Close
                     </button>
                     <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-hidden focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none">
@@ -174,12 +174,12 @@
 <!-- Pending Message Modal -->
 <div id="hs-pending-message-modal" class="hs-overlay hs-overlay-open:opacity-100 hs-overlay-open:duration-500 hidden size-full fixed top-0 start-0 z-80 opacity-0 overflow-x-hidden transition-all overflow-y-auto pointer-events-none" role="dialog" tabindex="-1" aria-labelledby="hs-pending-message-modal-label">
     <div class="sm:max-w-2xl sm:w-full m-3 sm:mx-auto">
-        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-neutral-700/70">
-            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
-                <h3 id="hs-pending-message-modal-label" class="font-bold text-gray-800 dark:text-white">
+        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl pointer-events-auto">
+            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200">
+                <h3 id="hs-pending-message-modal-label" class="font-bold text-gray-800">
                 Edit Pending Message
                 </h3>
-                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600" aria-label="Close" data-hs-overlay="#hs-pending-message-modal">
+                <button type="button" class="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-hidden focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none" aria-label="Close" data-hs-overlay="#hs-pending-message-modal">
                 <span class="sr-only">Close</span>
                 <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
@@ -193,16 +193,16 @@
                 <div class="p-4 overflow-y-auto">
                     <div class="mb-4">
                         <input type="hidden" name="call_id" class="pending-call-id" />
-                        <label for="pending-message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Pending Message</label>
-                        <textarea id="pending-message" name="pending_message" rows="6" class="pending-message bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Enter your pending message here..."></textarea>
+                        <label for="pending-message" class="block mb-2 text-sm font-medium text-gray-900">Pending Message</label>
+                        <textarea id="pending-message" name="pending_message" rows="6" class="pending-message bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Enter your pending message here..."></textarea>
                     </div>
                     <div class="mb-4">
-                        <label for="scheduled-send-at" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Scheduled Send Time</label>
-                        <input type="text" id="scheduled-send-at" class="scheduled-send-at bg-gray-100 border border-gray-300 text-gray-600 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-300" readonly />
+                        <label for="scheduled-send-at" class="block mb-2 text-sm font-medium text-gray-900">Scheduled Send Time</label>
+                        <input type="text" id="scheduled-send-at" class="scheduled-send-at bg-gray-100 border border-gray-300 text-gray-600 text-sm rounded-lg block w-full p-2.5" readonly />
                     </div>
                 </div>
-                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-700">
-                    <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 dark:focus:bg-neutral-700" data-hs-overlay="#hs-pending-message-modal">
+                <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200">
+                    <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 focus:outline-hidden focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" data-hs-overlay="#hs-pending-message-modal">
                     Close
                     </button>
                     <button type="submit" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-green-600 text-white hover:bg-green-700 focus:outline-hidden focus:bg-green-700 disabled:opacity-50 disabled:pointer-events-none">

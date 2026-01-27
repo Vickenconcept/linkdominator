@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Post;
+use App\Models\LinkedInPost;
+use App\Jobs\PublishLinkedInPost;
 use App\Services\LinkedInService;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
@@ -23,31 +25,60 @@ class PostScheduler extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Process scheduled LinkedIn posts that are ready to publish';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        /**
-         * check posts on schedule status and date time utc
-         * Check access token is valid
-         * Publish post
-         */
-
         $currentDate = Carbon::now();
         $formatedDate = $currentDate->toDateTimeString();
-        $today = $currentDate->toDateString();
 
-        $this->info("Scheduler running at {$formatedDate}");
+        Log::info("📅 Scheduler running at {$formatedDate}");
 
+        // Check NEW linkedin_posts table for scheduled posts
+        $readyPosts = LinkedInPost::where('status', 'scheduled')
+            ->where('scheduled_at', '<=', $currentDate)
+            ->whereNotNull('scheduled_at')
+            ->get();
+
+        if ($readyPosts->count() > 0) {
+            Log::info("📅 Found {$readyPosts->count()} ready posts to publish");
+            
+            foreach ($readyPosts as $post) {
+                try {
+                    Log::info('📅 Scheduler dispatching post', [
+                        'post_id' => $post->id,
+                        'scheduled_at' => $post->scheduled_at,
+                        'user_id' => $post->user_id
+                    ]);
+                    
+                    // Update status before dispatching
+                    $post->update(['status' => 'ready_to_publish']);
+                    
+                    // Dispatch job synchronously
+                    PublishLinkedInPost::dispatchSync($post);
+                    
+                    Log::info("✅ Scheduler published post ID: {$post->id}");
+                    
+                } catch (\Exception $e) {
+                    Log::error('❌ Scheduler failed to publish post', [
+                        'post_id' => $post->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
+            }
+        }
+
+        // Also check OLD posts table for backward compatibility
         $linkedin = new LinkedInService;
+        $oldPosts = $this->postCheck();
 
-        $posts = $this->postCheck();
-
-        if(count($posts)>0){
-            foreach ($posts as $post) {
+        if(count($oldPosts) > 0){
+            Log::info("📅 Found " . count($oldPosts) . " OLD format posts to publish");
+            foreach ($oldPosts as $post) {
                 if($this->isAccessTokenValid($post, $linkedin)){
                     $linkedin->publishPost($post, $post['access_token']);
                 }

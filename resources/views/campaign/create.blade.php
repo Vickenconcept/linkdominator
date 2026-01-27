@@ -3,11 +3,11 @@
 @section('content')
 <script src="{{ asset('js/gojs/go-debug.js') }}"></script>
 
-<div class="block p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+<div class="block p-6 bg-white border border-gray-200 rounded-lg shadow-md">
     <div class="pb-4">
         <ol class="items-center justify-between w-full space-y-4 sm:flex sm:space-x-8 sm:space-y-0 rtl:space-x-reverse">
-            <li class="flex items-center text-indigo-600 dark:text-indigo-500 space-x-2.5 rtl:space-x-reverse">
-                <span class="flex items-center justify-center w-8 h-8 border border-indigo-600 rounded-full shrink-0 dark:border-indigo-500 bg-indigo-600 text-white">
+            <li class="flex items-center space-x-2.5 rtl:space-x-reverse" style="color: #0077b5;">
+                <span class="flex items-center justify-center w-8 h-8 border rounded-full shrink-0 text-white" style="border-color: #0077b5; background: linear-gradient(135deg, #0077b5 0%, #005885 100%);">
                     1
                 </span>
                 <span>
@@ -15,9 +15,9 @@
                 </span>
             </li>
             <li class="flex items-center space-x-2.5 rtl:space-x-reverse text-gray-500
-                {{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? 'text-indigo-600':'' }}">
+                {{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? '':'' }}" style="{{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? 'color: #0077b5;' : '' }}">
                 <span class="flex items-center justify-center w-8 h-8 border border-gray-500 rounded-full shrink-0 
-                {{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? 'border-indigo-600 bg-indigo-600 text-white':''}}">
+                {{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? '':'' }}" style="{{ in_array(request()->query('step'), ['sequence','sequence-custom','sequence-endorsement','sequence-profileView','sequence-leadGen','summarize']) ? 'border-color: #0077b5; background: linear-gradient(135deg, #0077b5 0%, #005885 100%); color: white;' : '' }}">
                     2
                 </span>
                 <span>
@@ -25,9 +25,9 @@
                 </span>
             </li>
             <li class="flex items-center space-x-2.5 rtl:space-x-reverse text-gray-500
-                {{ in_array(request()->query('step'), ['summarize']) ? 'text-indigo-600':'' }}">
-                <span class="flex items-center justify-center w-8 h-8 border border-gray-500 rounded-full shrink-0 dark:border-gray-400 
-                {{ in_array(request()->query('step'), ['summarize']) ? 'border-indigo-600 bg-indigo-600 text-white':'' }}">
+                {{ in_array(request()->query('step'), ['summarize']) ? '':'' }}" style="{{ in_array(request()->query('step'), ['summarize']) ? 'color: #0077b5;' : '' }}">
+                <span class="flex items-center justify-center w-8 h-8 border border-gray-500 rounded-full shrink-0 
+                {{ in_array(request()->query('step'), ['summarize']) ? '':'' }}" style="{{ in_array(request()->query('step'), ['summarize']) ? 'border-color: #0077b5; background: linear-gradient(135deg, #0077b5 0%, #005885 100%); color: white;' : '' }}">
                     3
                 </span>
                 <span>
