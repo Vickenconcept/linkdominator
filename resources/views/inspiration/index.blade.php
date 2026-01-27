@@ -16,7 +16,7 @@
 
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-gray-900">💡 Inspiration Library</h2>
+        <h2 class="text-2xl font-bold text-gray-800">💡 Inspiration Library</h2>
         <p class="text-sm text-gray-500 mt-1">Discover viral LinkedIn posts and use them as inspiration</p>
     </div>
     <a href="{{ route('content-creator.create') }}" 
@@ -26,51 +26,92 @@
 </div>
 
 <!-- Statistics Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-            <div class="p-2 bg-blue-50 rounded-lg">
-                <i class="fas fa-bookmark text-[#0077b5]"></i>
+<div class="grid gap-6 md:grid-cols-4 mb-8">
+    <!-- Saved Posts Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(0, 119, 181) 0%, rgb(0, 88, 133) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Saved Posts</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['total_posts'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 88, 133, 0.1) 100%);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6" style="color: rgb(0, 119, 181);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                    </svg>
+                </div>
             </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600">Saved Posts</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $stats['total_posts'] }}</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-            <div class="p-2 bg-red-100 rounded-lg">
-                <i class="fas fa-fire text-red-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600">Viral Posts</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $stats['viral_posts'] }}</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-            <div class="p-2 bg-yellow-100 rounded-lg">
-                <i class="fas fa-star text-yellow-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600">Favorites</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $stats['favorites'] }}</p>
+            <div class="flex items-center text-xs text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 mr-1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Total inspiration posts
             </div>
         </div>
     </div>
-    
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-            <div class="p-2 bg-blue-100 rounded-lg">
-                <i class="fas fa-chart-line text-blue-600"></i>
+
+    <!-- Viral Posts Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-red-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Viral Posts</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['viral_posts'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-red-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-red-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" />
+                    </svg>
+                </div>
             </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-gray-600">Avg Engagement</p>
-                <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['avg_engagement'], 1, '.', '') }}%</p>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">High Engagement</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorites Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-yellow-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Favorites</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['favorites'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-yellow-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-yellow-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-yellow-600 font-medium">Starred posts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avg Engagement Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(249, 115, 22) 0%, rgb(234, 88, 12) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Avg Engagement</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ number_format($stats['avg_engagement'], 1, '.', '') }}%</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-orange-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-orange-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-orange-600 font-medium">Across all posts</span>
             </div>
         </div>
     </div>

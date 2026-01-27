@@ -161,7 +161,32 @@ class CampaignController extends Controller
             $campaigns[$key]['accept_rate'] = $acceptRate;
         }
 
-        return view('campaign.index', compact('campaigns'));
+        // Calculate campaign statistics
+        $totalCampaigns = Campaign::where('user_id', $userId)->count();
+        $runningCampaigns = Campaign::where('user_id', $userId)->where('status', 'running')->count();
+        $completedCampaigns = Campaign::where('user_id', $userId)->where('status', 'completed')->count();
+        
+        // Calculate total leads across all campaigns
+        $totalLeadsQuery = DB::table('campaigns')
+            ->join('campaign_lists', 'campaigns.id', '=', 'campaign_lists.campaign_id')
+            ->leftJoin('sn_leads_lists', 'campaign_lists.list_hash', '=', 'sn_leads_lists.list_hash')
+            ->leftJoin('sn_leads', 'sn_leads_lists.list_hash', '=', 'sn_leads.sn_list_id')
+            ->leftJoin('audiences', 'campaign_lists.list_hash', '=', 'audiences.audience_id')
+            ->leftJoin('audience_lists', 'audiences.audience_id', '=', 'audience_lists.audience_id')
+            ->where('campaigns.user_id', $userId)
+            ->select(DB::raw('COALESCE(SUM(CASE WHEN sn_leads.id IS NOT NULL THEN 1 ELSE 0 END), 0) + COALESCE(SUM(CASE WHEN audience_lists.id IS NOT NULL THEN 1 ELSE 0 END), 0) as total_leads'))
+            ->first();
+        
+        $totalLeads = $totalLeadsQuery->total_leads ?? 0;
+
+        $stats = [
+            'total_campaigns' => $totalCampaigns,
+            'running_campaigns' => $runningCampaigns,
+            'completed_campaigns' => $completedCampaigns,
+            'total_leads' => $totalLeads,
+        ];
+
+        return view('campaign.index', compact('campaigns', 'stats'));
     }
 
     /**

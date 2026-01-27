@@ -126,9 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-<div class="flex justify-between">
+<div class="flex justify-between items-center mb-6">
     <div class="flex items-center gap-3">
-        <h2 class="text-lg font-bold text-gray-800 pt-4">
+        <h2 class="text-2xl font-bold text-gray-800">
             Campaigns
         </h2>
         <div id="update-indicator" class="hidden flex items-center gap-2 text-sm text-gray-500">
@@ -141,10 +141,102 @@ document.addEventListener('DOMContentLoaded', function() {
         New campaign
     </a>
 </div>
-<div class="mt-2 mb-5">
+
+<!-- Stat Cards -->
+<div class="grid gap-6 md:grid-cols-4 mb-6">
+    <!-- Total Campaigns Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(0, 119, 181) 0%, rgb(0, 88, 133) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Campaigns</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['total_campaigns'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 88, 133, 0.1) 100%);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6" style="color: rgb(0, 119, 181);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 00-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 mr-1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                All campaigns
+            </div>
+        </div>
+    </div>
+
+    <!-- Running Campaigns Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-green-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Running</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['running_campaigns'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-green-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-green-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Campaigns Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-blue-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Completed</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['completed_campaigns'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-blue-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-blue-600 font-medium">Finished campaigns</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Leads Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(249, 115, 22) 0%, rgb(234, 88, 12) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Leads</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ number_format($stats['total_leads']) }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-orange-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-orange-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-orange-600 font-medium">Across all campaigns</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-5">
     <div>
         @foreach($campaigns as $item)
-        <div class="grid grid-cols-12 p-4 mb-3 bg-white border border-gray-200 rounded-lg shadow-md hover:shadow-lg transition-shadow" data-campaign-id="{{ $item->id }}">
+        <div class="grid grid-cols-12 p-6 mb-4 bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow" data-campaign-id="{{ $item->id }}">
             <div class="col-span-4">
                 <div class="items-center justify-between">
                     <div class="flex gap-4 font-semibold text-sm text-gray-800">

@@ -1,8 +1,8 @@
 @extends('layout.auth')
 
 @section('content')
-<div class="flex justify-between">
-    <h2 class="text-lg font-semibold text-gray-700 pt-2">
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-800">
         Lead Lists
     </h2>
     <div>
@@ -31,6 +31,98 @@
         </form>
     </div>
 </div>
+
+<!-- Stat Cards -->
+<div class="grid gap-6 md:grid-cols-4 mb-6">
+    <!-- Total Lists Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(0, 119, 181) 0%, rgb(0, 88, 133) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Lists</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['total_lists'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 88, 133, 0.1) 100%);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6" style="color: rgb(0, 119, 181);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 mr-1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                All lead lists
+            </div>
+        </div>
+    </div>
+
+    <!-- Audience Lists Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-blue-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Audience Lists</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['audience_lists'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-blue-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Audience</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales Navigator Lists Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-green-500"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Sales Navigator</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ $stats['sn_lists'] }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-green-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-green-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-green-600 font-medium">Navigator lists</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Leads Card -->
+    <div class="relative flex flex-col bg-white border border-gray-200 shadow-md rounded-xl hover:shadow-lg transition-shadow overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(135deg, rgb(249, 115, 22) 0%, rgb(234, 88, 12) 100%);"></div>
+        <div class="p-5 flex-1 flex flex-col justify-between relative">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Total Leads</p>
+                    <h3 class="text-3xl font-bold text-gray-800">{{ number_format($stats['total_leads']) }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-orange-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-orange-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <span class="text-orange-600 font-medium">Across all lists</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="mt-3">
     <div class="w-full overflow-hidden rounded-lg">
         <div class="w-full overflow-x-auto">

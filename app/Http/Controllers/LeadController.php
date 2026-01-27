@@ -14,6 +14,7 @@ use App\Jobs\FetchAudienceEmailBatchJob;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class LeadController extends Controller
 {
@@ -21,9 +22,38 @@ class LeadController extends Controller
 
     public function index()
     {
-        $leadlist = $this->getLeadList(auth()->user()->id);
+        $userId = auth()->user()->id;
+        $leadlist = $this->getLeadList($userId);
 
-        return view('leads.index', compact('leadlist'));
+        // Calculate statistics
+        $totalLists = Audience::where('user_id', $userId)->count() + 
+                     \App\Models\SnLeadList::where('user_id', $userId)->count();
+        
+        // Count audience lists
+        $audienceLists = Audience::where('user_id', $userId)->count();
+        
+        // Count sales navigator lists
+        $snLists = \App\Models\SnLeadList::where('user_id', $userId)->count();
+        
+        // Calculate total leads across all lists
+        $totalLeads = DB::table('audiences')
+            ->where('user_id', $userId)
+            ->selectRaw('COALESCE(SUM((SELECT COUNT(*) FROM audience_lists WHERE audience_id = audiences.audience_id)), 0) as total')
+            ->value('total') ?? 0;
+        
+        $totalLeads += DB::table('sn_leads_lists')
+            ->where('user_id', $userId)
+            ->selectRaw('COALESCE(SUM((SELECT COUNT(*) FROM sn_leads WHERE sn_list_id = sn_leads_lists.list_hash)), 0) as total')
+            ->value('total') ?? 0;
+
+        $stats = [
+            'total_lists' => $totalLists,
+            'audience_lists' => $audienceLists,
+            'sn_lists' => $snLists,
+            'total_leads' => $totalLeads,
+        ];
+
+        return view('leads.index', compact('leadlist', 'stats'));
     }
 
     public function search_leadlist(Request $request)
@@ -31,9 +61,34 @@ class LeadController extends Controller
         $search = $request->query('search');
 
         if(isset($search)){
-            $leadlist = $this->searchLeadList(auth()->user()->id, $search);
+            $userId = auth()->user()->id;
+            $leadlist = $this->searchLeadList($userId, $search);
 
-            return view('leads.index', compact('leadlist'));
+            // Calculate statistics (same as index)
+            $totalLists = Audience::where('user_id', $userId)->count() + 
+                         \App\Models\SnLeadList::where('user_id', $userId)->count();
+            
+            $audienceLists = Audience::where('user_id', $userId)->count();
+            $snLists = \App\Models\SnLeadList::where('user_id', $userId)->count();
+            
+            $totalLeads = DB::table('audiences')
+                ->where('user_id', $userId)
+                ->selectRaw('COALESCE(SUM((SELECT COUNT(*) FROM audience_lists WHERE audience_id = audiences.audience_id)), 0) as total')
+                ->value('total') ?? 0;
+            
+            $totalLeads += DB::table('sn_leads_lists')
+                ->where('user_id', $userId)
+                ->selectRaw('COALESCE(SUM((SELECT COUNT(*) FROM sn_leads WHERE sn_list_id = sn_leads_lists.list_hash)), 0) as total')
+                ->value('total') ?? 0;
+
+            $stats = [
+                'total_lists' => $totalLists,
+                'audience_lists' => $audienceLists,
+                'sn_lists' => $snLists,
+                'total_leads' => $totalLeads,
+            ];
+
+            return view('leads.index', compact('leadlist', 'stats'));
         }
 
         return redirect()->route('leads.list');

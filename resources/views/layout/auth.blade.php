@@ -135,22 +135,67 @@
             pointer-events: none;
         }
         
-        /* Sidebar hover states matching extension */
-        #hs-application-sidebar nav a:hover {
-            background-color: rgba(0, 119, 181, 0.08);
-            color: #0077b5;
-        }
-        
-        #hs-application-sidebar nav a.bg-gray-100 {
-            background-color: rgba(0, 119, 181, 0.08);
-            color: #0077b5;
-            border-left: 3px solid #0077b5;
-            padding-left: calc(0.625rem - 3px);
-        }
-        
-        /* Sidebar border matching extension */
+        /* Modern Sidebar Styling */
         #hs-application-sidebar {
-            border-right: 2px solid rgba(0, 119, 181, 0.1);
+            background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+            border-right: 1px solid rgba(0, 119, 181, 0.1);
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.02);
+        }
+        
+        #hs-application-sidebar nav a {
+            position: relative;
+            transition: all 0.2s ease;
+            margin: 0.25rem 0.5rem;
+            border-radius: 0.75rem;
+        }
+        
+        /* Sidebar hover states */
+        #hs-application-sidebar nav a:hover {
+            background: linear-gradient(135deg, rgba(0, 119, 181, 0.08) 0%, rgba(0, 88, 133, 0.05) 100%);
+            color: #0077b5;
+            transform: translateX(2px);
+        }
+        
+        /* Active state with gradient accent */
+        #hs-application-sidebar nav a.bg-gray-100 {
+            background: linear-gradient(135deg, rgba(0, 119, 181, 0.12) 0%, rgba(0, 88, 133, 0.08) 100%);
+            color: #0077b5;
+            font-weight: 600;
+            border-left: 3px solid transparent;
+            padding-left: calc(0.625rem - 3px);
+            box-shadow: 0 2px 4px rgba(0, 119, 181, 0.08);
+        }
+        
+        #hs-application-sidebar nav a.bg-gray-100::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 60%;
+            background: linear-gradient(135deg, rgb(0, 119, 181) 0%, rgb(0, 88, 133) 100%);
+            border-radius: 0 3px 3px 0;
+        }
+        
+        /* Icon styling */
+        #hs-application-sidebar nav a svg {
+            transition: all 0.2s ease;
+        }
+        
+        #hs-application-sidebar nav a:hover svg {
+            transform: scale(1.1);
+        }
+        
+        #hs-application-sidebar nav a.bg-gray-100 svg {
+            color: #0077b5;
+        }
+        
+        /* Logo area styling */
+        .sidebar-logo {
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid rgba(0, 119, 181, 0.1);
+            margin-bottom: 0.5rem;
         }
         
         /* Hide sidebar text overflow */
@@ -342,7 +387,7 @@
     bg-white border-e border-gray-200
     lg:block lg:translate-x-0 lg:end-auto lg:bottom-0" role="dialog" tabindex="-1" aria-label="Sidebar">
     <div class="relative flex flex-col h-full max-h-full">
-        <div class="px-6 pt-4 flex items-center justify-center sidebar-logo">
+        <div class="px-6 pt-6 pb-4 flex items-center justify-center sidebar-logo">
         <!-- Logo -->
         <!-- <a class="flex-none rounded-xl text-xl inline-block font-semibold focus:outline-hidden focus:opacity-80" href="#" aria-label="Preline">
             <svg class="w-28 h-auto" width="116" height="32" viewBox="0 0 116 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -362,8 +407,8 @@
 
         <!-- Content -->
         <div class="h-full overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-300">
-        <nav class="hs-accordion-group p-3 w-full flex flex-col flex-wrap" data-hs-accordion-always-open>
-            <ul class="flex flex-col space-y-1">
+        <nav class="hs-accordion-group p-4 w-full flex flex-col flex-wrap" data-hs-accordion-always-open>
+            <ul class="flex flex-col space-y-0.5">
                 <li>
                     <a href="{{route('dashboard')}}" data-tooltip="Dashboard" class="flex items-center justify-start gap-x-3.5 py-2 px-2.5 text-sm text-gray-800 rounded-lg hover:bg-gray-100 focus:outline-hidden focus:bg-gray-100 {{ Route::current()->getName() == 'dashboard' ? 'bg-gray-100':'' }}">
                         <svg class="shrink-0 size-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -443,7 +488,7 @@
                         <span class="sidebar-text">Team</span>
                     </a>
                 </li>
-                <li>
+                {{-- <li>
                     <a href="{{route('comment.index',['tab' => 'feeds'])}}" data-tooltip="Comment Feeds" class="w-full flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-gray-800 rounded-lg hover:bg-gray-100 focus:outline-hidden focus:bg-gray-100 {{ in_array(Route::current()->getName(), ['comment.index','comment.create-campaign']) ? 'bg-gray-100':'' }}">
                         <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11c.889-.086 1.416-.543 2.156-1.057a22.323 22.323 0 0 0 3.958-5.084 1.6 1.6 0 0 1 .582-.628 1.549 1.549 0 0 1 1.466-.087c.205.095.388.233.537.406a1.64 1.64 0 0 1 .384 1.279l-1.388 4.114M7 11H4v6.5A1.5 1.5 0 0 0 5.5 19v0A1.5 1.5 0 0 0 7 17.5V11Zm6.5-1h4.915c.286 0 .372.014.626.15.254.135.472.332.637.572a1.874 1.874 0 0 1 .215 1.673l-2.098 6.4C17.538 19.52 17.368 20 16.12 20c-2.303 0-4.79-.943-6.67-1.475"/>
@@ -458,7 +503,7 @@
                         </svg>
                         <span class="sidebar-text">AI Auto Comments</span>
                     </a>
-                </li>
+                </li> --}}
                 @if(auth()->user()->can('OTO2') || auth()->user()->can('OTO8') || auth()->user()->can('Bundle'))
                 <li>
                     <a href="{{route('upsell-unlimited')}}" data-tooltip="Upsell Unlimited" class="w-full flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-gray-800 rounded-lg hover:bg-gray-100 focus:outline-hidden focus:bg-gray-100 {{ in_array(Route::current()->getName(), ['upsell-unlimited']) ? 'bg-gray-100':'' }}">
